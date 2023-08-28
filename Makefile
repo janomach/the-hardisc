@@ -14,25 +14,25 @@
 #  limitations under the License.
 #
 
-HARDISC_DIR   		:= $(shell bash -c 'pwd')
-HARDISC_SIM   		:= $(HARDISC_DIR)/sim
-RANDOM        		:= $(shell bash -c 'echo $$RANDOM')
-SV_SEED       		:= ${RANDOM}
-SEE_PROB       		:= 10
-SEE_GROUP			:= 1
-LAT           		:= 0
-LOGGING				:= 0
-HOW					:= gui
-BOOT_ADD      		:= 10000000
-SIM_TIMEOUT   		:= 900000000
-TIME_STAMP			:=`date +%H%M%S`
-TEST_DIR			:= ${HARDISC_DIR}/example/hello_world
-BINARY				:= "${HARDISC_DIR}/example/hello_world/test.bin"
-LD_SCRIPT			:= ${HARDISC_DIR}/example/custom/link.ld
-SYSCALLS			:= ${HARDISC_DIR}/example/custom/syscalls.c
-STARTUP				:= ${HARDISC_DIR}/example/custom/crt0.S
-CFLAGS				:= -static -O3 -mcmodel=medany -march=rv32imc -mabi=ilp32 -nostdlib
-RISCV				:= /opt/riscv
+HARDISC_DIR         := $(shell bash -c 'pwd')
+HARDISC_SIM         := $(HARDISC_DIR)/sim
+RANDOM              := $(shell bash -c 'echo $$RANDOM')
+SV_SEED             := ${RANDOM}
+SEE_PROB            := 10
+SEE_GROUP           := 1
+LAT                 := 0
+LOGGING             := 0
+HOW                 := gui
+BOOT_ADD            := 10000000
+SIM_TIMEOUT         := 900000000
+TIME_STAMP          :=`date +%H%M%S`
+TEST_DIR            := ${HARDISC_DIR}/example/hello_world
+BINARY              := "${HARDISC_DIR}/example/hello_world/test.bin"
+LD_SCRIPT           := ${HARDISC_DIR}/example/custom/link.ld
+SYSCALLS            := ${HARDISC_DIR}/example/custom/syscalls.c
+STARTUP             := ${HARDISC_DIR}/example/custom/crt0.S
+CFLAGS              := -static -O3 -mcmodel=medany -march=rv32imc -mabi=ilp32 -nostdlib
+RISCV               := /opt/riscv
 
 hardiscSetup:
 	vsim -c -do "project new $(HARDISC_SIM) the-hardisc; project addfolder rtl; project addfolder ver; project addfolder peripherals; exit"
