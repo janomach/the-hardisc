@@ -21,6 +21,9 @@ import p_hardisc::*;
 
 module tb_mh_wrapper();
 
+localparam MEM_SIZE = 32'h100000;
+localparam MEM_MSB  = $clog2(MEM_SIZE) - 32'h1;
+
 logic[31:0] s_i_hrdata[1], s_i_haddr[1], s_i_hwdata[1];
 logic s_i_hwrite[1], s_i_hmastlock[1],s_i_hready[1],s_i_hresp[1];
 logic[1:0] s_i_htrans[1];
@@ -125,7 +128,7 @@ always_ff @(posedge r_ver_clk) r_last_rp <= dut.s_rst_point[0];
 logic[31:0] s_wb_instr, s_mem_pc;
 
 always_comb begin : wb_instr_find
-    s_mem_pc = {14'b0,s_wb_pc[19:2]};
+    s_mem_pc = {(33-MEM_MSB)'{1'b0},s_wb_pc[MEM_MSB:2]};
     if(~s_wb_pc[0])begin
         if(s_wb_pc[1])begin
             s_wb_instr[15:0] = m_memory.ahb_dmem.r_memory[s_mem_pc][31:16];
@@ -257,7 +260,7 @@ logic s_i_dhmastlock[2], s_i_dhwrite[2], s_i_dhsel[2], s_i_dshready[2], s_i_dhre
 logic[1:0] s_i_dhtrans[2];
 logic[2:0] s_i_dhburst[2],s_i_dhsize[2];
 logic[3:0] s_i_dhprot[2];
-logic[19:0] s_i_dhaddr[2];
+logic[MEM_MSB:0] s_i_dhaddr[2];
 logic[31:0] s_i_dhwdata[2], s_i_dhrdata[2];
 
 assign s_i_dhmastlock   = {s_d_hmastlock[0], s_i_hmastlock[0]};
@@ -267,7 +270,7 @@ assign s_i_dhtrans      = {s_d_htrans[0], s_i_htrans[0]};
 assign s_i_dhburst      = {s_d_hburst[0], s_i_hburst[0]};
 assign s_i_dhsize       = {s_d_hsize[0], s_i_hsize[0]};
 assign s_i_dhprot       = {s_d_hprot[0], s_i_hprot[0]};
-assign s_i_dhaddr       = {s_d_haddr[0][19:0], s_i_haddr[0][19:0]};
+assign s_i_dhaddr       = {s_d_haddr[0][MEM_MSB:0], s_i_haddr[0][MEM_MSB:0]};
 assign s_i_dhwdata      = {s_d_hwdata[0], s_i_hwdata[0]};
 
 assign s_i_hready[0]    = s_i_dshready[1];
@@ -278,7 +281,7 @@ assign s_shready[1]     = s_i_dshready[0];
 assign s_shresp[1]      = s_i_dhresp[0];
 assign s_shrdata[1]     = s_i_dhrdata[0];
 
-dahb_ram #(.MEM_SIZE(32'h100000),.SIMULATION(1),.ENABLE_LOG(0),.LABEL("MEMORY")) m_memory
+dahb_ram #(.MEM_SIZE(MEM_SIZE),.SIMULATION(1),.ENABLE_LOG(0),.LABEL("MEMORY")) m_memory
 (
     .s_clk_i(r_ver_clk),
     .s_resetn_i(r_ver_rstn),

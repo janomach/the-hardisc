@@ -25,9 +25,6 @@
   } while (tmp1 != tmp3);\
   *_t = (uint64_t)tmp1 << 32 | (uint64_t)tmp2;
 
-#define FREQUENCY	64000000
-#define CYCLESMIL  (6)
-
 uint64_t cycles;
 
 void get_cycles()

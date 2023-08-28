@@ -56,7 +56,7 @@ The simulation options configurable from the command line:
 * **BOOTADD** - booting address in hexadecimal numbering system
 * **CLKPERIOD** - duration of system clock period in picoseconds
 * **TIMEOUT** - simulation time in number of clock-cycles
-* **LOGGING** - controls logging verbosity (0-2)
+* **LOGGING** - controls logging verbosity (0-3)
 * **LFILE** - file for dumping spike-like trace
 * **LAT** - disables (0) or enables (other than 0) memory latencies
 * **BIN** - binary to execute
