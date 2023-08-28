@@ -75,6 +75,7 @@ module hardisc
     logic s_bop_pred, s_bop_pop;
 `ifdef PROTECTED
     logic[1:0] s_rf_uce[IDOP_REPS],s_rf_ce[IDOP_REPS], s_acm_settings;
+    logic s_exma_neq[EXMA_REPS];
 `endif
 
     assign s_hrdmax_rst_o   = s_hrdmax_rst;
@@ -215,6 +216,9 @@ module hardisc
         .s_htrans_o(s_d_htrans_o),
         .s_hwrite_o(s_d_hwrite_o),
 
+`ifdef PROTECTED
+        .s_exma_neq_o(s_exma_neq),
+`endif
         .s_exma_f_o(s_exma_f),
         .s_exma_ictrl_o(s_exma_ictrl),
         .s_exma_rd_o(s_exma_rd),
@@ -233,6 +237,7 @@ module hardisc
 `ifdef PROTECTED
         .s_int_uce_i(s_rf_uce[0] != 2'b0),
         .s_acm_settings_o(s_acm_settings),
+        .s_exma_neq_i(s_exma_neq),
 `endif
 
         .s_stall_o(s_stall_ma),

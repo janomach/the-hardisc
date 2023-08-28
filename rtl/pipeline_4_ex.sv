@@ -45,6 +45,9 @@ module pipeline_4_ex (
     output logic[1:0]s_htrans_o,                    //AHB bus - transfer type indicator
     output logic s_hwrite_o,                        //AHB bus - write indicator
 
+`ifdef PROTECTED
+    output logic s_exma_neq_o[EXMA_REPS],           //discrepancy in results          
+`endif
     output ictrl s_exma_ictrl_o[EXMA_REPS],         //instruction control indicator for MA stage
     output f_part s_exma_f_o[EXMA_REPS],            //instruction function for MA stage
     output rf_add s_exma_rd_o[EXMA_REPS],           //destination register address for MA stage
@@ -161,7 +164,9 @@ module pipeline_4_ex (
                                     ;
 `ifdef PROTECTED
             //Reset the instruction if discrepancy exists between the OPEX registers
-            assign s_rstpipe[i] = s_opex_neq[0] | s_opex_neq[1];
+            assign s_rstpipe[i]    = s_opex_neq[0] | s_opex_neq[1];
+            //Only two executors are present in the EX stage, they results must be compared
+            assign s_exma_neq_o[i] = (s_rexma_val[0] != s_rexma_val[1]);
 `endif                             
             //Forward data from the upper stages registers to the instruction operands in EX stage
             assign s_operand1[i]= (s_opex_fwd_i[i%2][0]) ? s_exma_val[i] : (s_opex_fwd_i[i%2][2]) ? s_mawb_val_i[i] : s_opex_op1_i[i%2];

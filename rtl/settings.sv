@@ -2,8 +2,8 @@
 `define SETTINGS
 
 `define SIMULATION
-`define SEE_TESTING
-`define PROTECTED
+//`define SEE_TESTING
+//`define PROTECTED
 //`define FAST_MULTIPLY
 
 `define SEE_MAX 1000000

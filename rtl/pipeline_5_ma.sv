@@ -27,6 +27,7 @@ module pipeline_5_ma (
 `ifdef PROTECTED
     input logic s_int_uce_i,                        //uncorrectable error in register-file
     output logic[1:0] s_acm_settings_o,             //acm settings
+    input logic s_exma_neq_i[EXMA_REPS],            //discrepancy in result
 `endif
 
     output logic s_stall_o[CTRL_REPS],              //stall signal from lower stages
@@ -149,7 +150,7 @@ module pipeline_5_ma (
 
 `ifdef PROTECTED
             //Only two executors are present in the EX stage, if they were used, they results must be compared
-            assign s_ex_discrepancy[i] = (s_exma_val_i[0] != s_exma_val_i[1]) & (
+            assign s_ex_discrepancy[i] =  s_exma_neq_i[i] & (
                                           s_exma_ictrl_i[i][ICTRL_UNIT_BRU] | 
                                           s_exma_ictrl_i[i][ICTRL_UNIT_ALU] | 
                                           s_exma_ictrl_i[i][ICTRL_UNIT_MDU]);
