@@ -128,7 +128,8 @@ always_ff @(posedge r_ver_clk) r_last_rp <= dut.s_rst_point[0];
 logic[31:0] s_wb_instr, s_mem_pc;
 
 always_comb begin : wb_instr_find
-    s_mem_pc = {(33-MEM_MSB)'{1'b0},s_wb_pc[MEM_MSB:2]};
+    s_mem_pc[31:MEM_MSB-1] = 0;
+    s_mem_pc[MEM_MSB-2:0]  = s_wb_pc[MEM_MSB:2];
     if(~s_wb_pc[0])begin
         if(s_wb_pc[1])begin
             s_wb_instr[15:0] = m_memory.ahb_dmem.r_memory[s_mem_pc][31:16];

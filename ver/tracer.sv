@@ -80,7 +80,7 @@ module tracer
             end else begin
                 decoder_instruction = instr_c(s_dec_instr_i);
             end
-            $write ("[%6d, %6d, %1.3f] FA: %6x | FD: %6x | ID: (%2x) %-30s | OP: %2x | EX: %2x | MA: %2x | WB: %2x ~ %5x, %c", 
+            $write ("[%6d, %6d, %1.3f] FA: %8x | FD: %8x | ID: (%2x) %-30s | OP: %2x | EX: %2x | MA: %2x | WB: %2x ~ %8x, %c", 
                 s_dut_mcycle_i, s_dut_minstret_i, 
                 (s_dut_mcycle_i == 32'b0) ? $bitstoreal(0) : ($bitstoreal({32'b0,s_dut_minstret_i})/$bitstoreal({32'b0,s_dut_mcycle_i})),
                 s_dut_fe0_utd_i ? {s_dut_fe0_add_i,1'b0} : 32'd0, 
