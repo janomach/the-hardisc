@@ -2,8 +2,9 @@
 The Hardisc is a 32-bit **RISC-V** IP core for application in harsh environments, where phenomenons like random bit-flips caused by the **Single-Event-Effects** (SEE) are a concern. 
 It contains an in-order 6-stage pipeline with AMBA 3 AHB-Lite instruction/data bus interfaces.
 Apart from the base 32-bit integer instruction set (I), the Hardisc also implements standard extensions of compressed instructions (C) and multiply and divide (M) instructions. 
+Check the specification [here](https://github.com/riscv/riscv-isa-manual/releases/download/Ratified-IMAFDQC/riscv-spec-20191213.pdf).
 An actual designator of the implemented instruction set is **RV32IMC**. 
-The standard RISC-V privilege modes and settings are controlled via instructions from the **Zicsr** extension. 
+The standard RISC-V [privilege modes](https://github.com/riscv/riscv-isa-manual/releases/download/Priv-v1.12/riscv-privileged-20211203.pdf) and settings are controlled via instructions from the **Zicsr** extension. 
 Only the Machine mode is supported currently. The Hardisc is desribed in SystemVerilog.
 
 ![Image](doc/unprotected_pipeline.png)
@@ -11,7 +12,8 @@ Only the Machine mode is supported currently. The Hardisc is desribed in SystemV
 Most of the processors used in SEE-intense environments are protected by replicating the whole cores, leverage lockstep technique, or require specialized fabrication technologies. 
 These approaches limit the system frequency or require multiplies of system area or power consumption compared to an unprotected system with the same functionality. 
 The Hardisc **integrates protection in the architecture of the pipeline**, providing faster fault detection and recovery. 
-The **protection is separable** from the rest of the pipeline and it is possible to enable/disable it before simulation/synthesis. 
+The **protection is based on replicating pipeline stages**, excluding protecting or replicating the large but not functionality-critical units (e.g., branch predictor).
+It is **separable** from the rest of the pipeline, so it is possible to enable/disable the protection before simulation/synthesis. 
 Check the configuration section below.
 
 **For a detailed explanation of the pipeline, information on random bit flips due to SEE, and a survey of currently available protection approaches, check our research paper below. Please consider citing the document in your publications.**
@@ -67,7 +69,7 @@ The simulation options configurable from the command line:
 This repository comes with Makefile, containing commands to set up, compile, and simulate a project in the free edition of ModelSim.
 It contains an example testbench, memory, and interconnect IPs for simulation.
 The folder */example* contains programs and their binaries that the Hardisc can directly execute in simulation.
-If you want to change the source tests, you need a RISC-V toolchain. 
+If you want to change the source tests, you need the [RISC-V toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain). 
 When the toolchain is prepared, you can use the *compileTest* command in the Makefile to compile the selected tests.
 
 Set up and compile the Hardisc project:
@@ -131,8 +133,13 @@ SEU in CSR_MSCRATCH[ 1][ 0]
 * The protection of bus interfaces is yet to be integrated.
 * The Hardisc is still in development.
 
+## Issues and bugs
+If you find any bug or a hole in the protection (also considered a bug), please create a new Issue report.
+
 ## Contributing
-We highly appreciate your intention to improve the Hardisc. The contribution guidelines will be announced soon.
+We highly appreciate your intention to improve the Hardisc.
+If you want to contribute, create your own branch to commit your changes and then open a Pull Request.
+If you have questions about the architecture or want to discuss improvements, please create a new thread in the Discussion tab.
 
 ## License
 Unless otherwise noted, everything in this repository is covered by the Apache License, Version 2.0 (see LICENSE for full text).
