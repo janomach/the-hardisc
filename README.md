@@ -134,12 +134,12 @@ SEU in CSR_MSCRATCH[ 1][ 0]
 * The Hardisc is still in development.
 
 ## Issues and bugs
-If you find any bug or a hole in the protection (also considered a bug), please create a new Issue report.
+If you find any bug or a hole in the protection (also considered a bug), please create a new [Issue report](https://github.com/janomach/the-hardisc/issues).
 
 ## Contributing
 We highly appreciate your intention to improve the Hardisc.
-If you want to contribute, create your own branch to commit your changes and then open a Pull Request.
-If you have questions about the architecture or want to discuss improvements, please create a new thread in the Discussion tab.
+If you want to contribute, create your own branch to commit your changes and then open a [Pull Request](https://github.com/janomach/the-hardisc/pulls).
+If you have questions about the architecture or want to discuss improvements, please create a new thread in the [Discussions](https://github.com/janomach/the-hardisc/discussions) tab.
 
 ## License
 Unless otherwise noted, everything in this repository is covered by the Apache License, Version 2.0 (see LICENSE for full text).
