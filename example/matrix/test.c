@@ -20,8 +20,16 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#define STDOUT_REG 0x80000000
+
 const char ch[58] = "1234567890qwertyuiopasdfghjklzxcvbnm,./';[]!@#$%^&*()-=_+";
 static uint8_t switches[15];
+
+// Direct store to STDOUT_REG (instead of printf) is used to speed-up the simulation
+inline void direct_char_print (char c)
+{
+ *(volatile int *)STDOUT_REG = c;
+}
 
 void matrix()
 {
@@ -34,15 +42,18 @@ void matrix()
   }
 
   // Loop over the width
-  printf("| ");
+  direct_char_print('|');
+  direct_char_print(' ');
   for (i=0;i<15;i+=1)
   {
     if (switches[i])
-      printf("%c ",ch[rand() % 58]);
+      direct_char_print(ch[rand() % 57]);
     else
-      printf("  ");
+      direct_char_print(' ');
+    direct_char_print(' ');
   }
-  printf("|\n");
+  direct_char_print('|');
+  direct_char_print('\n');
 }
 
 int main(void)
