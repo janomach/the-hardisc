@@ -45,9 +45,9 @@ module bop #(
     logic[SIZE-1:0] s_roccupied[1];
 
     //Buffer to hold data
-    seu_regs #(.LABEL(LABEL),.W(BOP_WIDTH),.N(SIZE),.NC(1)) m_seu_regs(.s_c_i({s_clk_i}),.s_d_i(s_wbuffer),.s_d_o(s_rbuffer));
+    seu_regs #(.LABEL(LABEL),.W(BOP_WIDTH),.N(SIZE),.GROUP(5),.NC(1)) m_seu_regs(.s_c_i({s_clk_i}),.s_d_i(s_wbuffer),.s_d_o(s_rbuffer));
     //Entries occupancy information
-    seu_regs #(.LABEL(LABEL + "OCPD"),.W(SIZE),.N(1),.NC(1)) m_seu_occupied(.s_c_i({s_clk_i}),.s_d_i(s_woccupied),.s_d_o(s_roccupied));
+    seu_regs #(.LABEL(LABEL + "OCPD"),.W(SIZE),.N(1),.GROUP(5),.NC(1)) m_seu_occupied(.s_c_i({s_clk_i}),.s_d_i(s_woccupied),.s_d_o(s_roccupied));
 
     assign s_data_o         = s_rbuffer[SIZE-1];
     assign s_full_o         = &s_roccupied[0];

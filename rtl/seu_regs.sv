@@ -72,7 +72,7 @@ module seu_regs_file #(
 `ifdef SEE_TESTING
     int j;
     logic[W-1:0] s_upset[N];
-    see_insert #(.W(W),.N(N),.GROUP(GROUP),.LABEL("RF")) see (.s_clk_i(s_clk_i),.s_upset_o(s_upset));
+    see_insert #(.W(W),.N(N),.GROUP(GROUP),.LABEL(LABEL)) see (.s_clk_i(s_clk_i),.s_upset_o(s_upset));
 `endif
 
     logic[W-1:0] r_register_file[0:N-1];
