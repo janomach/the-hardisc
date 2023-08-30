@@ -85,6 +85,10 @@ Simulate the *matrix* example with SEE insertion in all groups and logging verbo
 ```bash
 make hardiscSim BINARY=example/matrix/test.bin LOGGING=2 SEE_PROB=10
 ```
+Simulate the *hello_world* example with SEE insertion only in the predictor's group and with high fault probability:
+```bash
+make hardiscSim BINARY=example/hello_world/test.bin LOGGING=0 SEE_PROB=100 SEE_GROUP=4
+```
 Compile the *matrix* example test:
 ```bash
 make compileTest TEST_DIR=example/matrix
@@ -104,6 +108,8 @@ Clock cycles since boot: 13890
 Clock cycles since boot: 20670
 Clock cycles since boot: 27589
 ```
+**TRY IT:** enable SEE only in the predictor's group and check how the timing changes
+
 If the *LOGGING>0*, the *tracer* module will print information from each pipeline stage.
 ```
 [   242,    112, 0.463] FA: 1000034c | FD: 10000348 | ID: (41) sub     s2, s2, a5             | OP: 41 | EX: 41 | MA: 41 | WB: 41 ~ 10000334, V 10016000 -> R 8
