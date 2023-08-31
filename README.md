@@ -16,7 +16,7 @@ The **protection is based on replicating pipeline stages**, excluding protecting
 It is **separable** from the rest of the pipeline, so it is possible to enable/disable the protection before simulation/synthesis. 
 Check the configuration section below.
 
-**For a detailed explanation of the pipeline, information on random bit flips due to SEE, and a survey of currently available protection approaches, check our research paper below. Please consider citing the document in your publications.**
+**For a detailed explanation of the pipeline, benchmarking, synthesis results, information on random bit flips due to SEE, and a survey of currently available protection approaches, check our research paper below. Please consider citing the paper in your publications.**
 
 * [In-Pipeline Processor Protection against Soft Errors](https://www.mdpi.com/2287290)
 
@@ -131,6 +131,9 @@ SEU in RF[11][ 2]
 SEU in CSR_MSCRATCH[ 1][ 0]
 [  1405,    691, 0.492] FA: 1000e03c | FD: 1000e038 | ID: (41) li      a5, -1                 | OP: 00 | EX: 42 | MA: 04 | WB: 00 ~ 00000000,  
 ```
+## Verification
+The Hardisc was tested with a random instruction generator, and the log files were compared with the golden model.
+The verification environment and scripts will be added to the repository soon. 
 
 ## Notes and limitations
 * The architecture of the unprotected pipeline has been developed to integrate protection in the future, so some design approaches were selected with this bias.
