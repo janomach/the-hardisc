@@ -9,7 +9,7 @@ Only the Machine mode is supported currently. The Hardisc is desribed in SystemV
 
 ![Image](doc/unprotected_pipeline.png)
 
-Most of the processors used in SEE-intense environments are protected by replicating the whole cores, leverage lockstep technique, or require specialized fabrication technologies. 
+Most of the processors used in SEE-intense environments are protected by replicating the whole cores, leveraging lockstep technique, or requiring specialized fabrication technologies. 
 These approaches limit the system frequency or require multiplies of system area or power consumption compared to an unprotected system with the same functionality. 
 The Hardisc **integrates protection in the architecture of the pipeline**, providing faster fault detection and recovery. 
 The **protection is based on replicating pipeline stages**, excluding protecting or replicating the large but not functionality-critical units (e.g., branch predictor).
@@ -53,17 +53,17 @@ Other available options:
 
 ### Post-compile time
 
-The simulation options configurable from the command line:
+The following simulation options are configurable from the command line:
 
 * **BOOTADD** - booting address in hexadecimal numbering system
 * **CLKPERIOD** - duration of system clock period in picoseconds
-* **TIMEOUT** - simulation time in number of clock-cycles
+* **TIMEOUT** - simulation time in the number of clock cycles
 * **LOGGING** - controls logging verbosity (0-3)
 * **LFILE** - file for dumping spike-like trace
 * **LAT** - disables (0) or enables (other than 0) memory latencies
 * **BIN** - binary to execute
 * **SEE_PROB** - probability of SEE insertion
-* **SEE_GROUP** - individual bits enables fault insertion in different groups, bit 0 enables each group
+* **SEE_GROUP** - individual bits enable fault insertion in different groups, bit 0 enables each group
 
 ## Usage
 This repository comes with Makefile, containing commands to set up, compile, and simulate a project in the free edition of ModelSim.
@@ -95,10 +95,10 @@ make compileTest TEST_DIR=example/matrix
 ```
 
 ## Tracing and logging
-The testbench, peripherals, and other model gives user several tracing and logging options.
+The testbench, peripherals, and other model gives the user several tracing and logging options.
 
 If the *LOGGING==0*, only characters stored in the *CONTROL* memory location are printed to the console.
-This memory location is used by syscalls from *printf* function.
+This memory location is used by syscalls from the *printf* function.
 The following figure shows an example output from the *hello_world* example:
 ```
 Hello world!
@@ -108,7 +108,7 @@ Clock cycles since boot: 13890
 Clock cycles since boot: 20670
 Clock cycles since boot: 27589
 ```
-**TRY IT:** enable SEE only in the predictor's group and check how the timing changes
+**TRY IT:** Enable SEE only in the predictor's group and check how the timing changes.
 
 If the *LOGGING>0*, the *tracer* module will print information from each pipeline stage.
 ```
@@ -137,7 +137,7 @@ The verification environment and scripts will be added to the repository soon.
 
 ## Notes and limitations
 * The architecture of the unprotected pipeline has been developed to integrate protection in the future, so some design approaches were selected with this bias.
-* The RTL code style is purposefully selected to allow fault insertion (e.g., flip-flops in the *seu_regs* module).
+* The RTL code style is intentionally chosen to allow fault insertion (e.g., flip-flops in the *seu_regs* module).
 * No special power optimizations are present.
 * The protection of bus interfaces is yet to be integrated.
 * The Hardisc is still in development.
@@ -147,7 +147,7 @@ If you find any bug or a hole in the protection (also considered a bug), please 
 
 ## Contributing
 We highly appreciate your intention to improve the Hardisc.
-If you want to contribute, create your own branch to commit your changes and then open a [Pull Request](https://github.com/janomach/the-hardisc/pulls).
+If you want to contribute, create your branch to commit your changes and open a [Pull Request](https://github.com/janomach/the-hardisc/pulls).
 If you have questions about the architecture or want to discuss improvements, please create a new thread in the [Discussions](https://github.com/janomach/the-hardisc/discussions) tab.
 
 ## License
