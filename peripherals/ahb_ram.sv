@@ -23,24 +23,25 @@ module ahb_ram#(
     parameter LABEL = "MEMORY"
 )
 (
-    input s_clk_i,
-    input s_resetn_i,
+    input logic s_clk_i,
+    input logic s_resetn_i,
     
     //AHB3-Lite
-    input [$clog2(MEM_SIZE)-1:0] s_haddr_i,
-    input [31:0] s_hwdata_i,
-    input [2:0]s_hburst_i,
-    input s_hmastlock_i,
-    input [3:0]s_hprot_i,
-    input [2:0]s_hsize_i,
-    input [1:0]s_htrans_i,
-    input s_hwrite_i,
-    input s_hsel_i,
+    input logic[$clog2(MEM_SIZE)-1:0] s_haddr_i,
+    input logic[31:0] s_hwdata_i,
+    input logic[2:0] s_hburst_i,
+    input logic s_hmastlock_i,
+    input logic[3:0] s_hprot_i,
+    input logic[2:0] s_hsize_i,
+    input logic[1:0] s_htrans_i,
+    input logic s_hwrite_i,
+    input logic s_hsel_i,
     
-    output [31:0] s_hrdata_o,
-    output s_hready_o,
-    output s_hresp_o
+    output logic[31:0] s_hrdata_o,
+    output logic s_hready_o,
+    output logic s_hresp_o
 );
+    /* Simple dual-port RAM with AMBA 3 AHB-Lite interface */
     localparam MSB = $clog2(MEM_SIZE) - 32'h1;
 
     logic[31:0] s_read_data, s_write_data;
@@ -83,6 +84,7 @@ generate
             end
         end
 
+        //Latency generation
         always_ff @(posedge s_clk_i) begin : delay_control
             if(~s_resetn_i | ~latency)begin
                 r_delay   <= 2'b0;
@@ -98,10 +100,13 @@ generate
                 randomval <= randomval;
             end
         end
+        
+        //Disable update of the internal registers if a response is being delayed
         always_latch begin : clockgating
             if(~s_clk_i)
                 l_clock <= (r_delay == 2'b00);
         end
+
         assign s_cclock = s_clk_i & l_clock;
         assign s_we     = r_write & (r_delay == 2'b00);
         assign s_ra     = (r_delay == 2'b00) ? s_haddr_i : r_address;
@@ -113,19 +118,23 @@ generate
     end
 endgenerate
 
-    assign s_read_data = (r_wtor & (r_address[MSB:2] == r_paddress[MSB:2])) ? r_wtor_data : r_data;
-    assign s_hrdata_o = s_read_data;
-    assign s_hready_o = r_delay == 2'b00;
-    assign s_hresp_o = 1'b0;
-
-    assign s_wea[0] = s_we & (r_address[1:0] == 2'd0);
-    assign s_wea[1] = s_we & (((r_address[1:0] == 2'd0) & (r_size != 2'd0)) || (r_address[1:0] == 2'd1));
-    assign s_wea[2] = s_we & (((r_address[1:0] == 2'd0) & (r_size == 2'd2)) || (r_address[1:0] == 2'd2));
-    assign s_wea[3] = s_we & (((r_address[1:0] == 2'd0) & (r_size == 2'd2)) || ((r_address[1:0] == 2'd2) & (r_size == 2'd1)) || (r_address[1:0] == 2'd3));
+    //Forward data if a write is followed by the read from the same address
+    assign s_read_data          = (r_wtor & (r_address[MSB:2] == r_paddress[MSB:2])) ? r_wtor_data : r_data;
     assign s_write_data[7:0]    = s_wea[0] ? s_hwdata_i[7:0] : s_read_data[7:0];
     assign s_write_data[15:8]   = s_wea[1] ? s_hwdata_i[15:8] : s_read_data[15:8];
     assign s_write_data[23:16]  = s_wea[2] ? s_hwdata_i[23:16] : s_read_data[23:16];
     assign s_write_data[31:24]  = s_wea[3] ? s_hwdata_i[31:24] : s_read_data[31:24];
+
+    //Response
+    assign s_hrdata_o   = s_read_data;
+    assign s_hready_o   = r_delay == 2'b00;
+    assign s_hresp_o    = 1'b0;
+
+    //Select which bytes to overwrite
+    assign s_wea[0] = s_we & (r_address[1:0] == 2'd0);
+    assign s_wea[1] = s_we & (((r_address[1:0] == 2'd0) & (r_size != 2'd0)) || (r_address[1:0] == 2'd1));
+    assign s_wea[2] = s_we & (((r_address[1:0] == 2'd0) & (r_size == 2'd2)) || (r_address[1:0] == 2'd2));
+    assign s_wea[3] = s_we & (((r_address[1:0] == 2'd0) & (r_size == 2'd2)) || ((r_address[1:0] == 2'd2) & (r_size == 2'd1)) || (r_address[1:0] == 2'd3));
 
     generate
     genvar i;
@@ -136,10 +145,12 @@ endgenerate
         end
     endgenerate
 
+    //Data are read in the address phase
     always_ff @(posedge s_clk_i) begin : memory_read
         r_data <= r_memory[s_ra[MSB:2]];
     end
 
+    //Save transfer information
     always_ff @(posedge s_cclock) begin : memory_control
         if(~s_resetn_i)begin
             r_trans <= 1'd0;

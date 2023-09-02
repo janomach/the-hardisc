@@ -21,6 +21,7 @@ module secded_decode (
     output logic s_ce_o,            //correctable error
     output logic s_uce_o            //uncorrectable error
 );
+    /* Decoder for Hsiao's Single-Error-Correction-Double-Error-Detection code */
     logic[6:0]s_checksum, s_syndrome;
     logic s_error, s_odd_syn;
     logic[31:0]s_locator;

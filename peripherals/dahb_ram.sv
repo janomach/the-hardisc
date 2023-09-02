@@ -21,24 +21,25 @@ module dahb_ram#(
     parameter LABEL = "MEMORY"
 )
 (
-    input s_clk_i,
-    input s_resetn_i,
+    input logic s_clk_i,
+    input logic s_resetn_i,
     
     //AHB3-Lite
-    input [$clog2(MEM_SIZE)-1:0] s_haddr_i[2],
-    input [31:0] s_hwdata_i[2],
-    input [2:0]s_hburst_i[2],
-    input s_hmastlock_i[2],
-    input [3:0]s_hprot_i[2],
-    input [2:0]s_hsize_i[2],
-    input [1:0]s_htrans_i[2],
-    input s_hwrite_i[2],
-    input s_hsel_i[2],
+    input logic[$clog2(MEM_SIZE)-1:0] s_haddr_i[2],
+    input logic[31:0] s_hwdata_i[2],
+    input logic[2:0] s_hburst_i[2],
+    input logic s_hmastlock_i[2],
+    input logic[3:0] s_hprot_i[2],
+    input logic[2:0] s_hsize_i[2],
+    input logic[1:0] s_htrans_i[2],
+    input logic s_hwrite_i[2],
+    input logic s_hsel_i[2],
     
-    output [31:0] s_hrdata_o[2],
-    output s_hready_o[2],
-    output s_hresp_o[2]
+    output logic[31:0] s_hrdata_o[2],
+    output logic s_hready_o[2],
+    output logic s_hresp_o[2]
 );
+    /* Control module that provides access from two AHB masters to a single dual-port RAM */
     localparam MSB = $clog2(MEM_SIZE) - 32'h1;
 
     logic[MSB:0] r_address[2];
@@ -57,6 +58,7 @@ module dahb_ram#(
     logic s_hready;
     logic s_hresp;
 
+    //Control which master has granted access to the RAM; the Master 0 is prioritized
     always_comb begin
         if((~r_trans[0] & ~r_trans[1]) | (r_trans[0] != r_trans[1]))begin
             s_haddr     = (s_hsel_i[0] & (s_htrans_i[0] == 2'd2)) ? s_haddr_i[0] : s_haddr_i[1];
@@ -74,14 +76,17 @@ module dahb_ram#(
         s_hwdata    = r_selected ? s_hwdata_i[1] : s_hwdata_i[0];
     end
 
+    //Response for Master 0
     assign s_hrdata_o[0] = s_hrdata;
     assign s_hready_o[0] = r_trans[0] ? ((r_selected == 1'd1) ? 1'b0 : s_hready) : 1'b1;
     assign s_hresp_o[0]  = r_trans[0] ? ((r_selected == 1'd1) ? 1'b0 : s_hresp) : 1'b0;
 
+    //Response for Master 1
     assign s_hrdata_o[1] = s_hrdata;
     assign s_hready_o[1] = r_trans[1] ? ((r_selected == 1'd0) ? 1'b0 : s_hready) : 1'b1;
     assign s_hresp_o[1]  = r_trans[1] ? ((r_selected == 1'd0) ? 1'b0 : s_hresp) : 1'b0;
 
+    //Dual-port RAM
     ahb_ram #(.MEM_SIZE(MEM_SIZE),.SIMULATION(SIMULATION),.ENABLE_LOG(ENABLE_LOG),.LABEL(LABEL)) ahb_dmem
     (
         .s_clk_i(s_clk_i),
@@ -103,6 +108,7 @@ module dahb_ram#(
         .s_hresp_o(s_hresp)
     );
 
+    //Save the transfer information from Master 0
     always_ff @(posedge s_clk_i) begin
         if(~s_resetn_i)begin
             r_trans[0]      <= 1'd0;
@@ -127,6 +133,7 @@ module dahb_ram#(
         end
     end
 
+    //Save the transfer information from Master 1
     always_ff @(posedge s_clk_i) begin
         if(~s_resetn_i)begin
             r_trans[1]      <= 1'd0;
@@ -151,6 +158,7 @@ module dahb_ram#(
         end
     end
 
+    //Save information, which master requested the last transfer
     always @ (posedge(s_clk_i)) begin
         if(~s_resetn_i) begin
             r_selected  <= 1'd0;

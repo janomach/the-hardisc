@@ -18,6 +18,7 @@ module secded_encode (
     input logic[31:0] s_data_i,     //data
     output logic[6:0] s_checksum_o  //checksum
 );
+    /* Encoder for Hsiao's Single-Error-Correction-Double-Error-Detection code */
     logic[4:0] s_row[7];
 
     assign s_row[0][0] = s_data_i[0] ^ s_data_i[1] ^ s_data_i[2];

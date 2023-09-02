@@ -18,41 +18,45 @@ module ahb_interconnect #(
     parameter SLAVES=1
 )
 (
-    input s_clk_i,
-    input s_resetn_i,
+    input logic s_clk_i,
+    input logic s_resetn_i,
     
     //AHB3-Lite
-    input [31:0] s_mhaddr_i,
-    input [1:0]s_mhtrans_i,
+    input logic[31:0] s_mhaddr_i,
+    input logic[1:0] s_mhtrans_i,
 
-    input [31:0]s_sbase_i[SLAVES],
-    input [31:0]s_smask_i[SLAVES],
+    input logic[31:0] s_sbase_i[SLAVES],
+    input logic[31:0] s_smask_i[SLAVES],
 
-    input [31:0] s_shrdata_i[SLAVES],
-    input s_shready_i[SLAVES],
-    input s_shresp_i[SLAVES],
-    output s_hsel_o[SLAVES],
+    input logic[31:0] s_shrdata_i[SLAVES],
+    input logic s_shready_i[SLAVES],
+    input logic s_shresp_i[SLAVES],
+    output logic s_hsel_o[SLAVES],
     
-    output [31:0] s_shrdata_o,
-    output s_shready_o,
-    output s_shresp_o
+    output logic[31:0] s_shrdata_o,
+    output logic  s_shready_o,
+    output logic s_shresp_o
 );
+    /* Simplified implementation of AMBA 3 AHB-Lite interconnect */
     parameter SELMSB = (SLAVES < 32'd2) ? 32'd0 : ($clog2(SLAVES)-1);
     logic[SELMSB:0] r_selected, s_selected[SLAVES];
     logic[SLAVES-1:0]s_slave_range;
     logic r_active, s_stall;
 
+    //Select appropriate signals for the master
     assign s_shrdata_o  = s_shrdata_i[r_selected];
     assign s_shready_o  = s_shready_i[r_selected];
     assign s_shresp_o   = s_shresp_i[r_selected];
 
+    //Detection of delayed response
     assign s_stall = r_active & ~s_shready_i[r_selected];
     
+    //Select a new slave for the transfer
     genvar i;
     generate
         for(i = 0; i<SLAVES;i++)begin : gen1
             assign s_slave_range[i] = (s_mhaddr_i & s_smask_i[i]) == s_sbase_i[i];
-            assign s_hsel_o[i] = (s_selected[0] == i[SELMSB:0])/*s_slave_range[i]*/ & ~s_stall;
+            assign s_hsel_o[i] = (s_selected[0] == i[SELMSB:0]) & ~s_stall;
         end
 
         if(SLAVES > 1)begin
