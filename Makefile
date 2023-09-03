@@ -41,7 +41,7 @@ hardiscSetup:
 	@for f in $(shell ls ${HARDISC_DIR}/peripherals | grep \.sv$); do vsim -c -do "project open $(HARDISC_SIM)/the-hardisc.mpf; project addfile $(HARDISC_DIR)/peripherals/$${f} SystemVerilog peripherals; exit"; done
 
 hardiscCompile:
-	vsim -c -do "project open $(HARDISC_SIM)/the-hardisc.mpf; project compileall; exit"
+	vsim -c -do "project open $(HARDISC_SIM)/the-hardisc.mpf; project calculateorder; project compileall; exit"
 	
 hardiscSim:
 	vsim -${HOW} ${HARDISC_SIM}/work.tb_mh_wrapper +BOOTADD=${BOOT_ADD} +TIMEOUT=${SIM_TIMEOUT} +BIN=${BINARY} +LOGGING=${LOGGING} +SEE_PROB=${SEE_PROB} +SEE_GROUP=${SEE_GROUP} +LAT=${LAT} -sv_seed ${SV_SEED} +LFILE=$(HARDISC_DIR)/hardisc_${TIME_STAMP}.log -do "do ${HARDISC_DIR}/scripts/basic_waves_mh.do; run 100ms"
