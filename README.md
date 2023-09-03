@@ -81,11 +81,11 @@ Simulate the *hello_world* example with memory latencies:
 ```bash
 make hardiscSim BINARY=example/hello_world/test.bin LAT=1
 ```
-Simulate the *matrix* example with SEE insertion in all groups and logging verbosity 2:
+Simulate the *matrix* example with SEE insertion<sup>1,2</sup> in all groups and logging verbosity 3:
 ```bash
-make hardiscSim BINARY=example/matrix/test.bin LOGGING=2 SEE_PROB=10
+make hardiscSim BINARY=example/matrix/test.bin LOGGING=3 SEE_PROB=10
 ```
-Simulate the *hello_world* example with SEE insertion only in the predictor's group and with high fault probability:
+Simulate the *hello_world* example with SEE insertion<sup>1</sup> only in the predictor's group and with high fault probability:
 ```bash
 make hardiscSim BINARY=example/hello_world/test.bin LOGGING=0 SEE_PROB=100 SEE_GROUP=4
 ```
@@ -93,6 +93,9 @@ Compile the *matrix* example test:
 ```bash
 make compileTest TEST_DIR=example/matrix
 ```
+
+1. Do not forget to enable **SEE_TESTING** in the *setting.sv*; otherwise, the **SEE_PROB** will not have an effect.
+2. Do not forget to enable **PROTECTED** in the *setting.sv*; otherwise, the core will crash (as is expected without the protection).
 
 ## Tracing and logging
 The testbench, peripherals, and other model gives the user several tracing and logging options.
