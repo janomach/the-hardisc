@@ -90,21 +90,18 @@ module ras
             s_winstr[0] = 16'b0;
             s_wurvi[0]  = 1'b0;
         end else if(s_rutd[0]) begin
+            s_winstr[0] = s_data_i[31:16];
             if(s_urvi_valid)begin
                 //check and save of the next unaligned RVI
-                s_winstr[0] = s_data_i[31:16];
                 s_wurvi[0]  = (s_data_i[17:16] == 2'b11);
             end else begin
-                if(s_ualign_i & (s_data_i[1:0] == 2'b11)) begin
+                if(s_ualign_i & (s_data_i[17:16] == 2'b11)) begin
                     //unaligned RVI is comming
-                    s_winstr[0] = s_data_i[15:0];
                     s_wurvi[0]  = 1'b1;
                 end else if(~s_ualign_i & (s_data_i[1:0] != 2'b11) & (s_data_i[17:16] == 2'b11))begin 
                     //aligned RVC instruction followed by unaligned RVI
-                    s_winstr[0] = s_data_i[31:16];
                     s_wurvi[0]  = 1'b1;
                 end else begin
-                    s_winstr[0] = 16'b0;
                     s_wurvi[0]  = 1'b0;
                 end
             end
@@ -123,7 +120,7 @@ module ras
     assign s_rd1    = s_instruction_0[11:7] == 5'd1;
     assign s_rd5    = s_instruction_0[11:7] == 5'd5;
     assign s_rseqrd = s_instruction_0[11:7] == s_instruction_0[19:15];
-    assign s_ivalid = ((~s_rurvi[0] & ~s_ualign_i & (s_data_i[1:0] == 2'b11) & ~s_ualign_i)  | s_urvi_valid);
+    assign s_ivalid = ((~s_rurvi[0] & ~s_ualign_i & (s_data_i[1:0] == 2'b11))  | s_urvi_valid);
     assign s_jal    = (s_instruction_0[6:2] == OPC_JAL) & s_ivalid;
     assign s_jalr   = (s_instruction_0[6:2] == OPC_JALR) & s_ivalid;
     assign s_ipush  = (s_jal & (s_rd1 | s_rd5)) | (s_jalr & (s_rd1 | s_rd5));
@@ -138,7 +135,7 @@ module ras
     assign s_cpop[0]   = (s_cjr[0] & ((s_data_i[11:7] == 5'd1) | (s_data_i[11:7] == 5'd5))) | 
                          (s_cjalr[0] & (s_data_i[11:7] == 5'd5));
     //Decoding and evaluation of unaligned RVC instruction
-    assign s_cvalid[1] = s_urvi_valid | (~s_ualign_i & (s_data_i[1:0] != 2'b11));
+    assign s_cvalid[1] = s_urvi_valid | s_ualign_i | (~s_ualign_i & (s_data_i[1:0] != 2'b11));
     assign s_cjal[1]   = (s_data_i[31:29] == 3'b001) & (s_data_i[17:16] == 2'b01) & s_cvalid[1]; 
     assign s_cjr[1]    = (s_data_i[31:28] == 4'b1000) & (s_data_i[22:16] == 7'b10) & s_cvalid[1];
     assign s_cjalr[1]  = (s_data_i[31:28] == 4'b1001) & (s_data_i[22:16] == 7'b10) & s_cvalid[1];  

@@ -39,6 +39,7 @@ module pipeline_1_fe (
     input logic[31:0] s_pred_base_i,                //base address for prediction
     input logic[31:0] s_toc_add_i[EXMA_REPS],       //address for transfer of control
 
+    input logic[6:0] s_hrdcheck_i,                  //AHB bus - incoming checksum
     input logic[31:0] s_hrdata_i,                   //AHB bus - incomming read data
     input logic s_hready_i,                         //AHB bus - finish of transfer
     input logic s_hresp_i,                          //AHB bus - error response
@@ -52,7 +53,7 @@ module pipeline_1_fe (
     output logic s_hwrite_o,                        //AHB bus - write indicator
 
     output logic[31:0] s_feid_instr_o[FEID_REPS],   //instruction to execute for ID stage
-    output logic[2:0] s_feid_info_o[FEID_REPS],     //instruction payload information for ID stage
+    output logic[4:0] s_feid_info_o[FEID_REPS],     //instruction payload information for ID stage
     output logic[1:0] s_feid_pred_o[FEID_REPS]      //instruction prediction information for ID stage
 );
     /*  Fetch stage separation:
@@ -64,7 +65,7 @@ module pipeline_1_fe (
     logic s_wfe0_utd[FEID_REPS], s_rfe0_utd[FEID_REPS], s_wfe1_utd[FEID_REPS], s_rfe1_utd[FEID_REPS];
     logic[1:0] s_rfe1_inf[FEID_REPS], s_wfe1_inf[FEID_REPS];
     logic[IFB_WIDTH-1:0] s_ifb_wdata[FEID_REPS], s_ifb_rdata[FEID_REPS];
-    logic s_clk_prw[FEID_REPS], s_resetn_prw[FEID_REPS];
+    logic s_clk_prw[FEID_REPS], s_resetn_prw[FEID_REPS], s_ifb_valid[FEID_REPS];
 
     //Fetch address saved in FE0
     seu_regs #(.LABEL("FE0_ADD"),.W(31),.N(FEID_REPS))  m_fe0_add (.s_c_i(s_clk_prw),.s_d_i(s_wfe0_add),.s_d_o(s_rfe0_add));
@@ -85,7 +86,7 @@ module pipeline_1_fe (
     logic s_ifb_push[FEID_REPS], s_ifb_pop[FEID_REPS], s_flush_fe[FEID_REPS],
         s_toc_in_fe1[FEID_REPS],  s_ifb_available[FEID_REPS];
     logic[`OPTION_FIFO_SIZE-1:0] s_ifb_occupied[FEID_REPS];
-    logic[35:0] s_ifb_last_entry[FEID_REPS];
+    logic[IFB_WIDTH-1:0] s_ifb_last_entry[FEID_REPS];
     logic[31:0] s_f0_add_next[FEID_REPS];
     logic s_ras_toc_valid[FEID_REPS], s_ras_pred_free[FEID_REPS];
     logic[1:0] s_ras_toc[FEID_REPS];
@@ -188,27 +189,24 @@ module pipeline_1_fe (
             //Update and control of the IFB
             assign s_ifb_pop[i]         = ~(s_stall_i[i][PIPE_ID]);
             assign s_ifb_push[i]        = s_hready_i & s_rfe1_utd[i] & ~s_ras_toc_valid[i];
-            /*  Note that if the data are fetched from unaligned address, data[31:16] are moved 
-                at the position data[15:0] -> shorter instruction path between IFB and Decoder */ 
-            assign s_ifb_wdata[i][31:0] = s_rfe1_add[i][0] ? {16'b0,s_hrdata_i[31:16]} : s_hrdata_i; 
+            assign s_ifb_wdata[i][31:0] = s_hrdata_i;
             assign s_ifb_wdata[i][32]   = s_rfe1_add[i][0];
-            assign s_ifb_wdata[i][33]   = s_hresp_i;
+            assign s_ifb_wdata[i][35:33]= 
 `ifdef PROTECTED
             /*  The bus-transfer address is determined by s_rfe0_add, and then propagates into the s_rfe1_add    
                 before the fetched data are pushed into both replicas of IFB. If the transfer address was
                 different in FE0, wrong data would be pushe into both IFBs. Such fault would not be detectable
                 in upper stages. To prevent such situation, both replicas of FE1 address are compared, and if
-                discrepancy exists a value 2'b11 is saved to both IFBs (at the place of predction info). 
-                If this value is detected in the ID stage, the instruction is marked corrupted, and it's fetch 
-                will be restarted from MA-stage. */
-            assign s_ifb_wdata[i][35:34]= (s_rfe1_add[0] != s_rfe1_add[1]) ? 2'b11 : s_rfe1_inf[i];
-`else
-            assign s_ifb_wdata[i][35:34]= s_rfe1_inf[i];
-`endif
+                discrepancy exists, the information is saved to both IFBs. If this value is detected in the ID stage, 
+                the instruction is marked corrupted, and it's fetch will be restarted from MA-stage. */
+                    (s_rfe1_add[0] != s_rfe1_add[1]) ? FETCH_DISCR :
+`endif            
+                    s_hresp_i ? FETCH_BSERR : FETCH_VALID ;
+            assign s_ifb_wdata[i][37:36]= s_rfe1_inf[i];
             //Output of the IFB
-            assign s_feid_info_o[i]     = {s_ifb_rdata[i][33:32],~s_ifb_occupied[i][0]};
+            assign s_feid_info_o[i]     = {s_ifb_rdata[i][35:32], ~s_ifb_valid[i]};
             assign s_feid_instr_o[i]    = s_ifb_rdata[i][31:0];
-            assign s_feid_pred_o[i]     = s_ifb_rdata[i][35:34];
+            assign s_feid_pred_o[i]     = s_ifb_rdata[i][37:36];
 
             ifb #(.LABEL("FE_FIFO"),.SIZE(`OPTION_FIFO_SIZE)) m_ifb
             (
@@ -219,7 +217,9 @@ module pipeline_1_fe (
                 .s_pop_i(s_ifb_pop[i]),
                 .s_ras_pred_i(s_ras_toc[i]),
                 .s_data_i(s_ifb_wdata[i]),
+                .s_checksum_i(s_hrdcheck_i),
                 .s_data_o(s_ifb_rdata[i]),
+                .s_valid_o(s_ifb_valid[i]),
                 .s_occupied_o(s_ifb_occupied[i]),
                 .s_last_entry_o(s_ifb_last_entry[i])
             );

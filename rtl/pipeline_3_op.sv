@@ -46,11 +46,13 @@ module pipeline_3_op (
     input rf_add s_idop_rd_i[IDOP_REPS],            //destination register address
     input sctrl s_idop_sctrl_i[IDOP_REPS],          //source control indicator
     input ictrl s_idop_ictrl_i[IDOP_REPS],          //instruction control indicator
+    input imiscon s_idop_imiscon_i[IDOP_REPS],      //instruction misconduct indicator
 
     output logic[31:0] s_opex_op1_o[OPEX_REPS],     //prepared operand 1 for EX stage
     output logic[31:0] s_opex_op2_o[OPEX_REPS],     //prepared operand 2 for EX stage
     output logic[20:0] s_opex_payload_o[OPEX_REPS], //payload information for EX stage
     output ictrl s_opex_ictrl_o[OPEX_REPS],         //instruction control indicator for EX stage
+    output imiscon s_opex_imiscon_o[OPEX_REPS],     //instruction misconduct indicator for EX stage
     output rf_add s_opex_rd_o[OPEX_REPS],           //destination register address for EX stage
     output f_part s_opex_f_o[OPEX_REPS],            //instruction function for EX stage
     output logic[3:0]s_opex_fwd_o[OPEX_REPS]        //forwarding information for EX stage
@@ -61,6 +63,7 @@ module pipeline_3_op (
     rf_add s_wopex_rd[OPEX_REPS], s_ropex_rd[OPEX_REPS];
     f_part s_wopex_f[OPEX_REPS], s_ropex_f[OPEX_REPS];
     ictrl s_wopex_ictrl[OPEX_REPS], s_ropex_ictrl[OPEX_REPS];
+    imiscon s_wopex_imiscon[OPEX_REPS], s_ropex_imiscon[OPEX_REPS]; 
     logic[3:0] s_wopex_fwd[OPEX_REPS], s_ropex_fwd[OPEX_REPS], s_forward[OPEX_REPS];
 
     logic s_bubble[OPEX_REPS];
@@ -74,6 +77,7 @@ module pipeline_3_op (
     assign s_opex_op1_o     = s_ropex_op1;
     assign s_opex_op2_o     = s_ropex_op2;
     assign s_opex_fwd_o     = s_ropex_fwd;
+    assign s_opex_imiscon_o = s_ropex_imiscon;
 
     //Computation operand 1
     seu_regs #(.LABEL({"OPEX_OP1"}),.N(OPEX_REPS))m_opex_op1 (.s_c_i(s_clk_prw),.s_d_i(s_wopex_op1),.s_d_o(s_ropex_op1));
@@ -87,11 +91,14 @@ module pipeline_3_op (
     seu_regs #(.LABEL({"OPEX_F"}),.W($size(f_part)),.N(OPEX_REPS)) m_opex_f (.s_c_i(s_clk_prw),.s_d_i(s_wopex_f),.s_d_o(s_ropex_f));
     //Instruction control indicator
     seu_regs #(.LABEL({"OPEX_ICTRL"}),.W($size(ictrl)),.N(OPEX_REPS)) m_opex_ictrl (.s_c_i(s_clk_prw),.s_d_i(s_wopex_ictrl),.s_d_o(s_ropex_ictrl));
+    //Instruction misconduct indicator
+    seu_regs #(.LABEL({"OPEX_IMISCON"}),.W($size(imiscon)),.N(OPEX_REPS)) m_opex_imiscon (.s_c_i(s_clk_prw),.s_d_i(s_wopex_imiscon),.s_d_o(s_ropex_imiscon));
     //Forwarding information
     seu_regs #(.LABEL({"OPEX_FWD"}),.W(4),.N(OPEX_REPS)) m_opex_fwd (.s_c_i(s_clk_prw),.s_d_i(s_wopex_fwd),.s_d_o(s_ropex_fwd));
 
+    logic s_id_misconduct[OPEX_REPS];
 `ifdef PROTECTED
-    logic s_op_rstpipe[OPEX_REPS], s_uce[OPEX_REPS], s_ce[OPEX_REPS], s_id_rstpipe[OPEX_REPS];
+    logic s_op_misconduct[OPEX_REPS], s_uce[OPEX_REPS], s_ce[OPEX_REPS];
 `endif
 
     genvar i;
@@ -109,11 +116,15 @@ module pipeline_3_op (
             assign s_clk_prw[i]     = s_clk_i[i];
             assign s_resetn_prw[i]  = s_resetn_i[i];
 
-`ifdef PROTECTED
             //The ID stage requests restart of the instruction
-            assign s_id_rstpipe[i]   = (s_idop_ictrl_i[i][7:0] == ICTRL_RST_VAL) | (s_idop_ictrl_i[i][6:0] == ICTRL_PRR_VAL);
+            assign s_id_misconduct[i]   = (s_idop_imiscon_i[i] != IMISCON_FREE)
+`ifdef EDAC_INTERFACE
+                                         & (s_idop_imiscon_i[i] != IMISCON_FCER)
+`endif            
+                                        ;
+`ifdef PROTECTED
             //Correctable error or differences between read-address registers lead to restart of the instruction
-            assign s_op_rstpipe[i]   = (s_ce[i] | (s_idop_rs1_i[0] != s_idop_rs1_i[1]) | (s_idop_rs2_i[0] != s_idop_rs2_i[1])); 
+            assign s_op_misconduct[i]   = (s_ce[i] | (s_idop_rs1_i[0] != s_idop_rs1_i[1]) | (s_idop_rs2_i[0] != s_idop_rs2_i[1])); 
 `endif
             //Prepare operands for the EX stage
             preparer m_preparer
@@ -153,11 +164,12 @@ module pipeline_3_op (
                 if(~s_resetn_i[i] | s_flush_op[i])begin
                     s_wopex_rd[i]       = 5'b0; 
                     s_wopex_f[i]        = 4'b0;  
-                    s_wopex_ictrl[i]    = 8'b0;
+                    s_wopex_ictrl[i]    = 7'b0;
                     s_wopex_payload[i]  = 21'b0;
                     s_wopex_op1[i]      = 32'b0;
                     s_wopex_op2[i]      = 32'b0;
                     s_wopex_fwd[i]      = 4'b0;
+                    s_wopex_imiscon[i]  = IMISCON_FREE; 
                 end else if(s_stall_op[i])begin
                     s_wopex_rd[i]       = s_ropex_rd[i]; 
                     s_wopex_f[i]        = s_ropex_f[i];  
@@ -167,20 +179,28 @@ module pipeline_3_op (
                     s_wopex_op1[i]      = (s_ropex_fwd[i][2]) ? s_mawb_val_i[i] : s_ropex_op1[i];
                     s_wopex_op2[i]      = (s_ropex_fwd[i][3]) ? s_mawb_val_i[i] : s_ropex_op2[i];
                     s_wopex_fwd[i]      = {2'b0,s_ropex_fwd[i][1:0]};
+                    s_wopex_imiscon[i]  = s_ropex_imiscon[i];
                 end else begin
                     s_wopex_rd[i]       = s_idop_rd_i[i]; 
                     s_wopex_f[i]        = s_idop_f_i[i];  
-                    s_wopex_ictrl[i]    = 
-`ifdef PROTECTED
-                                          (s_id_rstpipe[i]) ? s_idop_ictrl_i[i] : 
-                                          (s_op_rstpipe[i]) ? ICTRL_RST_VAL : 
-                                          (s_uce[i]) ? ICTRL_UCE_VAL :
-`endif
-                                          s_idop_ictrl_i[i];
+                    s_wopex_ictrl[i]    = s_idop_ictrl_i[i];
                     s_wopex_payload[i]  = s_idop_payload_i[i];
                     s_wopex_op1[i]      = s_operand1[i];
                     s_wopex_op2[i]      = s_operand2[i];
                     s_wopex_fwd[i]      = s_forward[i];
+                    s_wopex_ictrl[i]    = 
+`ifdef PROTECTED
+                                          (s_id_misconduct[i]) ? s_idop_ictrl_i[i] : 
+                                          (s_op_misconduct[i] | s_uce[i]) ? 7'd0 : 
+`endif
+                                          s_idop_ictrl_i[i];
+                    s_wopex_imiscon[i]  = 
+`ifdef PROTECTED                                          
+                                          (s_id_misconduct[i]) ? s_idop_imiscon_i[i] : 
+                                          (s_op_misconduct[i]) ? IMISCON_DSCR : 
+                                          (s_uce[i]) ? IMISCON_RUCE : 
+`endif                                          
+                                          s_idop_imiscon_i[i];
                 end
             end
         end     

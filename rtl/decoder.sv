@@ -18,7 +18,8 @@
 import p_hardisc::*;
 
 module decoder (
-    input logic s_fetch_error_i,    //error during instruction fetch
+    input logic[2:0] s_fetch_error_i,   //error during instruction fetch
+    input logic s_align_error_i,        //error during instruction aligning
     input logic[31:0] s_instr_i,    //aligned instruction
     input logic s_prediction_i,     //indicates prediction made from the instruction
 
@@ -28,29 +29,50 @@ module decoder (
     output rf_add s_rs2_o,          //read address for read port 2 of register file
     output rf_add s_rd_o,           //write addres for register file
     output sctrl s_sctrl_o,         //source control indicator
-    output ictrl s_ictrl_o          //instruction control indicator 
+    output ictrl s_ictrl_o,         //instruction control indicator
+    output imiscon s_imiscon_o      //instruction misconduct indicator 
 );
     logic s_load, s_store, s_branch, s_jalr, s_jal, s_op, s_op_imm, s_lui, s_system, s_auipc, s_fence, s_srla, s_add, s_m_op; 
-	logic s_csr_need_rs1, s_sub_sra, s_ecb, s_mret, s_csr;
+	logic s_csr_need_rs1, s_sub_sra, s_ecb, s_mret, s_csr, s_illegal;
+    logic[1:0] s_csr_fun;
     logic[2:0] s_brj_f;
     logic[19:0] s_imm, s_c_imm, s_imm_lui_auipc, s_imm_jal, s_imm_ls_i_jalr, s_imm_branch, s_imm_csr;
     opcode s_opcode;
-    f_part s_f, s_c_f, s_i_f;
+    f_part s_i_f, s_c_f;
     rf_add s_rd, s_rs1, s_rs2, s_c_rd, s_c_rs1, s_c_rs2;
     sctrl s_src_ctrl, s_c_src_ctrl;
-    ictrl s_instr_ctrl, s_c_instr_ctrl, s_i_instr_ctrl;
+    ictrl s_instr_ctrl, s_c_instr_ctrl;
+    imiscon s_instr_miscon, s_c_instr_miscon, s_dec_imiscon;
     logic s_rvc, s_alter, s_base, s_known;
-    logic[3:0] s_csr_add, s_csr_type;
-    logic s_csr_ret, s_pred_not_allowed;
+    logic[4:0] s_csr_add;
+    logic[3:0] s_csr_type;
+    logic s_pred_not_allowed;
 
     //Selection of outputs depends on the instruction type (RVC or RVI)
     assign s_rvc        = s_instr_i[1:0] != 2'b11;
     assign s_rd_o       = (s_rvc) ? s_c_rd : s_rd;
     assign s_rs1_o      = (s_rvc) ? s_c_rs1 : s_rs1;
     assign s_rs2_o      = (s_rvc) ? s_c_rs2 : s_rs2;
+    assign s_f_o        = (s_rvc) ? s_c_f : s_i_f;
     assign s_sctrl_o    = (s_rvc) ? s_c_src_ctrl : s_src_ctrl;
-    assign s_ictrl_o    = (s_fetch_error_i) ? 8'h20 : (s_rvc) ? s_c_instr_ctrl : s_i_instr_ctrl;
-    assign s_f_o        = (s_fetch_error_i) ? 4'h0 : (s_rvc) ? s_c_f : s_i_f;
+    assign s_ictrl_o    = ((s_imiscon_o != IMISCON_FREE)
+`ifdef EDAC_INTERFACE
+                         & (s_imiscon_o != IMISCON_FCER)
+`endif
+                          ) ? {s_align_error_i | s_rvc, 6'b000000} : //The RVC means the Predictor will not increment address before invalidiation
+                          (s_rvc) ? s_c_instr_ctrl : s_instr_ctrl;
+    assign s_imiscon_o  = (s_align_error_i) ? IMISCON_PRED : //Restart due to wrong alignment, probably caused by the Predictor
+`ifdef PROTECTED
+                          (s_fetch_error_i == FETCH_DISCR) ? IMISCON_DSCR :
+`endif
+                          (s_fetch_error_i == FETCH_BSERR) ? IMISCON_FERR :
+`ifdef EDAC_INTERFACE
+                          (s_fetch_error_i == FETCH_INUCE) ? IMISCON_FUCE :
+                          ((s_fetch_error_i == FETCH_INCER) & (s_dec_imiscon == IMISCON_FREE)) ? IMISCON_FCER :
+`endif 
+                          s_dec_imiscon;
+    assign s_dec_imiscon = (s_rvc) ? s_c_instr_miscon : s_instr_miscon;
+
     //Payload information - leveraged by upper stages
     assign s_payload_o[20]  = s_prediction_i;
     assign s_payload_o[19:0]= (s_rvc) ? s_c_imm : (s_fence) ? (20'h2) : s_imm;
@@ -66,7 +88,8 @@ module decoder (
         .s_rs2_o(s_c_rs2),
         .s_rd_o(s_c_rd),
         .s_sctrl_o(s_c_src_ctrl),
-        .s_ictrl_o(s_c_instr_ctrl)
+        .s_ictrl_o(s_c_instr_ctrl),
+        .s_imiscon_o(s_c_instr_miscon)
     );
 
     /**************** RVI decoder **************/
@@ -96,6 +119,7 @@ module decoder (
 	assign s_auipc      = (s_opcode == OPC_AUIPC);
 	assign s_fence 	    = (s_opcode == OPC_FENCE) & (s_instr_i[14:12] == 3'b000 | s_instr_i[14:12] == 3'b001);
     assign s_known      = (s_load | s_store | s_branch | s_jalr | s_jal | s_op | s_op_imm | s_lui | s_auipc | s_fence | s_csr | s_mret | s_ecb);
+    assign s_illegal    = (~s_known) | (s_csr & (s_csr_add == 5'b11111));
 
     //Auxiliary values
     assign s_m_op       = (s_instr_i[31:25] == 7'b1);
@@ -110,7 +134,7 @@ module decoder (
     assign s_imm_jal        = {s_instr_i[31],s_instr_i[19:12],s_instr_i[20],s_instr_i[30:21]}; //jal
     assign s_imm_branch     = {{9{s_instr_i[31]}},s_instr_i[7],s_instr_i[30:25],s_instr_i[11:8]}; //branches
     assign s_imm_ls_i_jalr  = {{9{s_instr_i[31]}},s_instr_i[30:25],(s_store)?s_instr_i[11:7]:s_instr_i[24:20]}; //ls_imm_jalr
-    assign s_imm_csr        = {4'b0,s_rs1,s_instr_i[20],s_csr_ret,s_csr_type,1'b0,s_csr_add}; //csr
+    assign s_imm_csr        = {4'b0,s_rs1,s_csr_fun,s_csr_type,s_csr_add}; //csr
     assign s_imm            =   (s_system) ? s_imm_csr :
                                 (s_jal) ? s_imm_jal : 
                                 (s_lui | s_auipc) ? s_imm_lui_auipc : 
@@ -120,9 +144,8 @@ module decoder (
                             (s_instr_i[13:12] == 2'b00 ) ? 3'b010 :
                             (s_instr_i[14:12] == 3'b101) ? 3'b110 :
                             (s_instr_i[14:12] == 3'b110) ? 3'b011 : s_instr_i[14:12];
-    assign s_f[3]       = (s_jalr | s_jal | s_fence | s_auipc | s_ecb | s_sub_sra | s_store | (s_branch & s_instr_i[14:12] != 3'b110 & s_instr_i[14:12] != 3'b100));
-    assign s_f[2:0]     = (s_instr_ctrl[ICTRL_UNIT_BRU]) ? s_brj_f: (s_lui | s_auipc) ? ((s_auipc) ? 3'b100 : 3'b000) : s_instr_i[14:12];
-    assign s_i_f        = (s_i_instr_ctrl[ICTRL_ILLEGAL]) ? 4'b1 : s_f;
+    assign s_i_f[3]     = (s_jalr | s_jal | s_fence | s_auipc | s_sub_sra | s_store | (s_branch & s_instr_i[14:12] != 3'b110 & s_instr_i[14:12] != 3'b100));
+    assign s_i_f[2:0]   = (s_instr_ctrl[ICTRL_UNIT_BRU]) ? s_brj_f: (s_lui | s_auipc) ? ((s_auipc) ? 3'b100 : 3'b000) : s_instr_i[14:12];
 
     //CSR address compressor
     always_comb begin : machine_csr_address
@@ -140,14 +163,17 @@ module decoder (
             CSR_MINSTRETH:   s_csr_add = MCSR_INSTRETH;
             CSR_MSCRATCH:    s_csr_add = MCSR_SCRATCH;
             CSR_MHARTID:     s_csr_add = MCSR_HARTID;
-            CSR_MHRDCSRL0:   s_csr_add = MCSR_HRDCTRL0;
+            CSR_MHRDCTRL0:   s_csr_add = MCSR_HRDCTRL0;
             CSR_MISA:        s_csr_add = MCSR_ISA;
-            default:         s_csr_add = 4'b1111;
+`ifdef EDAC_INTERFACE
+            CSR_MADDRERR:    s_csr_add = MCSR_ADDRERR;
+`endif
+            default:         s_csr_add = 5'b11111;
         endcase   
     end 
 
     //CSR auxiliary values
-    assign s_csr_ret        = s_instr_i[27:20] == 8'h02;
+    assign s_csr_fun        = (s_mret) ? CSR_FUN_RET : (s_ecb & s_instr_i[20]) ? CSR_FUN_EBREAK : CSR_FUN_ECALL;
     assign s_csr_type       = s_instr_i[31:28];
     assign s_csr_need_rs1   = (~s_instr_i[14] & (s_instr_i[12] | s_instr_i[13]));
 
@@ -164,10 +190,9 @@ module decoder (
     assign s_instr_ctrl[ICTRL_UNIT_CSR] = (s_system);
     assign s_instr_ctrl[ICTRL_UNIT_MDU] = (s_op & s_m_op);
     assign s_instr_ctrl[ICTRL_REG_DEST] = (|s_rd) & (s_lui | s_auipc | s_jal | s_jalr | s_op | s_op_imm | s_csr | s_load);
-    assign s_instr_ctrl[ICTRL_ILLEGAL]  = (~s_known) | (s_csr & s_csr_add == 4'b1111);
     assign s_instr_ctrl[ICTRL_RVC]      = 1'b0;
     //Prediction is not allowed from other instructions than branch/jump
     assign s_pred_not_allowed           = s_prediction_i & (~s_instr_ctrl[ICTRL_UNIT_BRU] | s_fence);
-    assign s_i_instr_ctrl               = s_pred_not_allowed ? {1'b0,ICTRL_PRR_VAL} : s_instr_ctrl;
+    assign s_instr_miscon               = s_illegal ? IMISCON_ILLE : s_pred_not_allowed ? IMISCON_PRED : IMISCON_FREE;
 
 endmodule

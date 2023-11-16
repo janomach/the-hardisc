@@ -137,6 +137,9 @@ module preparer (
         if(s_idop_ictrl_i[ICTRL_UNIT_LSU])begin
             //Load-Store instruction address
             s_operand1 = s_address;
+        end else if(s_idop_ictrl_i[ICTRL_UNIT_CSR] & s_idop_f_i[2])begin
+            //CSR immediate instruction
+            s_operand1 = {27'b0, s_idop_payload_i[15:11]};
         end else begin
             //Branches, standard/immediate integer instructions with RS1, JALR, M-ext, LUI (value 32'b0)
             s_operand1 = s_operand1_fw;
@@ -145,14 +148,9 @@ module preparer (
 
     //Selection of operand 2 for the EX stage
     always_comb begin : operand_2
-        if(s_idop_sctrl_i[SCTRL_RFRP2] | s_idop_ictrl_i[ICTRL_UNIT_CSR])begin
-            //moved to the exma_val register by the EX stage
-            if(s_idop_sctrl_i[SCTRL_RFRP2])
-                //Standard integer, Store, and Branch instructions, M-ext
-                s_operand2 = s_operand2_fw;
-            else
-                //CSR instruction - reduces number of MUX-es in the EX stage
-                s_operand2 = s_operand1_fw;
+        if(s_idop_sctrl_i[SCTRL_RFRP2])begin
+            //Standard integer, Store, and Branch instructions, M-ext
+            s_operand2 = s_operand2_fw;
         end else begin
             if(s_idop_sctrl_i[SCTRL_RFRP1])
                 //Immediate integer instructions, JALR

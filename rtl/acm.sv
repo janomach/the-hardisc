@@ -22,9 +22,9 @@ module acm
 	input logic s_clk_i[3],             //clock signal
     input logic s_resetn_i[3],          //reset signal
 
-    input logic[31:0] s_mawb_val_i[3],  //instruction result for WB stage
-    input rf_add s_mawb_add_i[3],       //destination register address for WB stage
-    input ictrl s_mawb_ictrl_i[3],      //instruction control indicator for WB stage
+    input logic[31:0] s_mawb_val_i[3],  //instruction result from WB stage
+    input rf_add s_mawb_add_i[3],       //destination register address from WB stage
+    input ictrl s_mawb_ictrl_i[3],      //instruction control indicator from WB stage
     input rf_add s_exma_add_i[3],       //destination register address from MA stage
     input ictrl s_exma_ictrl_i[3],      //instruction control indicator from MA stage
     input rf_add s_opex_add_i[2],       //destination register address from EX stage
@@ -44,9 +44,10 @@ module acm
 );
 
     logic s_write[1];
-    logic[6:0] s_r1_checksum, s_r2_checksum, s_w_checksum[1], s_w1_checksum[3];
+    logic[6:0] s_r1_checksum, s_r2_checksum, s_w_checksum[1], s_w1_checksum[3], 
+                s_r1_achecksum[2], s_r2_achecksum[2], s_r1_syndrome[2], s_r2_syndrome[2];
     logic s_r1_ce[2], s_r1_uce[2], s_r2_ce[2], s_r2_uce[2];
-    logic[31:0] s_r1_dec[2], s_r2_dec[2], s_wacm_val[2], s_racm_val[2], s_repair_val[2], s_file_w_val[3];
+    logic[31:0] s_r1_dec[2], s_r2_dec[2], s_wacm_val[2], s_racm_val[2], s_repair_val[2], s_file_w_val[3], s_w_data[1];
     logic s_file_we[3], s_mawb_we[3];
     rf_add s_file_w_add[3], s_w_address[1], s_wacm_add[2], s_racm_add[2], s_repair_add[2];
     rp_info s_rp1_info[2], s_rp2_info[2];
@@ -68,9 +69,9 @@ module acm
     //read port 2
     assign s_r2_checksum     = r_checksum_file[s_r_p2_add_i[0]];
 
-    assign s_val_o  = s_file_w_val[0];
-    assign s_add_o  = s_file_w_add[0];
-    assign s_we_o   = s_file_we[0];
+    assign s_val_o  = s_w_data[0];
+    assign s_add_o  = s_w_address[0];
+    assign s_we_o   = s_write[0];
     
     genvar i;
     generate
@@ -134,36 +135,27 @@ module acm
 
         for (i =0 ; i<3 ;i++ ) begin : acm_replicator_1
             //write enable from WB stage
-            assign s_mawb_we[i] = s_mawb_ictrl_i[i][ICTRL_REG_DEST];
+            assign s_mawb_we[i]     = s_mawb_ictrl_i[i][ICTRL_REG_DEST];
             //write request by ACM
-            assign s_fix_ce[i]  = s_racm_rep[i%2] & ~s_acm_neq[0] & ~s_acm_neq[1];
+            assign s_fix_ce[i]      = s_racm_rep[i%2] & ~s_acm_neq[0] & ~s_acm_neq[1];
             //write enable signal for the register file
-            assign s_file_we[i]   = s_mawb_we[i] | s_fix_ce[i];
+            assign s_file_we[i]     = s_mawb_we[i] | s_fix_ce[i];
             //value to be written to the register file
-            assign s_file_w_val[i]= (s_mawb_we[i]) ? s_mawb_val_i[i] : s_racm_val[i%2];
+            assign s_file_w_val[i]  = (s_mawb_we[i]) ? s_mawb_val_i[i] : s_racm_val[i%2];
             //address for the write port of the register file
-            assign s_file_w_add[i]= (s_mawb_we[i]) ? s_mawb_add_i[i] : s_racm_add[i%2];            
+            assign s_file_w_add[i]  = (s_mawb_we[i]) ? s_mawb_add_i[i] : s_racm_add[i%2];       
         end
 
-        for (i = 0; i<2 ;i++ ) begin : codeword_decoder
+        for (i = 0; i<2 ;i++ ) begin : codeword_analyzer
+            secded_encode m_p1_encode   (.s_data_i(s_r_p1_val_i),.s_checksum_o(s_r1_achecksum[i]));
+            secded_analyze m_p1_analyze (.s_syndrome_i(s_r1_syndrome[i]),.s_ce_o(s_r1_ce[i]),.s_uce_o(s_r1_uce[i]));
+            secded_decode m_p1_decode   (.s_data_i(s_r_p1_val_i),.s_syndrome_i(s_r1_syndrome[i]),.s_data_o(s_r1_dec[i]));
+            assign s_r1_syndrome[i]     = s_r1_achecksum[i] ^ s_r1_checksum;
 
-            secded_decode m_p1_decode
-            (
-                .s_data_i(s_r_p1_val_i),
-                .s_checksum_i(s_r1_checksum),
-                .s_data_o(s_r1_dec[i]),
-                .s_ce_o(s_r1_ce[i]),
-                .s_uce_o(s_r1_uce[i])
-            );
-
-            secded_decode m_p2_decode
-            (
-                .s_data_i(s_r_p2_val_i),
-                .s_checksum_i(s_r2_checksum),
-                .s_data_o(s_r2_dec[i]),
-                .s_ce_o(s_r2_ce[i]),
-                .s_uce_o(s_r2_uce[i])
-            );
+            secded_encode m_p2_encode   (.s_data_i(s_r_p2_val_i),.s_checksum_o(s_r2_achecksum[i]));
+            secded_analyze m_p2_analyze (.s_syndrome_i(s_r2_syndrome[i]),.s_ce_o(s_r2_ce[i]),.s_uce_o(s_r2_uce[i]));
+            secded_decode m_p2_decode   (.s_data_i(s_r_p2_val_i),.s_syndrome_i(s_r2_syndrome[i]),.s_data_o(s_r2_dec[i]));
+            assign s_r2_syndrome[i]     = s_r2_achecksum[i] ^ s_r2_checksum;
         end
         for (i =0 ;i<3 ;i++ ) begin : codeword_encoder
             secded_encode m_w1_encode
@@ -178,6 +170,7 @@ module acm
     tmr_comb #(.W(1),.OUT_REPS(1)) m_tmr_write (.s_d_i(s_file_we),.s_d_o(s_write));
     tmr_comb #(.W(5),.OUT_REPS(1)) m_tmr_address (.s_d_i(s_file_w_add),.s_d_o(s_w_address));
     tmr_comb #(.W(7),.OUT_REPS(1)) m_tmr_checksum (.s_d_i(s_w1_checksum),.s_d_o(s_w_checksum));
+    tmr_comb #(.W(32),.OUT_REPS(1)) m_tmr_data (.s_d_i(s_file_w_val),.s_d_o(s_w_data));
 
 `ifdef SEE_TESTING
     int j;

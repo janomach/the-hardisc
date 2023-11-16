@@ -4,6 +4,7 @@
 `define SIMULATION
 //`define SEE_TESTING
 //`define PROTECTED
+`define EDAC_INTERFACE
 //`define FAST_MULTIPLY
 
 `define SEE_MAX 1000000

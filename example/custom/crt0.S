@@ -27,7 +27,7 @@ _start:
 	la sp, _sp
 
 /* set vector table address and vectored mode */
-	la a0, _trap_handler
+	la a0, __vector_start
     ori a0, a0, 0x1
 	csrw mtvec, a0
 
@@ -43,6 +43,12 @@ _start:
 	call atexit
 	call __libc_init_array
 
+/* enable interrupts */
+	li a0, 3
+	slli a0, a0, 13
+	csrs mie, a0
+	csrsi mstatus, 8   
+
 /* call main */
 	lw a0, 0(sp)                    /* a0 = argc */
 	addi a1, sp, __SIZEOF_POINTER__ /* a1 = argv */
@@ -51,9 +57,6 @@ _start:
 	tail exit
 
 .size  _start, .-_start
-
-_trap_handler:
-	j _trap_handler
 
 .global _init
 .type   _init, @function

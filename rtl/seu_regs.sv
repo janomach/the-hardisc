@@ -75,16 +75,7 @@ module seu_regs_file #(
     see_insert #(.W(W),.N(N),.GROUP(GROUP),.LABEL(LABEL)) see (.s_clk_i(s_clk_i),.s_upset_o(s_upset));
 `endif
 
-    logic[W-1:0] r_register_file[0:N-1];
-
-`ifdef SIMULATION
-    int init_var;
-    initial begin
-        for (init_var = 0 ;init_var<N ;init_var++ ) begin
-            r_register_file[init_var] = 0; 
-        end
-    end
-`endif
+    logic[W-1:0] r_register_file[0:N-1] = '{default:0};
 
     genvar i;
     generate

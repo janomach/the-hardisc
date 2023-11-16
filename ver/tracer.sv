@@ -50,12 +50,12 @@ module tracer
     input logic s_dut_fe0_utd_i,
     input logic[30:0] s_dut_fe1_add_i,
     input logic s_dut_fe1_utd_i,
-    input logic[7:0] s_dut_id_ictrl_i,
+    input logic[6:0] s_dut_id_ictrl_i,
     input logic s_dut_aligner_nop_i,
-    input logic[7:0] s_dut_op_ictrl_i,
-    input logic[7:0] s_dut_ex_ictrl_i,
-    input logic[7:0] s_dut_ma_ictrl_i,
-    input logic[7:0] s_dut_wb_ictrl_i,
+    input logic[6:0] s_dut_op_ictrl_i,
+    input logic[6:0] s_dut_ex_ictrl_i,
+    input logic[6:0] s_dut_ma_ictrl_i,
+    input logic[6:0] s_dut_wb_ictrl_i,
     input logic s_dut_rfc_we_i,
     input logic[31:0] s_dut_rfc_wval_i,
     input logic[4:0] s_dut_rfc_wadd_i
@@ -101,8 +101,8 @@ module tracer
                 commited_instruction = instr_c(s_wb_instr_i);
             end
 
-            if(s_dut_wb_ictrl_i[ICTRL_REG_DEST])begin
-                    i_result = $sformatf("x%2d 0x%8x",s_wb_rd_i, s_wb_val_i);
+            if(s_dut_rfc_we_i)begin
+                    i_result = $sformatf("x%2d 0x%8x",s_dut_rfc_wadd_i, s_dut_rfc_wval_i);
             end else begin 
                     i_result = "";
             end
@@ -117,7 +117,7 @@ module tracer
     end
 
     function instruction_s instr_i (input bit[31:0] instr);
-        string jal_offset, signed_12off, rs1_name, rd_name, rs2_name, branch_off, csr_name;
+        string jal_offset, signed_12off, signed_12offs, rs1_name, rd_name, rs2_name, branch_off, csr_name;
         logic rd_zero, rd_ra, rs1_zero, rs2_zero;
         int jal_imm, branch_imm;
         jal_imm = $signed({{20{instr[31]}},instr[19:12],instr[20],instr[30:21],1'b0});
@@ -125,6 +125,7 @@ module tracer
         jal_offset = $sformatf("0x%1h",(instr[31]) ? (jal_imm *(-1)) : jal_imm);
         branch_off = $sformatf("%1d",(instr[31]) ? (branch_imm *(-1)) : branch_imm);
         signed_12off = $sformatf("%1d",$signed({{20{instr[31]}},instr[31:20]}));
+        signed_12offs = $sformatf("%1d",$signed({{20{instr[31]}},instr[31:25],instr[11:7]}));
         rs1_name = reg_name(instr[19:15]);
         rs2_name = reg_name(instr[24:20]);
         rd_name = reg_name(instr[11:7]);
@@ -192,9 +193,9 @@ module tracer
             end
             5'b01000: begin
                 case (instr[14:12])
-                    3'b000: instr_i.text = {"sb      ",rs2_name,", ",signed_12off,"(",rs1_name,")"};
-                    3'b001: instr_i.text = {"sh      ",rs2_name,", ",signed_12off,"(",rs1_name,")"};
-                    3'b010: instr_i.text = {"sw      ",rs2_name,", ",signed_12off,"(",rs1_name,")"};
+                    3'b000: instr_i.text = {"sb      ",rs2_name,", ",signed_12offs,"(",rs1_name,")"};
+                    3'b001: instr_i.text = {"sh      ",rs2_name,", ",signed_12offs,"(",rs1_name,")"};
+                    3'b010: instr_i.text = {"sw      ",rs2_name,", ",signed_12offs,"(",rs1_name,")"};
                     default:instr_i.text = "unknown";
                 endcase
                 instr_i.source = {instr[19:15],instr[24:20],1'b1,1'b1};
@@ -516,6 +517,8 @@ module tracer
             CSR_MSCRATCH:    csreg_name = "mscratch";
             CSR_MHARTID:     csreg_name = "mhartid";
             CSR_MISA:        csreg_name = "misa";
+            CSR_MHRDCTRL0:   csreg_name = "hrdctrl0";
+            CSR_MADDRERR:    csreg_name = "maddrerr";
             default:         csreg_name = "unkonwn";
         endcase   
     endfunction

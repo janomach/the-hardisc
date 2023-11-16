@@ -20,6 +20,8 @@ module ahb_ram#(
     parameter MEM_SIZE = 32'h00001000,
     parameter SIMULATION = 0,
     parameter ENABLE_LOG = 1,
+    parameter GROUP = 1,
+    parameter EDAC = 0,
     parameter LABEL = "MEMORY"
 )
 (
@@ -36,6 +38,9 @@ module ahb_ram#(
     input logic[1:0] s_htrans_i,
     input logic s_hwrite_i,
     input logic s_hsel_i,
+
+    input logic[6:0] s_hwchecksum_i,
+    output logic[6:0] s_hrchecksum_o,
     
     output logic[31:0] s_hrdata_o,
     output logic s_hready_o,
@@ -53,11 +58,15 @@ module ahb_ram#(
     logic s_wea[4];
     logic s_we, r_wtor, s_cclock;
 
+    logic[6:0] s_read_checksum;
+    logic[6:0] r_cmemory[MEM_SIZE[31:2]] = '{default:0};
+    logic[31:0] r_checksum, r_wtor_checksum;
+
 generate
     logic[1:0] r_delay;
 
     if(SIMULATION == 1)begin
-        int logging;
+        int logging, see_prob, see_group;
         logic latency, l_clock;
         logic[31:0] seed, randomval;
 
@@ -65,11 +74,13 @@ generate
             latency = 0;
             logging = 0;
             seed_instance::srandom($sformatf("%m"));
+            if($value$plusargs ("SEE_PROB=%d", see_prob));
+            if($value$plusargs ("SEE_GROUP=%d", see_group));
             if($value$plusargs ("LOGGING=%d", logging));
             if($value$plusargs ("LAT=%d", latency));
             seed = $urandom;
             if(latency != 0)
-                $write("MEMORY LATENCY SEED: %d\n",seed);
+                $write("MEMORY SEED: %d\n",seed);
         end
 
         if(ENABLE_LOG == 1)begin
@@ -107,6 +118,29 @@ generate
                 l_clock <= (r_delay == 2'b00);
         end
 
+        //Error generation
+        if(EDAC == 1)begin
+            logic[31:0] r_seu_randomval, s_filtered;
+            logic[MSB:0] s_error_addr;
+            logic[7:0] s_error_bit;
+
+            assign s_error_addr = r_seu_randomval[31:31-MSB+2];
+            assign s_error_bit  = r_seu_randomval[7:0]; //error probability 39/256
+
+            always_ff @( posedge s_clk_i ) begin
+                if((see_prob != 0) & ((GROUP & see_group) != 0))begin
+                    r_seu_randomval <= $urandom(seed + r_seu_randomval);
+                    if(s_error_bit < 8'd39)begin
+                        r_memory[s_error_addr] <= r_memory[s_error_addr] ^ (1 << s_error_bit);
+                        if(s_error_bit > 8'd31)
+                            r_cmemory[s_error_addr] <= r_cmemory[s_error_addr] ^ (1 << s_error_bit);
+                        if(logging > 2)
+                            $write("SEU in %s[%08h][%02h]\n",LABEL,{s_error_addr,2'b0},s_error_bit);    
+                    end                        
+                end                
+            end
+        end
+
         assign s_cclock = s_clk_i & l_clock;
         assign s_we     = r_write & (r_delay == 2'b00);
         assign s_ra     = (r_delay == 2'b00) ? s_haddr_i : r_address;
@@ -142,6 +176,31 @@ endgenerate
             always @(posedge s_clk_i)
                 if (s_wea[i])
                     r_memory[r_address[MSB:2]][(i+1)*8-1:i*8] <= s_hwdata_i[(i+1)*8-1:i*8];
+        end
+        if (EDAC == 1) begin
+            assign s_hrchecksum_o   = s_read_checksum;    
+            assign s_read_checksum  = (r_wtor & (r_address[MSB:2] == r_paddress[MSB:2])) ? r_wtor_checksum : r_checksum;
+            //Write checksum
+            always @(posedge s_clk_i)begin
+                if (s_we)
+                    r_cmemory[r_address[MSB:2]] <= s_hwchecksum_i;  
+            end          
+            //Checksum is read in the address phase
+            always_ff @(posedge s_clk_i) begin : memory_checksum_read
+                r_checksum <= r_cmemory[s_ra[MSB:2]];
+            end
+            //Save transfer information
+            always_ff @(posedge s_cclock) begin : memory_control
+                if(~s_resetn_i)begin
+                    r_wtor_checksum <= 32'b0;
+                end else if(s_hsel_i & (s_htrans_i == 2'd2))begin
+                    r_wtor_checksum <= s_we ? s_hwchecksum_i : s_read_checksum;
+                end else begin
+                    r_wtor_checksum <= r_wtor_checksum;
+                end
+            end
+        end else begin
+            assign s_hrchecksum_o = 7'b0;
         end
     endgenerate
 

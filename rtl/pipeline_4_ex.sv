@@ -23,6 +23,7 @@ module pipeline_4_ex (
 
     input logic[4:0] s_stall_i[CTRL_REPS],          //stall signal from MA stage
     input logic s_flush_i[CTRL_REPS],               //flush signal from MA stage
+    input logic s_hold_i[CTRL_REPS],                //hold signal from MA stage
     output logic s_stall_o[CTRL_REPS],              //signalize stalling to the lower stages
 
     input logic[31:0] s_mawb_val_i[MAWB_REPS],      //WB-stage instruction result
@@ -32,37 +33,38 @@ module pipeline_4_ex (
     input logic[31:0] s_opex_op2_i[OPEX_REPS],      //computation operand 2
     input logic[20:0] s_opex_payload_i[OPEX_REPS],  //instruction payload information
     input ictrl s_opex_ictrl_i[OPEX_REPS],          //instruction control indicator
+    input imiscon s_opex_imiscon_i[OPEX_REPS],      //instruction misconduct indicator
     input rf_add s_opex_rd_i[OPEX_REPS],            //destination register address
     input f_part s_opex_f_i[OPEX_REPS],             //instruction function
     input logic[3:0]s_opex_fwd_i[OPEX_REPS],        //forwarding information
 
-    output logic[31:0] s_haddr_o,                   //AHB bus - request address
-    output logic[31:0] s_hwdata_o,                  //AHB bus - request data to write
-    output logic[2:0]s_hburst_o,                    //AHB bus - burst type indicator  
-    output logic s_hmastlock_o,                     //AHB bus - locked sequence indicator                     
-    output logic[3:0]s_hprot_o,                     //AHB bus - protection control signals
-    output logic[2:0]s_hsize_o,                     //AHB bus - size of the transfer                     
-    output logic[1:0]s_htrans_o,                    //AHB bus - transfer type indicator
-    output logic s_hwrite_o,                        //AHB bus - write indicator
+    output logic[31:0] s_lsu_wdata_o[EXMA_REPS],    //LSU write data
+    output logic[31:0] s_lsu_address_o,             //LSU address phase address
+    output logic s_lsu_approve_o[EXMA_REPS],        //LSU address phase approval
 
 `ifdef PROTECTED
     output logic s_exma_neq_o[EXMA_REPS],           //discrepancy in results          
 `endif
     output ictrl s_exma_ictrl_o[EXMA_REPS],         //instruction control indicator for MA stage
+    output imiscon s_exma_imiscon_o[EXMA_REPS],     //instruction misconduct indicator for MA stage
     output f_part s_exma_f_o[EXMA_REPS],            //instruction function for MA stage
     output rf_add s_exma_rd_o[EXMA_REPS],           //destination register address for MA stage
     output logic[31:0] s_exma_val_o[EXMA_REPS],     //result from EX stage for MA stage
-    output logic[31:0] s_exma_payload_o[EXMA_REPS]  //payload information for MA stage
+    output logic[11:0] s_exma_payload_o[EXMA_REPS], //payload information for MA stage
+    output logic[19:0] s_exma_offset_o              //offset for predictor
 );
-
-    logic[31:0] s_wexma_val[EXMA_REPS], s_wexma_payload[EXMA_REPS],s_rexma_val[EXMA_REPS], s_rexma_payload[EXMA_REPS],
-            s_exma_val[EXMA_REPS], s_exma_payload[EXMA_REPS], s_result[EX_REPS], s_operand1[EXMA_REPS],s_operand2[EXMA_REPS]; 
+    logic[19:0] s_wexma_offset[1], s_rexma_offset[1];
+    logic[11:0] s_wexma_payload[EXMA_REPS], s_exma_payload[EXMA_REPS], s_rexma_payload[EXMA_REPS]; 
+    logic[31:0] s_wexma_val[EXMA_REPS], s_rexma_val[EXMA_REPS], s_exma_val[EXMA_REPS], s_result[EX_REPS], 
+                s_operand1[EXMA_REPS],s_operand2[EXMA_REPS]; 
     logic[1:0] s_pc_incr[EX_REPS];
     logic s_ma_taken[EX_REPS], s_ma_jump[EX_REPS];
     rf_add s_wexma_rd[EXMA_REPS], s_rexma_rd[EXMA_REPS], s_exma_rd[EXMA_REPS];
     f_part s_wexma_f[EXMA_REPS], s_rexma_f[EXMA_REPS], s_exma_f[EXMA_REPS];
     ictrl s_wexma_ictrl[EXMA_REPS], s_rexma_ictrl[EXMA_REPS], s_exma_ictrl[EXMA_REPS];
-    logic s_stall_ex[CTRL_REPS], s_flush_ex[CTRL_REPS],s_lsu[EXMA_REPS], s_lsu_misa[EXMA_REPS],s_lsu_trans[EXMA_REPS], 
+    imiscon s_wexma_imiscon[EXMA_REPS], s_rexma_imiscon[EXMA_REPS], s_exma_imiscon[EXMA_REPS];
+    logic s_wexma_tstrd[EXMA_REPS], s_rexma_tstrd[EXMA_REPS], s_exma_tstrd[EXMA_REPS];
+    logic s_stall_ex[CTRL_REPS], s_flush_ex[CTRL_REPS], s_prevent_ex[CTRL_REPS], s_lsu[EXMA_REPS], s_lsu_misa[EXMA_REPS], 
           s_ex_fin[EX_REPS], s_bubble[EXMA_REPS];
 `ifdef PROTECTED
     logic s_opex_neq[EX_REPS], s_rstpipe[EXMA_REPS];
@@ -73,46 +75,50 @@ module pipeline_4_ex (
     assign s_exma_val_o     = s_exma_val;
     assign s_exma_payload_o = s_exma_payload;
     assign s_exma_ictrl_o   = s_exma_ictrl;
+    assign s_exma_imiscon_o = s_exma_imiscon;
+    assign s_exma_offset_o  = s_rexma_offset[0];
 
+    //Branch/Jump offset for the Predictor - replication is not required
+    seu_regs #(.LABEL("EXMA_OFFST"),.W(20),.N(1))m_exma_offset (.s_c_i({s_clk_i[0]}),.s_d_i(s_wexma_offset),.s_d_o(s_rexma_offset));
     //Bus-Transfer address or payload for the MA stage
-    seu_regs #(.LABEL("EXMA_PYLD"),.N(EXMA_REPS))m_exma_payload (.s_c_i(s_clk_i),.s_d_i(s_wexma_payload),.s_d_o(s_rexma_payload));
+    seu_regs #(.LABEL("EXMA_PYLD"),.W(12),.N(EXMA_REPS))m_exma_payload (.s_c_i(s_clk_i),.s_d_i(s_wexma_payload),.s_d_o(s_rexma_payload));
     //Destination register address
     seu_regs #(.LABEL("EXMA_RD"),.W($size(rf_add)),.N(EXMA_REPS)) m_exma_rd (.s_c_i(s_clk_i),.s_d_i(s_wexma_rd),.s_d_o(s_rexma_rd));
     //Instruction function information
     seu_regs #(.LABEL("EXMA_F"),.W($size(f_part)),.N(EXMA_REPS)) m_exma_f (.s_c_i(s_clk_i),.s_d_i(s_wexma_f),.s_d_o(s_rexma_f));
     //Instruction control indicator
     seu_regs #(.LABEL("EXMA_ICTRL"),.W($size(ictrl)),.N(EXMA_REPS)) m_exma_ictrl (.s_c_i(s_clk_i),.s_d_i(s_wexma_ictrl),.s_d_o(s_rexma_ictrl));
+    //Instruction misconduct indicator
+    seu_regs #(.LABEL("EXMA_IMISCON"),.W($size(imiscon)),.N(EXMA_REPS)) m_exma_imiscon (.s_c_i(s_clk_i),.s_d_i(s_wexma_imiscon),.s_d_o(s_rexma_imiscon));
     //Result value from the EX stage
     seu_regs #(.LABEL("EXMA_VAL"),.N(EXMA_REPS))m_exma_val (.s_c_i(s_clk_i),.s_d_i(s_wexma_val),.s_d_o(s_rexma_val));
+    //Transfer started
+    seu_regs #(.LABEL("EXMA_TSTRD"),.N(EXMA_REPS),.W(1))m_exma_tstrd (.s_c_i(s_clk_i),.s_d_i(s_wexma_tstrd),.s_d_o(s_rexma_tstrd));    
 
 `ifdef PROTECTED
     //Triple-Modular-Redundancy
-    tmr_comb #(.W(32)) m_tmr_exma_payload (.s_d_i(s_rexma_payload),.s_d_o(s_exma_payload));
+    tmr_comb #(.W(12)) m_tmr_exma_payload (.s_d_i(s_rexma_payload),.s_d_o(s_exma_payload));
     tmr_comb #(.W(32)) m_tmr_exma_val (.s_d_i(s_rexma_val),.s_d_o(s_exma_val));
     tmr_comb #(.W($size(rf_add))) m_tmr_exma_rd (.s_d_i(s_rexma_rd),.s_d_o(s_exma_rd));
     tmr_comb #(.W($size(f_part))) m_tmr_exma_f (.s_d_i(s_rexma_f),.s_d_o(s_exma_f));
     tmr_comb #(.W($size(ictrl))) m_tmr_exma_ictrl (.s_d_i(s_rexma_ictrl),.s_d_o(s_exma_ictrl));
-    tmr_comb #(.W(1)) m_lsu_transfer (.s_d_i(s_lsu),.s_d_o(s_lsu_trans));
+    tmr_comb #(.W($size(imiscon))) m_tmr_exma_imiscon (.s_d_i(s_rexma_imiscon),.s_d_o(s_exma_imiscon));
+    tmr_comb #(.W(1)) m_tmr_exma_tstrd (.s_d_i(s_rexma_tstrd),.s_d_o(s_exma_tstrd));
 `else
     assign s_exma_payload   = s_rexma_payload;
     assign s_exma_val       = s_rexma_val;
     assign s_exma_rd        = s_rexma_rd;
     assign s_exma_f         = s_rexma_f;
     assign s_exma_ictrl     = s_rexma_ictrl;
-    assign s_lsu_trans      = s_lsu; 
+    assign s_exma_imiscon   = s_rexma_imiscon;
+    assign s_exma_tstrd     = s_rexma_tstrd;
 `endif
 
-    //Data bus interface signals
-    assign s_haddr_o        = s_operand1[0]; 
-    assign s_hsize_o        = {1'b0,s_opex_f_i[0][1:0]}; 
-    assign s_hwrite_o       = s_opex_f_i[0][3];
-    assign s_hwdata_o       = (s_exma_payload[0][1:0] == 2'b00) ? s_exma_val[0]:
-                              (s_exma_payload[0][1:0] == 2'b01) ? {s_exma_val[0][23:0],8'b0}:
-                              (s_exma_payload[0][1:0] == 2'b10) ? {s_exma_val[0][15:0],16'b0}: {s_exma_val[0][7:0],24'b0};
-    assign s_htrans_o       = {s_lsu_trans[0],1'b0};
-    assign s_hburst_o       = 3'b0;
-    assign s_hmastlock_o    = 1'b0;
-    assign s_hprot_o        = 4'b0;
+    //LSU control
+    assign s_lsu_address_o  = s_operand1[0];
+    assign s_lsu_wdata_o    = s_operand2;
+    //Save offset for predictor
+    assign s_wexma_offset[0]= s_opex_payload_i[0][19:0];
 
     genvar i;
     generate
@@ -155,6 +161,8 @@ module pipeline_4_ex (
             assign s_stall_o[i] = s_bubble[i];
             //Ignore the bubble request, if a stall is signalized from the upper stages
             assign s_flush_ex[i]= s_flush_i[i] | (s_bubble[i] & ~s_stall_ex[i]);
+            //Prevent start of execution in Execute stage
+            assign s_prevent_ex[i] = s_hold_i[i] & ~s_exma_tstrd[i];
             //Bubble can happen only from MDU
             assign s_bubble[i]  = s_opex_ictrl_i[i%2][ICTRL_UNIT_MDU] & ~s_ex_fin[0] 
 `ifdef PROTECTED
@@ -175,38 +183,52 @@ module pipeline_4_ex (
             //Misalignment detection for the Load and Store instructions
             assign s_lsu_misa[i]= ((|s_operand1[i%2][1:0] & s_opex_f_i[i%2][1]) | (s_operand1[i%2][0] & s_opex_f_i[i%2][0]));
             //Data bus transfer activation
-            assign s_lsu[i]     = s_opex_ictrl_i[i%2][ICTRL_UNIT_LSU] & ~s_lsu_misa[i] & ~s_flush_i[i] 
+            assign s_lsu[i]     = s_opex_ictrl_i[i%2][ICTRL_UNIT_LSU] & ~s_lsu_misa[i] & ~s_prevent_ex[i]
 `ifdef PROTECTED            
                                 & ~s_rstpipe[i]
 `endif
                                 ;
+            assign s_lsu_approve_o[i]  = s_lsu[i];
+            
             always_comb begin : pipe_4_writer
-                if(~s_resetn_i[i] | s_flush_ex[i])begin
+                if(~s_resetn_i[i] | s_flush_ex[i] | (~s_stall_ex[i] & s_prevent_ex[i]))begin
                     s_wexma_val[i]      = 32'b0;
-                    s_wexma_payload[i]  = 32'b0;
-                    s_wexma_ictrl[i]    = 8'b0; 
+                    s_wexma_payload[i]  = 12'b0;
+                    s_wexma_ictrl[i]    = 7'b0; 
                     s_wexma_rd[i]       = 5'b0;  
                     s_wexma_f[i]        = 4'b0;
+                    s_wexma_imiscon[i]  = IMISCON_FREE;
                 end else if(s_stall_ex[i])begin
                     s_wexma_val[i]      = s_exma_val[i];
                     s_wexma_payload[i]  = s_exma_payload[i];
                     s_wexma_rd[i]       = s_exma_rd[i];
                     s_wexma_f[i]        = s_exma_f[i];
                     s_wexma_ictrl[i]    = s_exma_ictrl[i];
+                    s_wexma_imiscon[i]  = s_exma_imiscon[i];
                 end else begin
                     s_wexma_rd[i]       = s_opex_rd_i[i%2];
                     s_wexma_f[i]        = s_opex_f_i[i%2];
-                    s_wexma_ictrl[i]    = 
+                    s_wexma_ictrl[i]    = s_opex_ictrl_i[i%2];
+                    s_wexma_imiscon[i]  = 
 `ifdef PROTECTED
-                                          s_rstpipe[i] ? ICTRL_RST_VAL : 
+                                          s_rstpipe[i] ? IMISCON_DSCR : 
 `endif
-                                          s_opex_ictrl_i[i%2];
+                                          s_opex_imiscon_i[i%2];
                     //Select EX stage result
                     s_wexma_val[i]      = (s_opex_ictrl_i[i%2][ICTRL_UNIT_ALU] | 
                                            s_opex_ictrl_i[i%2][ICTRL_UNIT_BRU] | 
-                                           s_opex_ictrl_i[i%2][ICTRL_UNIT_MDU]) ? s_result[i%2] : s_operand2[i];
-                    //Save bus-transfer address or payload for the MA stage
-                    s_wexma_payload[i]  = s_opex_ictrl_i[i%2][ICTRL_UNIT_LSU] ? s_operand1[i%2] : {11'b0,s_opex_payload_i[i%2]};
+                                           s_opex_ictrl_i[i%2][ICTRL_UNIT_MDU]) ? s_result[i%2] : s_operand1[i];
+                    //Payload for the MA stage
+                    s_wexma_payload[i]  = {s_opex_payload_i[i%2][20],s_opex_payload_i[i%2][10:0]};
+                end
+            end
+
+            always_comb begin : lsu_started
+                if(~s_resetn_i[i] | s_flush_ex[i])begin
+                    s_wexma_tstrd[i] = 1'b0;
+                end else begin
+                    //AHB3-Lite requirement: The HTRANS cannot change from NONSEQ to IDLE during delayed transfer
+                    s_wexma_tstrd[i] = s_lsu[i] & s_stall_ex[i];
                 end
             end         
         end

@@ -18,6 +18,8 @@ module dahb_ram#(
     parameter MEM_SIZE = 32'h00001000,
     parameter SIMULATION = 0,
     parameter ENABLE_LOG = 1,
+    parameter GROUP = 1,
+    parameter EDAC = 0,
     parameter LABEL = "MEMORY"
 )
 (
@@ -35,6 +37,9 @@ module dahb_ram#(
     input logic s_hwrite_i[2],
     input logic s_hsel_i[2],
     
+    input logic[6:0] s_hwchecksum_i[2],
+    output logic[6:0] s_hrchecksum_o[2],
+
     output logic[31:0] s_hrdata_o[2],
     output logic s_hready_o[2],
     output logic s_hresp_o[2]
@@ -57,6 +62,7 @@ module dahb_ram#(
     logic[31:0] s_hrdata;
     logic s_hready;
     logic s_hresp;
+    logic[6:0] s_hwchecksum, s_hrchecksum;
 
     //Control which master has granted access to the RAM; the Master 0 is prioritized
     always_comb begin
@@ -74,20 +80,23 @@ module dahb_ram#(
             s_hsel      = 1'b1;
         end
         s_hwdata    = r_selected ? s_hwdata_i[1] : s_hwdata_i[0];
+        s_hwchecksum = r_selected ? s_hwchecksum_i[1] : s_hwchecksum_i[0];
     end
 
     //Response for Master 0
     assign s_hrdata_o[0] = s_hrdata;
     assign s_hready_o[0] = r_trans[0] ? ((r_selected == 1'd1) ? 1'b0 : s_hready) : 1'b1;
     assign s_hresp_o[0]  = r_trans[0] ? ((r_selected == 1'd1) ? 1'b0 : s_hresp) : 1'b0;
+    assign s_hrchecksum_o[0] = s_hrchecksum;
 
     //Response for Master 1
     assign s_hrdata_o[1] = s_hrdata;
     assign s_hready_o[1] = r_trans[1] ? ((r_selected == 1'd0) ? 1'b0 : s_hready) : 1'b1;
     assign s_hresp_o[1]  = r_trans[1] ? ((r_selected == 1'd0) ? 1'b0 : s_hresp) : 1'b0;
+    assign s_hrchecksum_o[1] = s_hrchecksum;
 
     //Dual-port RAM
-    ahb_ram #(.MEM_SIZE(MEM_SIZE),.SIMULATION(SIMULATION),.ENABLE_LOG(ENABLE_LOG),.LABEL(LABEL)) ahb_dmem
+    ahb_ram #(.MEM_SIZE(MEM_SIZE),.SIMULATION(SIMULATION),.ENABLE_LOG(ENABLE_LOG),.LABEL(LABEL),.EDAC(EDAC),.GROUP(GROUP)) ahb_dmem
     (
         .s_clk_i(s_clk_i),
         .s_resetn_i(s_resetn_i),
@@ -102,11 +111,14 @@ module dahb_ram#(
         .s_htrans_i(s_htrans),
         .s_hwrite_i(s_hwrite),
         .s_hsel_i(s_hsel),
+
+        .s_hwchecksum_i(s_hwchecksum),
+        .s_hrchecksum_o(s_hrchecksum),
         
         .s_hrdata_o(s_hrdata),
         .s_hready_o(s_hready),
         .s_hresp_o(s_hresp)
-    );
+    );   
 
     //Save the transfer information from Master 0
     always_ff @(posedge s_clk_i) begin

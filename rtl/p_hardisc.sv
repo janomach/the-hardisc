@@ -20,7 +20,7 @@ package p_hardisc;
     parameter WORD_WIDTH    = 32;
     parameter RF_ADD_WIDTH  = 5;
     parameter OPC_WIDTH     = 5;
-    parameter IFB_WIDTH     = 36;
+    parameter IFB_WIDTH     = 38;
     parameter BOP_WIDTH     = 31;
 
 `ifdef PROTECTED
@@ -86,37 +86,57 @@ package p_hardisc;
                 ICTRL_UNIT_LSU  = 3'd2,
                 ICTRL_UNIT_CSR  = 3'd3,
                 ICTRL_UNIT_MDU  = 3'd4,
-                ICTRL_ILLEGAL   = 3'd5,
-                ICTRL_REG_DEST  = 3'd6,
-                ICTRL_RVC       = 3'd7;
+                ICTRL_REG_DEST  = 3'd5,
+                ICTRL_RVC       = 3'd6;
     parameter [6:0]
                 ICTRL_PRR_VAL   = 7'h03;     
     parameter [7:0]
                 ICTRL_RST_VAL   = 8'h0A,
                 ICTRL_UCE_VAL   = 8'h0B;
+    parameter [2:0]
+                IMISCON_FREE    = 3'd0, //no misconduct
+                IMISCON_ILLE    = 3'd1, //illegal instruction
+                IMISCON_FERR    = 3'd2, //fetch bus error
+                IMISCON_PRED    = 3'd3, //not allowed prediction
+                IMISCON_DSCR    = 3'd4, //discrepancy in pipeline
+                IMISCON_RUCE    = 3'd5, //register uncorrectable error
+                IMISCON_FCER    = 3'd6, //fetch correctable error
+                IMISCON_FUCE    = 3'd7; //fetch uncorrectable error
+    parameter [2:0]
+                FETCH_VALID     = 3'd0, //no fetch error
+                FETCH_BSERR     = 3'd1, //fetch bus error
+                //reserved
+                //reserved
+                FETCH_DISCR     = 3'd4, //fetch discrepancy
+                FETCH_INCER     = 3'd5, //fetch interface correctable error
+                FETCH_INUCE     = 3'd6; //fetch interface uncorrectable error
     parameter [1:0]
                 //LEVEL_USER      = 2'b00,
                 //LEVEL_SUVISOR   = 2'b01,
                 LEVEL_MACHINE   = 2'b11; 
 
+`ifdef EDAC_INTERFACE
     parameter MAX_MCSR    = 15;
-    parameter [3:0]
-                MCSR_STATUS      = 4'd00,
-                MCSR_INSTRET     = 4'd01,
-                MCSR_INSTRETH    = 4'd02,
-                MCSR_CYCLE       = 4'd03,
-                MCSR_CYCLEH      = 4'd04,
-                MCSR_IE          = 4'd05,
-                MCSR_TVEC        = 4'd06,
-                MCSR_EPC         = 4'd07,
-                MCSR_CAUSE       = 4'd08,
-                MCSR_TVAL        = 4'd09,
-                MCSR_IP          = 4'd10,
-                MCSR_SCRATCH     = 4'd11,
-                MCSR_HARTID      = 4'd12, 
-                MCSR_ISA         = 4'd13,
-                MCSR_HRDCTRL0    = 4'd14,
-                MCSR_RSTPOINT    = 4'd15;
+`else
+    parameter MAX_MCSR    = 14;
+`endif
+    parameter [4:0]
+                MCSR_STATUS      = 5'd00,
+                MCSR_INSTRET     = 5'd01,
+                MCSR_INSTRETH    = 5'd02,
+                MCSR_CYCLE       = 5'd03,
+                MCSR_CYCLEH      = 5'd04,
+                MCSR_IE          = 5'd05,
+                MCSR_TVEC        = 5'd06,
+                MCSR_EPC         = 5'd07,
+                MCSR_CAUSE       = 5'd08,
+                MCSR_TVAL        = 5'd09,
+                MCSR_IP          = 5'd10,
+                MCSR_SCRATCH     = 5'd11,
+                MCSR_HARTID      = 5'd12, 
+                MCSR_ISA         = 5'd13,
+                MCSR_HRDCTRL0    = 5'd14,
+                MCSR_ADDRERR     = 5'd15;
     parameter [7:0]
                 CSR_STATUS      = 8'h00,
                 CSR_CYCLE       = 8'h00,
@@ -133,7 +153,8 @@ package p_hardisc;
                 CSR_IP          = 8'h44,
                 CSR_CYCLEH      = 8'h80,
                 CSR_INSTRETH    = 8'h82,
-                CSR_HRDCTRL0    = 8'hC0;
+                CSR_HRDCTRL0    = 8'hC0,
+                CSR_ADDRERR     = 8'hC0;
     parameter [11:0]
                 //CSR_USTATUS     = {2'b00,LEVEL_USER,CSR_STATUS},
                 //CSR_UIE         = {2'b00,LEVEL_USER,CSR_IE},
@@ -153,17 +174,22 @@ package p_hardisc;
                 CSR_MCAUSE      = {2'b00,LEVEL_MACHINE,CSR_CAUSE},
                 CSR_MTVAL       = {2'b00,LEVEL_MACHINE,CSR_TVAL},
                 CSR_MIP         = {2'b00,LEVEL_MACHINE,CSR_IP},
-                CSR_MHRDCSRL0   = {2'b01,LEVEL_MACHINE,CSR_HRDCTRL0},
+                CSR_MHRDCTRL0   = {2'b01,LEVEL_MACHINE,CSR_HRDCTRL0},
                 CSR_MCYCLE      = {2'b10,LEVEL_MACHINE,CSR_CYCLE},
                 CSR_MCYCLEH     = {2'b10,LEVEL_MACHINE,CSR_CYCLEH},
                 CSR_MINSTRET    = {2'b10,LEVEL_MACHINE,CSR_INSTRET},
                 CSR_MINSTRETH   = {2'b10,LEVEL_MACHINE,CSR_INSTRETH},
-                CSR_MHARTID     = {2'b11,LEVEL_MACHINE,CSR_HARTID};
+                CSR_MHARTID     = {2'b11,LEVEL_MACHINE,CSR_HARTID},
+                CSR_MADDRERR    = {2'b11,LEVEL_MACHINE,CSR_ADDRERR};
+    parameter [1:0] 
+                CSR_FUN_ECALL   = 2'b0,
+                CSR_FUN_EBREAK  = 2'b01,
+                CSR_FUN_RET     = 2'b10;
     parameter [2:0]
                 EXC_ILLEGALI    = 3'd0,
-                EXC_ECB_M       = 3'd1,
-                EXC_LSADD_MISS  = 3'd2,
-                EXC_RF_UCE      = 3'd3,
+                EXC_ECALL_M     = 3'd1,
+                EXC_EBREAK_M    = 3'd2,
+                EXC_LSADD_MISS  = 3'd3,
                 EXC_IACCESS     = 3'd4,
                 EXC_LSACCESS    = 3'd5;
     parameter [4:0]
@@ -175,18 +201,27 @@ package p_hardisc;
                 EXC_LACCESS_VAL  = 5'd5,
                 EXC_SADD_MISS_VAL= 5'd6,
                 EXC_SACCESS_VAL  = 5'd7,
-                EXC_ECALL_M_VAL  = 5'd11,
-                EXC_RF_UCE_VAL   = 5'd25;
+                EXC_ECALL_M_VAL  = 5'd11;
     parameter [4:0]  
                 INT_MSI_VAL      = 5'd3,
                 INT_MTI_VAL      = 5'd7,
-                INT_MEI_VAL      = 5'd11;
+                INT_MEI_VAL      = 5'd11,
+                INT_UCE_VAL      = 5'd16,
+                INT_FCER_VAL     = 5'd17,
+                INT_LCER_VAL     = 5'd18,
+                INT_FUCE_VAL     = 5'd19,
+                INT_LUCE_VAL     = 5'd20,
+                INT_RUCE_VAL     = 5'd21;
     parameter [2:0]
                 PIPE_FE = 3'd0,
                 PIPE_ID = 3'd1,
                 PIPE_OP = 3'd2,
                 PIPE_EX = 3'd3,
                 PIPE_MA = 3'd4;
+    parameter [1:0]
+                LSU_RMW_IDLE    = 2'b00,
+                LSU_RMW_READ    = 2'b01,
+                LSU_RMW_WRITE   = 2'b10;
 
     typedef logic[5:0]exception; 
     typedef logic[OPC_WIDTH-1:0]opcode;
@@ -195,6 +230,8 @@ package p_hardisc;
     typedef logic[3:0]f_part;
     typedef logic[3:0]operr;
     typedef logic[3:0]sctrl;
-    typedef logic[7:0]ictrl;
+    typedef logic[6:0]ictrl;
+    typedef logic[2:0]imiscon;
     typedef logic[1:0]rp_info;
+    typedef logic[4:0]ld_info;
 endpackage

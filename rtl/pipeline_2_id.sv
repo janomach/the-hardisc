@@ -27,7 +27,7 @@ module pipeline_2_id (
 `ifdef PROTECTED
     input logic[1:0] s_acm_settings_i,              //acm settings
 `endif
-    input logic[2:0] s_feid_info_i[FEID_REPS],      //instruction payload information
+    input logic[4:0] s_feid_info_i[FEID_REPS],      //instruction payload information
     input logic[31:0] s_feid_instr_i[FEID_REPS],    //instruction to execute
     input logic[1:0] s_feid_pred_i[FEID_REPS],      //instruction prediction information
 
@@ -37,7 +37,8 @@ module pipeline_2_id (
     output rf_add s_idop_rs1_o[IDOP_REPS],          //source register 1 address for OP stage
     output rf_add s_idop_rs2_o[IDOP_REPS],          //source register 2 address for OP stage
     output sctrl s_idop_sctrl_o[IDOP_REPS],         //source control indicator for OP stage
-    output ictrl s_idop_ictrl_o[IDOP_REPS]          //instruction control indicator for OP stage
+    output ictrl s_idop_ictrl_o[IDOP_REPS],         //instruction control indicator for OP stage
+    output imiscon s_idop_imiscon_o[IDOP_REPS]      //instruction misconduct indicator for OP stage
 );
 
     logic[20:0] s_widop_payload[IDOP_REPS], s_ridop_payload[IDOP_REPS];
@@ -47,6 +48,7 @@ module pipeline_2_id (
             s_widop_rs2[IDOP_REPS], s_ridop_rs2[IDOP_REPS]; 
     sctrl s_widop_sctrl[IDOP_REPS],s_ridop_sctrl[IDOP_REPS];
     ictrl s_widop_ictrl[IDOP_REPS],s_ridop_ictrl[IDOP_REPS];
+    imiscon s_widop_imiscon[IDOP_REPS],s_ridop_imiscon[IDOP_REPS];
     logic s_clk_prw[IDOP_REPS], s_resetn_prw[IDOP_REPS];
 
     assign s_idop_rd_o      = s_ridop_rd;
@@ -56,6 +58,7 @@ module pipeline_2_id (
     assign s_idop_f_o       = s_ridop_f;
     assign s_idop_sctrl_o   = s_ridop_sctrl;
     assign s_idop_ictrl_o   = s_ridop_ictrl;
+    assign s_idop_imiscon_o = s_ridop_imiscon;
 
     //Instruction payload information
     seu_regs #(.LABEL("IDOP_PYLD"),.W(21),.N(IDOP_REPS))m_idop_payload (.s_c_i(s_clk_prw),.s_d_i(s_widop_payload),.s_d_o(s_ridop_payload));
@@ -71,6 +74,8 @@ module pipeline_2_id (
     seu_regs #(.LABEL("IDOP_SCTRL"),.W($size(sctrl)),.N(IDOP_REPS)) m_idop_sctrl (.s_c_i(s_clk_prw),.s_d_i(s_widop_sctrl),.s_d_o(s_ridop_sctrl));
     //Instruction control indicator
     seu_regs #(.LABEL("IDOP_ICTRL"),.W($size(ictrl)),.N(IDOP_REPS)) m_idop_ictrl (.s_c_i(s_clk_prw),.s_d_i(s_widop_ictrl),.s_d_o(s_ridop_ictrl));
+    //Instruction misconduct indicator
+    seu_regs #(.LABEL("IDOP_IMISCON"),.W($size(imiscon)),.N(IDOP_REPS)) m_idop_imiscon (.s_c_i(s_clk_prw),.s_d_i(s_widop_imiscon),.s_d_o(s_ridop_imiscon));
 
 	logic  s_flush_id[CTRL_REPS], s_stall_id[CTRL_REPS];
     logic[31:0] s_aligner_instr[IDOP_REPS];
@@ -79,15 +84,15 @@ module pipeline_2_id (
     f_part s_f[IDOP_REPS];
     sctrl s_src_ctrl[IDOP_REPS];
     ictrl s_instr_ctrl[IDOP_REPS];
+    imiscon s_instr_miscon[IDOP_REPS];
     logic s_aligner_stall[IDOP_REPS], s_align_error[IDOP_REPS], 
-          s_aligner_nop[IDOP_REPS], s_fetch_error[IDOP_REPS],
-          s_aligner_pred[IDOP_REPS], s_idop_empty[IDOP_REPS];
+          s_aligner_nop[IDOP_REPS], s_aligner_pred[IDOP_REPS], s_idop_empty[IDOP_REPS];
+    logic [2:0] s_fetch_error[IDOP_REPS];
 `ifdef PROTECTED
     rf_add r_acm_add, r_acm_new_add;
     logic s_acm_add_update;
     logic s_seu_search_enabled;
     logic[1:0]s_op_free_rp[2],s_id_free_rp[2], s_seufix_top;
-    logic s_error[IDOP_REPS], s_fadd_discrep[IDOP_REPS];
 `endif
 
     genvar i;
@@ -127,6 +132,7 @@ module pipeline_2_id (
             decoder m_decoder
             (
                 .s_fetch_error_i(s_fetch_error[i]),
+                .s_align_error_i(s_align_error[i]),
                 .s_instr_i(s_aligner_instr[i]),
                 .s_prediction_i(s_aligner_pred[i]),
                 .s_rs1_o(s_rs1[i]),
@@ -135,17 +141,13 @@ module pipeline_2_id (
                 .s_payload_o(s_payload[i]),
                 .s_f_o(s_f[i]),
                 .s_sctrl_o(s_src_ctrl[i]),
-                .s_ictrl_o(s_instr_ctrl[i])
+                .s_ictrl_o(s_instr_ctrl[i]),
+                .s_imiscon_o(s_instr_miscon[i])
             );
 
             //Indicates empty OP stage, so the IDOP register do not hold executable instruction
-            assign s_idop_empty[i]  = s_ridop_ictrl[i] == 8'b0;
-`ifdef PROTECTED
-            //Differency in the fetch information means the Aligner's output must be bypassed and the instruction marked as corrupted
-            assign s_error[i]       = s_feid_info_i[0] != s_feid_info_i[1];
-            //The value 2'b11 as a prediction information signalizes discrepancies between bus-transfer addresses in the FE stage
-            assign s_fadd_discrep[i]= (s_feid_pred_i[0][1:0] == 2'b11) | (s_feid_pred_i[1][1:0] == 2'b11);   
-`endif
+            assign s_idop_empty[i]  = (s_ridop_ictrl[i] == 8'b0) & (s_ridop_imiscon[i] == 3'b0);
+
             //Update values for IDOP registers
             always_comb begin : pipe_2_writer
                 if(~s_resetn_i[i] | s_flush_id[i] | (s_aligner_nop[i] & ~s_stall_id[i]))begin
@@ -154,25 +156,22 @@ module pipeline_2_id (
                     s_widop_payload[i]  = 21'b0;
                     s_widop_rd[i]       = 5'b0;
                     s_widop_sctrl[i]    = 4'b0; 
-                    s_widop_ictrl[i]    = 8'b0;   
+                    s_widop_ictrl[i]    = 7'b0;
+                    s_widop_imiscon[i]  = IMISCON_FREE; 
                 end else if(s_stall_id[i])begin
                     s_widop_f[i]        = s_ridop_f[i];
                     s_widop_payload[i]  = s_ridop_payload[i];
                     s_widop_rd[i]       = s_ridop_rd[i];
                     s_widop_sctrl[i]    = s_ridop_sctrl[i];
-                    s_widop_ictrl[i]    = s_ridop_ictrl[i]; 
+                    s_widop_ictrl[i]    = s_ridop_ictrl[i];
+                    s_widop_imiscon[i]  = s_ridop_imiscon[i];
                 end else begin
                     s_widop_f[i]        = s_f[i];
                     s_widop_payload[i]  = s_payload[i];
                     s_widop_rd[i]       = s_rd[i];
                     s_widop_sctrl[i]    = s_src_ctrl[i];
-                    s_widop_ictrl[i]    =
-`ifdef PROTECTED    
-                        //Restart fetch due to discrepancies
-                        (s_error[i] | s_fadd_discrep[i]) ? {ICTRL_RST_VAL} : 
-`endif
-                        //Restart fetch due to wrong alignment, probably caused by the Predictor
-                        (s_align_error[i]) ? {1'b1,ICTRL_PRR_VAL} : s_instr_ctrl[i];
+                    s_widop_ictrl[i]    = s_instr_ctrl[i];
+                    s_widop_imiscon[i]  = s_instr_miscon[i];
                 end
             end
 

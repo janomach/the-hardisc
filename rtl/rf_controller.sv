@@ -22,9 +22,9 @@ module rf_controller
 	input logic s_clk_i[CTRL_REPS],             //clock signal
     input logic s_resetn_i[CTRL_REPS],          //reset signal
 
-    input logic[31:0] s_mawb_val_i[MAWB_REPS],  //instruction result for WB stage
-    input rf_add s_mawb_add_i[MAWB_REPS],       //destination register address for WB stage
-    input ictrl s_mawb_ictrl_i[MAWB_REPS],      //instruction control indicator for WB stage
+    input logic[31:0] s_mawb_val_i[MAWB_REPS],  //instruction result from WB stage
+    input rf_add s_mawb_add_i[MAWB_REPS],       //destination register address from WB stage
+    input ictrl s_mawb_ictrl_i[MAWB_REPS],      //instruction control indicator from WB stage
 
     input rf_add s_r_p1_add_i[IDOP_REPS],       //read port 1 address
     input rf_add s_r_p2_add_i[IDOP_REPS],       //read port 2 address
