@@ -81,6 +81,12 @@ SECTIONS
     KEEP (*(.text.start))
   } >ram
 
+  /* interrupt vectors */
+  .vectors        :
+  {
+    PROVIDE(__vector_start = .);
+    KEEP(*(.vectors));
+  } >ram
 
   /* More dynamic linking sections */
 /*

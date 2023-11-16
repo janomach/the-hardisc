@@ -31,6 +31,7 @@ BINARY              := "${HARDISC_DIR}/example/hello_world/test.bin"
 LD_SCRIPT           := ${HARDISC_DIR}/example/custom/link.ld
 SYSCALLS            := ${HARDISC_DIR}/example/custom/syscalls.c
 STARTUP             := ${HARDISC_DIR}/example/custom/crt0.S
+VECTORS             := ${HARDISC_DIR}/example/custom/vectors.S
 CFLAGS              := -static -O3 -mcmodel=medany -march=rv32imc -mabi=ilp32 -nostdlib
 RISCV               := /opt/riscv
 
@@ -47,6 +48,6 @@ hardiscSim:
 	vsim -${HOW} ${HARDISC_SIM}/work.tb_mh_wrapper +BOOTADD=${BOOT_ADD} +TIMEOUT=${SIM_TIMEOUT} +BIN=${BINARY} +LOGGING=${LOGGING} +SEE_PROB=${SEE_PROB} +SEE_GROUP=${SEE_GROUP} +LAT=${LAT} -sv_seed ${SV_SEED} +LFILE=$(HARDISC_DIR)/hardisc_${TIME_STAMP}.log -do "do ${HARDISC_DIR}/scripts/basic_waves_mh.do; run 100ms"
 
 compileTest:
-	riscv32-unknown-elf-gcc -o ${TEST_DIR}/test.o ${TEST_DIR}/test.c ${SYSCALLS} -T ${LD_SCRIPT} ${STARTUP} ${CFLAGS} -I ${RISCV}/include -L ${RISCV}/lib -lc -lm -lgcc
+	riscv32-unknown-elf-gcc -o ${TEST_DIR}/test.o ${TEST_DIR}/test.c ${SYSCALLS} -T ${LD_SCRIPT} ${VECTORS} ${STARTUP} ${CFLAGS} -I ${RISCV}/include -L ${RISCV}/lib -lc -lm -lgcc
 	riscv32-unknown-elf-objcopy -O binary ${TEST_DIR}/test.o ${TEST_DIR}/test.bin
 	riscv32-unknown-elf-objdump --disassemble ${TEST_DIR}/test.o > ${TEST_DIR}/test.txt

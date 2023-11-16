@@ -27,7 +27,8 @@ module c_decoder (
     output rf_add s_rs2_o,          //read address for read port 2 of register file
     output rf_add s_rd_o,           //write addres for register file
     output sctrl s_sctrl_o,         //source control indicator
-    output ictrl s_ictrl_o          //instruction control indicator 
+    output ictrl s_ictrl_o,         //instruction control indicator
+    output imiscon s_imiscon_o      //instruction misconduct indicator 
 );
     logic[7:0] s_funct3;
     logic[2:0] s_quad;
@@ -35,12 +36,13 @@ module c_decoder (
     rf_add s_11to7, s_rs1, s_rs2, s_rd;
     ictrl s_instr_ctrl;
     sctrl s_src_ctrl;
+    imiscon s_instr_miscon;
     logic s_beqz, s_bnez, s_j, s_jal, s_jr, s_jalr, s_li, 
             s_lui, s_addi, s_addi16sp, s_addi4spn, s_lw, s_sw, s_rs1zero, 
             s_rdsp, s_nzimm6bzr, s_nzuimmzr, s_slli, s_srli, s_srai, s_shamtzr, 
             s_andi, s_mv, s_add, s_and, s_or, s_xor, s_sub,
             s_lwsp, s_swsp, s_branch, s_jump, s_load, s_store, s_op_imm, s_op, 
-            s_known, s_illi, s_ebreak, s_pred_not_allowed;
+            s_known, s_illi, s_ebreak, s_pred_not_allowed, s_illegal;
     logic[7:0] s_uimm8lwsp, s_uimm8swsp;
     logic[9:0] s_uimm10_0, s_uimm10_1, s_imm10, s_uimm10lwsw, s_uimm10adi4;
     logic[19:0] s_uimm, s_imm, s_immediate;
@@ -51,9 +53,10 @@ module c_decoder (
     assign s_rs1_o      = s_rs1;
     assign s_rs2_o      = s_rs2;
     assign s_rd_o       = s_rd;
-    assign s_f_o        = (s_instr_ctrl[ICTRL_ILLEGAL]) ? 4'b1 : s_fun;
-    assign s_ictrl_o    = s_pred_not_allowed ? {1'b1,ICTRL_PRR_VAL} : s_instr_ctrl;
+    assign s_f_o        = s_fun;
+    assign s_ictrl_o    = s_instr_ctrl;
     assign s_sctrl_o    = s_src_ctrl;
+    assign s_imiscon_o  = s_instr_miscon;
     assign s_imm_o      = s_immediate;
 
     genvar i;
@@ -113,6 +116,7 @@ module c_decoder (
     assign s_op         = s_mv | s_add | s_sub | s_xor | s_or | s_and;
     assign s_op_imm     = s_addi | s_addi4spn | s_addi16sp | s_srli | s_srai | s_slli | s_andi | s_li;
     assign s_known      = (s_branch | s_jump | s_load | s_store | s_op | s_op_imm | s_lui | s_ebreak);
+    assign s_illegal    = s_illi | (~s_known);
 
     //Instruction function and RF address selector
     assign s_rs1        = (s_lw | s_sw | s_srli | s_srai | s_andi | s_and | 
@@ -130,7 +134,7 @@ module c_decoder (
                             (s_srli | s_srai) ? 3'd5 :
                             (s_or) ? 3'd6 :
                             (s_andi | s_and) ? 3'd7 : 3'd0;
-    assign s_fun[3]     = (s_beqz | s_bnez | s_sub | s_ebreak | s_srai | s_store | s_jr | s_jalr | s_jal | s_j);
+    assign s_fun[3]     = (s_beqz | s_bnez | s_sub | s_srai | s_store | s_jr | s_jalr | s_jal | s_j);
 
     //Immediate value, note that if LSB is defined to be 1'b0, it is not propagated from the ID stage
     assign s_uimm8lwsp  = {s_instr_i[3:2],s_instr_i[12],s_instr_i[6:4],2'b0}; //lwsp
@@ -152,7 +156,8 @@ module c_decoder (
     assign s_imm12_1    = (s_addi16sp) ? {{2{s_instr_i[12]}},s_imm10} : {{6{s_instr_i[12]}},s_imm6};
 
     assign s_imm        = (s_j | s_jal | s_beqz | s_bnez | s_jalr | s_jr) ? {{8{s_imm12_0[11]}},s_imm12_0} : 
-                            (s_lui) ? {{14{s_instr_i[12]}},s_imm6} : {{8{s_instr_i[12]}},s_imm12_1[11:1],s_imm12_1[0] | s_ebreak};
+                          (s_lui) ? {{14{s_instr_i[12]}},s_imm6} : 
+                          (s_ebreak) ? {9'b0,CSR_FUN_EBREAK,9'b0} : {{8{s_instr_i[12]}},s_imm12_1[11:1],s_imm12_1[0]};
     assign s_immediate  = (s_load | s_store | s_addi4spn) ? s_uimm : s_imm;
     
     //Instruction source specifier
@@ -168,9 +173,9 @@ module c_decoder (
     assign s_instr_ctrl[ICTRL_UNIT_CSR] = (s_ebreak);
     assign s_instr_ctrl[ICTRL_UNIT_MDU] = 1'b0;
     assign s_instr_ctrl[ICTRL_REG_DEST] = (|s_rd) & (s_load | s_jal | s_jalr | s_li | s_lui | s_op_imm | s_op);
-    assign s_instr_ctrl[ICTRL_ILLEGAL]  = s_illi | (~s_known);
     assign s_instr_ctrl[ICTRL_RVC]      = 1'b1;
     //Prediction is not allowed from other instructions than branch/jump
     assign s_pred_not_allowed           = s_prediction_i & (~s_instr_ctrl[ICTRL_UNIT_BRU]);
+    assign s_instr_miscon               = s_illegal ? IMISCON_ILLE : s_pred_not_allowed ? IMISCON_PRED : IMISCON_FREE;
 
 endmodule

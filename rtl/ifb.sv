@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+`include "settings.sv"
 import p_hardisc::*;
 
 module ifb #(
@@ -26,8 +27,10 @@ module ifb #(
     input logic s_push_i,                       //push data into the buffer
     input logic s_pop_i,                        //pop data out of the buffer
     input logic[1:0] s_ras_pred_i,              //RAS prediction update
-    input logic[IFB_WIDTH-1:0] s_data_i,        //data to be pushed           
+    input logic[IFB_WIDTH-1:0] s_data_i,        //data to be pushed
+    input logic[6:0] s_checksum_i,              //data checksum           
 
+    output logic s_valid_o,                     //valid data at the output
     output logic[IFB_WIDTH-1:0] s_data_o,       //data to be poped out
     output logic[IFB_WIDTH-1:0] s_last_entry_o, //last pushed entry
     output logic[SIZE-1:0] s_occupied_o         //occupancy of each entry
@@ -46,18 +49,21 @@ module ifb #(
     logic[IFB_WIDTH-1:0] s_rbuffer[SIZE], s_ubuffer[SIZE];
     logic[SIZE-1:0] s_woccupied[1];
     logic[SIZE-1:0] s_roccupied[1];
-
+    logic[IFB_WIDTH-1:0] s_buffer0;
+    logic s_pop;
+`ifdef EDAC_INTERFACE
+    logic[31:0] s_corrected_data;
+    logic[6:0] s_wchecksum[1], s_rchecksum[1], s_achecksum, s_syndrome;
+    logic s_ce, s_uce, s_fetch_check;
+`endif
     //Buffer to hold data
     seu_regs #(.LABEL(LABEL),.W(IFB_WIDTH),.N(SIZE),.NC(1)) m_seu_buffer(.s_c_i({s_clk_i}),.s_d_i(s_wbuffer),.s_d_o(s_rbuffer));
     //Entries occupancy information
     seu_regs #(.LABEL(LABEL + "OCPD"),.W(SIZE),.N(1),.NC(1)) m_seu_occupied(.s_c_i({s_clk_i}),.s_d_i(s_woccupied),.s_d_o(s_roccupied));
-
-    //If RAS signalizes TOC, update the prediction inforamtion
-    assign s_ubuffer[0][35:34]  = (s_ras_pred_i != 2'b0) ? s_ras_pred_i : s_rbuffer[0][35:34];
-    assign s_ubuffer[0][33:0]   = s_rbuffer[0][33:0];
-    assign s_ubuffer[1]         = s_rbuffer[1];
-    assign s_ubuffer[2]         = s_rbuffer[2];
-    assign s_ubuffer[3]         = s_rbuffer[3];
+`ifdef EDAC_INTERFACE
+    //Data checksum
+    seu_regs #(.LABEL(LABEL + "CHECKSUM"),.W(7),.N(1),.NC(1)) m_seu_checksum(.s_c_i({s_clk_i}),.s_d_i(s_wchecksum),.s_d_o(s_rchecksum));
+`endif
 
     //Output the last entry
     assign s_last_entry_o   = s_rbuffer[0];
@@ -66,7 +72,47 @@ module ifb #(
     //Select the earliest pushed data to the FIFO output
     assign s_data_o         = s_roccupied[0][SIZE-1] ? s_ubuffer[SIZE-1] :
                               s_roccupied[0][SIZE-2] ? s_ubuffer[SIZE-2] :
-                              s_roccupied[0][SIZE-3] ? s_ubuffer[SIZE-3] : s_ubuffer[SIZE-4];
+                              s_roccupied[0][SIZE-3] ? s_ubuffer[SIZE-3] : s_buffer0;
+
+`ifdef EDAC_INTERFACE
+    //Check the fetched data for any errors
+    secded_encode m_encode  (.s_data_i(s_rbuffer[0][31:0]),.s_checksum_o(s_achecksum));
+    secded_analyze m_analyze(.s_syndrome_i(s_syndrome),.s_ce_o(s_ce),.s_uce_o(s_uce));
+    secded_decode m_decode  (.s_data_i(s_rbuffer[0][31:0]),.s_syndrome_i(s_syndrome),.s_data_o(s_corrected_data));
+    assign s_syndrome       = s_achecksum ^ s_rchecksum[0];
+
+    //Check only once and only if the fetch was succesful
+    assign s_fetch_check    = s_rbuffer[0][35:33] == FETCH_VALID;
+    //Delay poping if the IFB has only a single entry that has an error; if the error is corretable, it will be corrected
+    assign s_valid_o        = s_roccupied[0][0] & (~s_fetch_check | s_roccupied[0][1] | ~(s_ce | s_uce));
+    //Corrected data; the decoder does not change data that are not faulty
+    assign s_ubuffer[0][31:0]   = s_corrected_data;
+    assign s_ubuffer[0][32:32]  = s_rbuffer[0][32:32];
+
+    always_comb begin : fetch_check
+        s_ubuffer[0][35:33] = s_rbuffer[0][35:33];
+        if(s_roccupied[0][0] & s_fetch_check)begin
+            if(s_ce) //Save information that the data contains a correctable error
+                s_ubuffer[0][35:33] = FETCH_INCER;
+            else if(s_uce) //Save information that the data contains an uncorrectable error
+                s_ubuffer[0][35:33] = FETCH_INUCE;
+        end
+    end
+`else
+    assign s_valid_o            = s_roccupied[0][0];
+    assign s_ubuffer[0][35:0]   = s_rbuffer[0][35:0];
+`endif
+    //Pop can happen only if data are prepared
+    assign s_pop        = s_pop_i & s_valid_o;
+
+    //If RAS signalizes TOC, update the prediction inforamtion
+    assign s_buffer0[37:36] = (s_ras_pred_i != 2'b0) ? s_ras_pred_i : s_rbuffer[0][37:36];
+    assign s_buffer0[35:0]  = s_rbuffer[0][35:0];
+
+    assign s_ubuffer[0][37:36]  = s_buffer0[37:36];
+    assign s_ubuffer[1]         = s_rbuffer[1];
+    assign s_ubuffer[2]         = s_rbuffer[2];
+    assign s_ubuffer[3]         = s_rbuffer[3];
 
     //Control structure for movement of data between entries of the FIFO
     always_comb begin
@@ -81,11 +127,20 @@ module ifb #(
             s_woccupied[0][0] = 1'b0;
         end else if(s_push_i)begin
             s_woccupied[0][0] = 1'b1;
-        end else if(s_pop_i)begin
+        end else if(s_pop)begin
             s_woccupied[0][0] = s_roccupied[0][1];
         end else begin
             s_woccupied[0][0] = s_roccupied[0][0];
         end
+`ifdef EDAC_INTERFACE
+        if(~s_resetn_i)begin
+            s_wchecksum[0] = 6'b0;
+        end else if(s_push_i)begin
+            s_wchecksum[0] = s_checksum_i;
+        end else begin
+            s_wchecksum[0] = s_rchecksum[0]; 
+        end
+`endif
     end
 
     genvar i;
@@ -99,9 +154,9 @@ module ifb #(
                 end
                 if(~s_resetn_i | s_flush_i)begin
                     s_woccupied[0][i] = 1'b0;
-                end else if(s_push_i & ~s_pop_i)begin
+                end else if(s_push_i & ~s_pop)begin
                     s_woccupied[0][i] = s_roccupied[0][i-1];
-                end else if(~s_push_i & s_pop_i)begin
+                end else if(~s_push_i & s_pop)begin
                     s_woccupied[0][i] = s_roccupied[0][i+1];
                 end else begin
                     s_woccupied[0][i] = s_roccupied[0][i];
@@ -118,9 +173,9 @@ module ifb #(
         end
         if(~s_resetn_i | s_flush_i)begin
             s_woccupied[0][SIZE-1] = 1'b0;
-        end else if(s_push_i & ~s_pop_i)begin
+        end else if(s_push_i & ~s_pop)begin
             s_woccupied[0][SIZE-1] = s_roccupied[0][SIZE-2];
-        end else if(~s_push_i & s_pop_i)begin
+        end else if(~s_push_i & s_pop)begin
             s_woccupied[0][SIZE-1] = 1'b0;
         end else begin
             s_woccupied[0][SIZE-1] = s_roccupied[0][SIZE-1];

@@ -28,21 +28,21 @@ module csru (
     input logic s_int_meip_i,                       //external interrupt
     input logic s_int_mtip_i,                       //timer interrupt
     input logic s_int_msip_i,                       //software interrupt
-`ifdef PROTECTED
     input logic s_int_uce_i,                        //uncorrectable error in register-file
+    input logic s_int_lcer_i[MAWB_REPS],            //correctable error on load interface
+    input logic s_nmi_luce_i[MAWB_REPS],            //uncorrectable error on load interface
+`ifdef PROTECTED
     output logic[1:0] s_acm_settings_o,             //acm settings
 `endif
-
+    input logic s_hresp_i[EXMA_REPS],               //registered hresp signal
+    input imiscon s_imiscon_i[EXMA_REPS],           //instruction misconduct indicator
     input logic s_rstpp_i[EXMA_REPS],               //pipeline reset
     input logic[31:0] s_newrst_point_i[EXMA_REPS],  //new reset-point address
     input logic s_interrupted_i[EXMA_REPS],         //interrupt approval
-    input logic s_exception_i[EXMA_REPS],           //exception condition
-    input logic[4:0] s_exc_code_i[EXMA_REPS],       //code of exception condition
 
-    input logic s_valid_instr_i[EXMA_REPS],         //valid instruction in MA stage
     input ictrl s_ictrl_i[EXMA_REPS],               //instruction control indicator
     input f_part s_function_i[EXMA_REPS],           //instruction function
-    input logic[31:0] s_payload_i[EXMA_REPS],       //instruction payload information
+    input logic[11:0] s_payload_i[EXMA_REPS],       //instruction payload information
     input logic[31:0] s_val_i[EXMA_REPS],           //result from EX stage
     output logic[31:0] s_csr_r_o[EXMA_REPS],        //value read from requested CSR
     output logic[31:0] s_exc_trap_o[EXMA_REPS],     //exception trap-handler address
@@ -51,6 +51,7 @@ module csru (
     output logic[31:0] s_mepc_o[EXMA_REPS],         //address saved in MEPC CSR
     output logic s_treturn_o[EXMA_REPS],            //return from trap-handler
     output logic s_int_pending_o[EXMA_REPS],        //pending interrupt
+    output logic s_exception_o[EXMA_REPS],          //exception
     output logic s_pred_disable_o,                  //disable any predictions
     output logic s_hrdmax_rst_o                     //max consecutive pipeline restarts reached
 );
@@ -58,8 +59,8 @@ module csru (
     logic[31:0]s_rmcsr[EXMA_REPS][0:MAX_MCSR];
     logic[31:0]s_wmcsr[EXMA_REPS][0:MAX_MCSR];
     logic[31:0] s_csr_r_val[EXMA_REPS], s_exc_trap[EXMA_REPS], s_int_trap[EXMA_REPS];
-    logic s_int_pending[EXMA_REPS], s_mret[EXMA_REPS];
-    logic[12:0]s_wmie[EXMA_REPS], s_rmie[EXMA_REPS], s_wmip[EXMA_REPS], s_rmip[EXMA_REPS],s_mie[EXMA_REPS], s_mip[EXMA_REPS];
+    logic s_int_pending[EXMA_REPS], s_exception[EXMA_REPS], s_mret[EXMA_REPS];
+    logic[14:0]s_wmie[EXMA_REPS], s_rmie[EXMA_REPS], s_wmip[EXMA_REPS], s_rmip[EXMA_REPS],s_mie[EXMA_REPS], s_mip[EXMA_REPS];
     logic[31:0]s_wmstatus[EXMA_REPS],s_wmscratch[EXMA_REPS],s_wminstret[EXMA_REPS],s_wminstreth[EXMA_REPS],s_wmcycle[EXMA_REPS],s_wmcycleh[EXMA_REPS],
                 s_wmtvec[EXMA_REPS],s_wmepc[EXMA_REPS],s_wmcause[EXMA_REPS],s_wmtval[EXMA_REPS],s_wmhrdctrl0[EXMA_REPS], s_wrstpoint[EXMA_REPS];
     logic[31:0]s_rmstatus[EXMA_REPS],s_rmscratch[EXMA_REPS],s_rminstret[EXMA_REPS],s_rminstreth[EXMA_REPS],s_rmcycle[EXMA_REPS],s_rmcycleh[EXMA_REPS],
@@ -67,6 +68,9 @@ module csru (
                 s_mstatus[EXMA_REPS],s_mscratch[EXMA_REPS],s_minstret[EXMA_REPS],s_minstreth[EXMA_REPS],s_mcycle[EXMA_REPS],s_mcycleh[EXMA_REPS],
                 s_mtvec[EXMA_REPS],s_mepc[EXMA_REPS],s_mcause[EXMA_REPS],s_mtval[EXMA_REPS],s_mhrdctrl0[EXMA_REPS], s_rstpoint[EXMA_REPS];
     logic s_clk_prw[EXMA_REPS], s_resetn_prw[EXMA_REPS];
+`ifdef EDAC_INTERFACE
+    logic[31:0]s_wmaddrerr[EXMA_REPS],s_rmaddrerr[EXMA_REPS], s_maddrerr[EXMA_REPS];
+`endif
 
     //CSR registers
     seu_regs #(.LABEL("CSR_MSTATUS"),.N(EXMA_REPS))m_mstatus (.s_c_i(s_clk_prw),.s_d_i(s_wmstatus),.s_d_o(s_rmstatus));
@@ -80,9 +84,12 @@ module csru (
     seu_regs #(.LABEL("CSR_MCAUSE"),.N(EXMA_REPS))m_mcause (.s_c_i(s_clk_prw),.s_d_i(s_wmcause),.s_d_o(s_rmcause));
     seu_regs #(.LABEL("CSR_MTVAL"),.N(EXMA_REPS))m_mtval (.s_c_i(s_clk_prw),.s_d_i(s_wmtval),.s_d_o(s_rmtval));
     seu_regs #(.LABEL("CSR_MHRDCTRL0"),.N(EXMA_REPS))m_mhrdctrl0 (.s_c_i(s_clk_prw),.s_d_i(s_wmhrdctrl0),.s_d_o(s_rmhrdctrl0));
-    seu_regs #(.LABEL("CSR_MIE"),.W(13),.N(EXMA_REPS)) m_mie (.s_c_i(s_clk_prw),.s_d_i(s_wmie),.s_d_o(s_rmie));
-    seu_regs #(.LABEL("CSR_MIP"),.W(13),.N(EXMA_REPS)) m_mip (.s_c_i(s_clk_prw),.s_d_i(s_wmip),.s_d_o(s_rmip));
-    seu_regs #(.LABEL("CSR_RSTPOINT"),.N(EXMA_REPS)) m_rstpoint (.s_c_i(s_clk_prw),.s_d_i(s_wrstpoint),.s_d_o(s_rrstpoint));
+    seu_regs #(.LABEL("CSR_MIE"),.W(15),.N(EXMA_REPS)) m_mie (.s_c_i(s_clk_prw),.s_d_i(s_wmie),.s_d_o(s_rmie));
+    seu_regs #(.LABEL("CSR_MIP"),.W(15),.N(EXMA_REPS)) m_mip (.s_c_i(s_clk_prw),.s_d_i(s_wmip),.s_d_o(s_rmip));
+`ifdef EDAC_INTERFACE
+    seu_regs #(.LABEL("CSR_MADDRERR"),.N(EXMA_REPS))m_maddrerr (.s_c_i(s_clk_prw),.s_d_i(s_wmaddrerr),.s_d_o(s_rmaddrerr));
+`endif
+    seu_regs #(.LABEL("RSTPOINT"),.N(EXMA_REPS)) m_rstpoint (.s_c_i(s_clk_prw),.s_d_i(s_wrstpoint),.s_d_o(s_rrstpoint));
 
 `ifdef PROTECTED
     //Triple-Modular-Redundancy
@@ -98,8 +105,11 @@ module csru (
     tmr_comb m_tmr_mtval (.s_d_i(s_rmtval),.s_d_o(s_mtval));
     tmr_comb m_tmr_mhrdctrl0 (.s_d_i(s_rmhrdctrl0),.s_d_o(s_mhrdctrl0));
     tmr_comb m_tmr_rstpoint (.s_d_i(s_rrstpoint),.s_d_o(s_rstpoint));
-    tmr_comb #(.W(13)) m_tmr_mie (.s_d_i(s_rmie),.s_d_o(s_mie));
-    tmr_comb #(.W(13)) m_tmr_mip (.s_d_i(s_rmip),.s_d_o(s_mip));
+    tmr_comb #(.W(15)) m_tmr_mie (.s_d_i(s_rmie),.s_d_o(s_mie));
+    tmr_comb #(.W(15)) m_tmr_mip (.s_d_i(s_rmip),.s_d_o(s_mip));
+`ifdef EDAC_INTERFACE
+    tmr_comb m_tmr_maddrerr (.s_d_i(s_rmaddrerr),.s_d_o(s_maddrerr));
+`endif
 `else
     assign s_mstatus    = s_rmstatus;
     assign s_minstret   = s_rminstret;
@@ -115,12 +125,16 @@ module csru (
     assign s_rstpoint   = s_rrstpoint;
     assign s_mie        = s_rmie;
     assign s_mip        = s_rmip;
+`ifdef EDAC_INTERFACE
+    assign s_maddrerr   = s_rmaddrerr;
+`endif
 `endif
 
     assign s_pred_disable_o = s_mhrdctrl0[0][3];
     assign s_hrdmax_rst_o   = s_mhrdctrl0[0][2];
     assign s_acm_settings_o = s_mhrdctrl0[0][5:4];
     assign s_int_pending_o  = s_int_pending; 
+    assign s_exception_o    = s_exception;
     assign s_csr_r_o        = s_csr_r_val;  
     assign s_treturn_o      = s_mret;
     assign s_mepc_o         = s_mepc;
@@ -140,31 +154,34 @@ module csru (
             assign s_rmcsr[i][MCSR_CYCLE]   = s_mcycle[i];
             assign s_rmcsr[i][MCSR_CYCLEH]  = s_mcycleh[i];
             assign s_rmcsr[i][MCSR_SCRATCH] = s_mscratch[i];
-            assign s_rmcsr[i][MCSR_IE]      = {19'h0,s_mie[i]};
+            assign s_rmcsr[i][MCSR_IE]      = {17'h0,s_mie[i]};
             assign s_rmcsr[i][MCSR_TVEC]    = s_mtvec[i];
             assign s_rmcsr[i][MCSR_EPC]     = s_mepc[i];
             assign s_rmcsr[i][MCSR_CAUSE]   = s_mcause[i];
             assign s_rmcsr[i][MCSR_TVAL]    = s_mtval[i]; 
-            assign s_rmcsr[i][MCSR_IP]      = {19'h0,s_mip[i]}; 
+            assign s_rmcsr[i][MCSR_IP]      = {17'h0,s_mip[i]}; 
             assign s_rmcsr[i][MCSR_HRDCTRL0]= s_mhrdctrl0[i]; 
-            assign s_rmcsr[i][MCSR_RSTPOINT]= s_rstpoint[i]; 
             assign s_rmcsr[i][MCSR_HARTID]  = 32'b0;
             assign s_rmcsr[i][MCSR_ISA]     = 32'h40001104; // 32bit - IMC
 
+`ifdef EDAC_INTERFACE
+            assign s_rmcsr[i][MCSR_ADDRERR] = s_maddrerr[i];
+            assign s_wmaddrerr[i]           = s_wmcsr[i][MCSR_ADDRERR];
+`endif
             assign s_wmstatus[i]            = s_wmcsr[i][MCSR_STATUS];
             assign s_wminstret[i]           = s_wmcsr[i][MCSR_INSTRET];
             assign s_wminstreth[i]          = s_wmcsr[i][MCSR_INSTRETH];
             assign s_wmcycle[i]             = s_wmcsr[i][MCSR_CYCLE];
             assign s_wmcycleh[i]            = s_wmcsr[i][MCSR_CYCLEH];
             assign s_wmscratch[i]           = s_wmcsr[i][MCSR_SCRATCH];
-            assign s_wmie[i]                = s_wmcsr[i][MCSR_IE][12:0];
+            assign s_wmie[i]                = s_wmcsr[i][MCSR_IE][14:0];
             assign s_wmtvec[i]              = s_wmcsr[i][MCSR_TVEC];
             assign s_wmepc[i]               = s_wmcsr[i][MCSR_EPC];
             assign s_wmcause[i]             = s_wmcsr[i][MCSR_CAUSE];
             assign s_wmtval[i]              = s_wmcsr[i][MCSR_TVAL]; 
-            assign s_wmip[i]                = s_wmcsr[i][MCSR_IP][12:0]; 
-            assign s_wmhrdctrl0[i]          = s_wmcsr[i][MCSR_HRDCTRL0]; 
-            assign s_wrstpoint[i]           = s_wmcsr[i][MCSR_RSTPOINT];
+            assign s_wmip[i]                = s_wmcsr[i][MCSR_IP][14:0]; 
+            assign s_wmhrdctrl0[i]          = s_wmcsr[i][MCSR_HRDCTRL0];
+
 
             csr_executor m_csr_executor(
                 .s_resetn_i(s_resetn_i[i]),
@@ -174,23 +191,25 @@ module csru (
                 .s_int_meip_i(s_int_meip_i),
                 .s_int_mtip_i(s_int_mtip_i),
                 .s_int_msip_i(s_int_msip_i),
-`ifdef PROTECTED
                 .s_int_uce_i(s_int_uce_i),
-`endif
+                .s_int_lcer_i(s_int_lcer_i[i]),
+                .s_nmi_luce_i(s_nmi_luce_i[i]),
+                .s_hresp_i(s_hresp_i[i]),
+                .s_imiscon_i(s_imiscon_i[i]),
                 .s_rstpp_i(s_rstpp_i[i]),
                 .s_interrupted_i(s_interrupted_i[i]),
-                .s_exception_i(s_exception_i[i]),
-                .s_exc_code_i(s_exc_code_i[i]),
                 .s_newrst_point_i(s_newrst_point_i[i]),
-                .s_valid_instr_i(s_valid_instr_i[i]),
                 .s_ictrl_i(s_ictrl_i[i]),
                 .s_function_i(s_function_i[i]),
                 .s_payload_i(s_payload_i[i]),
                 .s_mcsr_i(s_rmcsr[i]),
                 .s_val_i(s_val_i[i]),
+                .s_rstpoint_i(s_rstpoint[i]),
+                .s_rstpoint_o(s_wrstpoint[i]),
                 .s_int_trap_o(s_int_trap[i]),
                 .s_exc_trap_o(s_exc_trap[i]),
                 .s_int_pending_o(s_int_pending[i]),
+                .s_exception_o(s_exception[i]),
                 .s_mret_o(s_mret[i]),
                 .s_csr_r_val_o(s_csr_r_val[i]),
                 .s_mcsr_o(s_wmcsr[i])

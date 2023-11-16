@@ -32,6 +32,9 @@ module ahb_interconnect #(
     input logic s_shready_i[SLAVES],
     input logic s_shresp_i[SLAVES],
     output logic s_hsel_o[SLAVES],
+
+    input logic[6:0] s_shrchecksum_i[SLAVES],
+    output logic[6:0] s_shrchecksum_o,
     
     output logic[31:0] s_shrdata_o,
     output logic  s_shready_o,
@@ -44,6 +47,7 @@ module ahb_interconnect #(
     logic r_active, s_stall;
 
     //Select appropriate signals for the master
+    assign s_shrchecksum_o  = s_shrchecksum_i[r_selected];
     assign s_shrdata_o  = s_shrdata_i[r_selected];
     assign s_shready_o  = s_shready_i[r_selected];
     assign s_shresp_o   = s_shresp_i[r_selected];

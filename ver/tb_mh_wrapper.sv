@@ -16,6 +16,13 @@
 
 `include "../rtl/settings.sv"
 import p_hardisc::*;
+import edac::*;
+
+`ifdef EDAC_INTERFACE
+`define EDAC_MEMORY 1
+`else
+`define EDAC_MEMORY 0
+`endif
 
 `timescale 1ps/1ps
 
@@ -24,18 +31,21 @@ module tb_mh_wrapper();
 localparam MEM_SIZE = 32'h100000;
 localparam MEM_MSB  = $clog2(MEM_SIZE) - 32'h1;
 
+logic[6:0] s_i_hrchecksum[1], s_i_hwchecksum[1];
 logic[31:0] s_i_hrdata[1], s_i_haddr[1], s_i_hwdata[1];
 logic s_i_hwrite[1], s_i_hmastlock[1],s_i_hready[1],s_i_hresp[1];
 logic[1:0] s_i_htrans[1];
 logic[2:0] s_i_hsize[1],s_i_hburst[1];
 logic[3:0] s_i_hprot[1];
 
+logic[6:0] s_d_hrchecksum[1], s_d_hwchecksum[1];
 logic[31:0] s_d_hrdata[1], s_d_haddr[1], s_d_hwdata[1];
 logic s_d_hwrite[1], s_d_hmastlock[1],s_d_hready[1],s_d_hresp[1];
 logic[1:0] s_d_htrans[1];
 logic[2:0] s_d_hsize[1],s_d_hburst[1];
 logic[3:0] s_d_hprot[1];
 
+logic[6:0] s_shrchecksum[2];
 logic[31:0] s_sbase[2], s_smask[2], s_shrdata[2];
 logic s_shready[2], s_shresp[2], s_shsel[2];
 
@@ -80,6 +90,9 @@ initial begin
         while ($fread(r8,fd)) begin
             value = m_memory.ahb_dmem.r_memory[addr[31:2]] | (r8<<(addr[1:0]*8));
             m_memory.ahb_dmem.r_memory[addr[31:2]] = value;
+`ifdef EDAC_INTERFACE
+            m_memory.ahb_dmem.r_cmemory[addr[31:2]] = edac_checksum(value);
+`endif
             addr = addr + 1;
        end
        $display ("End address: %h",addr);
@@ -102,16 +115,26 @@ always #(r_clk_time + {1'b0,r_clk_time[31:1]}) r_err_clk = ~r_err_clk;
 
 `ifdef PROTECTED
 logic s_upset_clk[3], s_upset_resetn[3];
+genvar s;
+`ifdef SEE_TESTING
 see_insert #(.W(1),.N(3),.LABEL("CLK"),.MPROB(100)) see_clk(.s_clk_i(r_ver_clk),.s_upset_o(s_upset_clk));
 see_insert #(.W(1),.N(3),.LABEL("RSTN"),.MPROB(100)) see_rst(.s_clk_i(r_ver_clk),.s_upset_o(s_upset_resetn));
 
-genvar s;
 generate
     for(s=0;s<3;s++)begin
         assign s_clk[s]     = ~r_ver_rstn ? r_ver_clk : (~s_upset_clk[s] | r_ver_clk) ? r_ver_clk : r_err_clk;
         assign s_resetn[s]  = ~r_ver_rstn ? 1'b0 : (r_ver_rstn ^ s_upset_resetn[s]);
     end
 endgenerate
+`else
+
+generate
+    for(s=0;s<3;s++)begin
+        assign s_clk[s]     = r_ver_clk;
+        assign s_resetn[s]  = r_ver_rstn;
+    end
+endgenerate
+`endif
 `else
 assign s_clk[0] = r_ver_clk;
 assign s_resetn[0] = r_ver_rstn;
@@ -172,6 +195,9 @@ tracer m_tracer(
     .s_dut_rfc_wadd_i(dut.m_rfc.s_rf_w_add)
 );
 
+assign s_int_meip = 1'b0;
+assign s_int_mtip = 1'b0;
+
 hardisc dut
 (
     .s_clk_i(s_clk),
@@ -193,6 +219,11 @@ hardisc dut
     .s_i_hwrite_o(s_i_hwrite[0]),
 
     .s_hrdmax_rst_o(s_hrdmax_rst),
+
+    .s_i_hrchecksum_i(s_i_hrchecksum[0]),
+    .s_i_hwchecksum_o(s_i_hwchecksum[0]),
+    .s_d_hrchecksum_i(s_d_hrchecksum[0]),
+    .s_d_hwchecksum_o(s_d_hwchecksum[0]),
 
     .s_d_hrdata_i(s_d_hrdata[0]),
     .s_d_hready_i(s_d_hready[0]),
@@ -225,18 +256,21 @@ ahb_interconnect #(.SLAVES(32'h2)) data_interconnect
     .s_shready_i(s_shready),
     .s_shresp_i(s_shresp),
     .s_hsel_o(s_shsel),
+
+    .s_shrchecksum_i(s_shrchecksum),
+    .s_shrchecksum_o(s_d_hrchecksum[0]),
     
     .s_shrdata_o(s_d_hrdata[0]),
     .s_shready_o(s_d_hready[0]),
     .s_shresp_o(s_d_hresp[0])
 );
 
-assign s_halt = r_ver_rstn & m_control.s_we & (m_control.r_address[2:0] == 3'd4);
+assign s_halt = r_ver_rstn & ((m_control.s_we & (m_control.r_address[2:0] == 3'd4)) /*| dut.m_pipe_5_ma.m_csru.s_rmcause[0] == EXC_ECALL_M_VAL*/);
 always_ff @( posedge s_halt ) begin : halt_execution
     $finish;
 end
 
-ahb_ram #(.MEM_SIZE(32'h8),.SIMULATION(1),.LABEL("CONTROL")) m_control
+ahb_ram #(.MEM_SIZE(32'h8),.SIMULATION(1),.LABEL("CONTROL"),.EDAC(`EDAC_MEMORY),.GROUP(0)) m_control
 (
     .s_clk_i(r_ver_clk),
     .s_resetn_i(r_ver_rstn),
@@ -251,6 +285,9 @@ ahb_ram #(.MEM_SIZE(32'h8),.SIMULATION(1),.LABEL("CONTROL")) m_control
     .s_htrans_i(s_d_htrans[0]),
     .s_hwrite_i(s_d_hwrite[0]),
     .s_hsel_i(s_shsel[0]),
+
+    .s_hwchecksum_i(s_d_hwchecksum[0]),
+    .s_hrchecksum_o(s_shrchecksum[0]),
     
     .s_hrdata_o(s_shrdata[0]),
     .s_hready_o(s_shready[0]),
@@ -263,6 +300,7 @@ logic[2:0] s_i_dhburst[2],s_i_dhsize[2];
 logic[3:0] s_i_dhprot[2];
 logic[MEM_MSB:0] s_i_dhaddr[2];
 logic[31:0] s_i_dhwdata[2], s_i_dhrdata[2];
+logic[6:0] s_i_dhwchecksum[2], s_i_dhrchecksum[2];
 
 assign s_i_dhmastlock   = {s_d_hmastlock[0], s_i_hmastlock[0]};
 assign s_i_dhwrite      = {s_d_hwrite[0], s_i_hwrite[0]};
@@ -273,16 +311,19 @@ assign s_i_dhsize       = {s_d_hsize[0], s_i_hsize[0]};
 assign s_i_dhprot       = {s_d_hprot[0], s_i_hprot[0]};
 assign s_i_dhaddr       = {s_d_haddr[0][MEM_MSB:0], s_i_haddr[0][MEM_MSB:0]};
 assign s_i_dhwdata      = {s_d_hwdata[0], s_i_hwdata[0]};
+assign s_i_dhwchecksum  = {s_d_hwchecksum[0], s_i_hwchecksum[0]};
 
 assign s_i_hready[0]    = s_i_dshready[1];
 assign s_i_hresp[0]     = s_i_dhresp[1];
 assign s_i_hrdata[0]    = s_i_dhrdata[1];
+assign s_i_hrchecksum[0]= s_i_dhrchecksum[1];
 
 assign s_shready[1]     = s_i_dshready[0];
 assign s_shresp[1]      = s_i_dhresp[0];
 assign s_shrdata[1]     = s_i_dhrdata[0];
+assign s_shrchecksum[1] = s_i_dhrchecksum[0];
 
-dahb_ram #(.MEM_SIZE(MEM_SIZE),.SIMULATION(1),.ENABLE_LOG(0),.LABEL("MEMORY")) m_memory
+dahb_ram #(.MEM_SIZE(MEM_SIZE),.SIMULATION(1),.ENABLE_LOG(0),.LABEL("MEMORY"),.EDAC(`EDAC_MEMORY),.GROUP(17)) m_memory
 (
     .s_clk_i(r_ver_clk),
     .s_resetn_i(r_ver_rstn),
@@ -297,6 +338,9 @@ dahb_ram #(.MEM_SIZE(MEM_SIZE),.SIMULATION(1),.ENABLE_LOG(0),.LABEL("MEMORY")) m
     .s_htrans_i(s_i_dhtrans),
     .s_hwrite_i(s_i_dhwrite),
     .s_hsel_i(s_i_dhsel),
+
+    .s_hwchecksum_i(s_i_dhwchecksum),
+    .s_hrchecksum_o(s_i_dhrchecksum),
     
     .s_hrdata_o(s_i_dhrdata),
     .s_hready_o(s_i_dshready),
