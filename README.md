@@ -22,10 +22,11 @@ Check the configuration section below.
 
 ## Fault insertion
 
-The RTL description supports fault the insertion into all flip-flops of the core to simulate bit-flips. 
+The RTL description supports fault insertion into all flip-flops of the core to simulate bit-flips. 
 Some wires were also selected to be prone to SEE, including all clocks and reset trees. 
 The faults are inserted randomly in each bit of flip-flop or at the wire; the probability is configurable by options. A fault insertion condition is evaluated for each bit every clock cycle. 
 Specific groups of flip-flops and wires are grouped so we can choose groups where fault insertion is enabled.
+A peripheral RAMs modules enable generation of SEU in the memory. 
 
 ## Configuration and options
 The Hardisc is configurable through options present in *settings.sv* file. 
@@ -38,6 +39,7 @@ The Hardisc design is configurable through options present in *settings.sv* file
 Some options enable functionalities when they are defined:
 * **SIMULATION** - enables functionalities present only in the simulation (not-synthesizable)
 * **PROTECTED** - enables pipeline protection
+* **EDAC_INTERFACE** - enables protection of interface data signals
 * **SEE_TESTING** - enables SEE insertion logic
 
 Other available options:
@@ -68,6 +70,8 @@ The following simulation options are configurable from the command line:
 ## Usage
 This repository comes with Makefile, containing commands to set up, compile, and simulate a project in the free edition of ModelSim.
 It contains an example testbench, memory, and interconnect IPs for simulation.
+The provided testbench automatically loads the memory with the binary data.
+If the **EDAC_INTERFACE** option is enabled, also the checksums for individual memory entries are automatically generated and saved in memory.
 The folder */example* contains programs and their binaries that the Hardisc can directly execute in simulation.
 If you want to change the source tests, you need the [RISC-V toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain). 
 When the toolchain is prepared, you can use the *compileTest* command in the Makefile to compile the selected tests.
@@ -89,6 +93,10 @@ Simulate the *hello_world* example with SEE insertion<sup>1</sup> only in the pr
 ```bash
 make hardiscSim BINARY=example/hello_world/test.bin LOGGING=0 SEE_PROB=100 SEE_GROUP=4
 ```
+Simulate the *hello_world* example with SEE insertion<sup>1</sup> only in the memory group and with high fault probability:
+```bash
+make hardiscSim BINARY=example/hello_world/test.bin LOGGING=0 SEE_GROUP=16
+```
 Compile the *matrix* example test:
 ```bash
 make compileTest TEST_DIR=example/matrix
@@ -102,16 +110,18 @@ The testbench, peripherals, and other model gives the user several tracing and l
 
 If the *LOGGING==0*, only characters stored in the *CONTROL* memory location are printed to the console.
 This memory location is used by syscalls from the *printf* function.
-The following figure shows an example output from the *hello_world* example:
+The following text is an output from the *hello_world* example:
 ```
 Hello world!
-Clock cycles since boot: 2256
-Clock cycles since boot: 7906
-Clock cycles since boot: 13890
-Clock cycles since boot: 20670
-Clock cycles since boot: 27589
+Clock cycles since boot: 2262
+Clock cycles since boot: 7892
+Clock cycles since boot: 13893
+Clock cycles since boot: 20673
+Clock cycles since boot: 27592
 ```
-**TRY IT:** Enable SEE only in the predictor's group and check how the timing changes.
+**TRY IT 1:** Enable SEE only in the predictor's group and check how the timing changes due to random mispredictions. The protected version of Hardisc is not required in this case, as the SEEs will only be generated in the predictor, and the core can detect any misprediction.
+
+**TRY IT 2:** Enable the **EDAC_INTERFACE** option and SEU generation in memory to see how the timing changes due to memory repairs. The example binaries already contain those routines, so no compilation is required.
 
 If the *LOGGING>0*, the *tracer* module will print information from each pipeline stage.
 ```
@@ -134,6 +144,7 @@ SEU in RF[11][ 2]
 SEU in CSR_MSCRATCH[ 1][ 0]
 [  1405,    691, 0.492] FA: 1000e03c | FD: 1000e038 | ID: (41) li      a5, -1                 | OP: 00 | EX: 42 | MA: 04 | WB: 00 ~ 00000000,  
 ```
+
 ## Verification
 The Hardisc was tested with a random instruction generator, and the log files were compared with the golden model.
 The verification environment and scripts will be added to the repository soon. 
@@ -142,7 +153,7 @@ The verification environment and scripts will be added to the repository soon.
 * The architecture of the unprotected pipeline has been developed to integrate protection in the future, so some design approaches were selected with this bias.
 * The RTL code style is intentionally chosen to allow fault insertion (e.g., flip-flops in the *seu_regs* module).
 * No special power optimizations are present.
-* The protection of bus interfaces is yet to be integrated.
+* The protection of interface control signals is yet to be integrated.
 * The Hardisc is still in development.
 
 ## Issues and bugs
