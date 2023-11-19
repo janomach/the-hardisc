@@ -16,9 +16,10 @@ The **protection is based on replicating pipeline stages**, excluding protecting
 It is **separable** from the rest of the pipeline, so it is possible to enable/disable the protection before simulation/synthesis. 
 Check the configuration section below.
 
-**For a detailed explanation of the pipeline, benchmarking, synthesis results, information on random bit flips due to SEE, and a survey of currently available protection approaches, check our research paper below. Please consider citing the paper in your publications.**
+**For a detailed explanation of the pipeline, benchmarking, synthesis results, information on random bit flips due to SEE, and a survey of currently available protection approaches, check our research papers below. Please consider citing the papers in your publications.**
 
-* [In-Pipeline Processor Protection against Soft Errors](https://www.mdpi.com/2287290)
+* [In-Pipeline Processor Protection against Soft Errors - Article](https://www.mdpi.com/2287290)
+* [On-Chip Bus Protection against Soft Errors - Review](https://www.mdpi.com/2566434)
 
 ## Fault insertion
 
