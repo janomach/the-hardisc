@@ -31,6 +31,7 @@ package p_hardisc;
     parameter EXMA_REPS     = 3;
     parameter MAWB_REPS     = 3;
     parameter CTRL_REPS     = 3;
+    parameter INTF_REPS     = 2;
 `else
     parameter FEID_REPS     = 1;
     parameter IDOP_REPS     = 1;
@@ -39,6 +40,7 @@ package p_hardisc;
     parameter EXMA_REPS     = 1;
     parameter MAWB_REPS     = 1;
     parameter CTRL_REPS     = 1;
+    parameter INTF_REPS     = 1;
 `endif
 
 	parameter[OPC_WIDTH-1:0]
@@ -115,7 +117,7 @@ package p_hardisc;
                 //LEVEL_SUVISOR   = 2'b01,
                 LEVEL_MACHINE   = 2'b11; 
 
-`ifdef EDAC_INTERFACE
+`ifdef PROTECTED_WITH_IFP
     parameter MAX_MCSR    = 15;
 `else
     parameter MAX_MCSR    = 14;
@@ -222,6 +224,13 @@ package p_hardisc;
                 LSU_RMW_IDLE    = 2'b00,
                 LSU_RMW_READ    = 2'b01,
                 LSU_RMW_WRITE   = 2'b10;
+    parameter [5:0]
+                SEEGR_CORE_REG  = 0,
+                SEEGR_REG_FILE  = 1,
+                SEEGR_PREDICTOR = 2,
+                SEEGR_CORE_WIRE = 3,
+                SEEGR_MEMORY    = 4,
+                SEEGR_BUS_WIRE  = 5;
 
     typedef logic[5:0]exception; 
     typedef logic[OPC_WIDTH-1:0]opcode;

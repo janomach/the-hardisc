@@ -118,7 +118,7 @@ module pipeline_3_op (
 
             //The ID stage requests restart of the instruction
             assign s_id_misconduct[i]   = (s_idop_imiscon_i[i] != IMISCON_FREE)
-`ifdef EDAC_INTERFACE
+`ifdef PROTECTED_WITH_IFP
                                          & (s_idop_imiscon_i[i] != IMISCON_FCER)
 `endif            
                                         ;

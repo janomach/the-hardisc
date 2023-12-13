@@ -35,7 +35,7 @@ module pipeline_5_ma (
     output logic s_hold_o[CTRL_REPS],               //hold signal for lower stages 
 
     input logic[31:0] s_lsu_data_i,                 //LSU read data
-    input logic s_lsu_ready_i,                      //LSU ready
+    input logic s_lsu_ready_i[EXMA_REPS],           //LSU ready
     input logic s_lsu_hresp_i[EXMA_REPS],           //LSU bus error
     input logic s_lsu_busy_i[EXMA_REPS],            //LSU cannot start new request
 
@@ -80,15 +80,13 @@ module pipeline_5_ma (
             s_ma_pred_btbu[MAWB_REPS], s_ma_pred_btrue[MAWB_REPS];
     logic s_interrupt[MAWB_REPS], s_itaken[MAWB_REPS];
     rf_add s_wmawb_rd[MAWB_REPS], s_rmawb_rd[MAWB_REPS], s_mawb_rd[MAWB_REPS]; 
-    logic[31:0] s_wmawb_val[MAWB_REPS],s_rmawb_val[MAWB_REPS],s_mawb_val[MAWB_REPS], s_wb_val[MAWB_REPS];  
+    logic[31:0] s_wmawb_val[MAWB_REPS],s_rmawb_val[MAWB_REPS],s_mawb_val[MAWB_REPS];  
     ictrl s_wmawb_ictrl[MAWB_REPS], s_rmawb_ictrl[MAWB_REPS], s_mawb_ictrl[MAWB_REPS];
     logic s_clk_prw[MAWB_REPS], s_resetn_prw[MAWB_REPS];
     ld_info s_wmawb_ldi[MAWB_REPS], s_rmawb_ldi[MAWB_REPS];
-    logic s_int_lcer[MAWB_REPS], s_nmi_luce[MAWB_REPS], s_wb_error[MAWB_REPS], s_wb_reset[MAWB_REPS];
-`ifdef PROTECTED
-    logic s_ex_discrepancy[MAWB_REPS];
-`endif
-`ifdef EDAC_INTERFACE
+    logic s_int_lcer[MAWB_REPS], s_nmi_luce[MAWB_REPS], s_wb_error[MAWB_REPS], s_wb_reset[MAWB_REPS], s_ex_discrepancy[MAWB_REPS], 
+            s_ibus_rst_en[MAWB_REPS], s_dbus_rst_en[MAWB_REPS], s_berr_rst[MAWB_REPS], s_trans_rst[MAWB_REPS];
+`ifdef PROTECTED_WITH_IFP
     logic[2:0] s_lsu_einfo[MAWB_REPS];
     logic[1:0] s_wmawb_err[MAWB_REPS], s_rmawb_err[MAWB_REPS];
     logic[31:0] s_lsurdatac[MAWB_REPS];
@@ -107,18 +105,16 @@ module pipeline_5_ma (
     seu_regs #(.LABEL("MAWB_ICTRL"),.W($size(ictrl)),.N(MAWB_REPS)) m_mawb_ictrl (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_ictrl),.s_d_o(s_rmawb_ictrl));
     //Load instruction information
     seu_regs #(.LABEL("MAWB_LDINFO"),.W($size(ld_info)),.N(MAWB_REPS)) m_exma_ldinfo (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_ldi),.s_d_o(s_rmawb_ldi));
-`ifdef EDAC_INTERFACE
+`ifdef PROTECTED_WITH_IFP
     //Checksum for loaded value
     seu_regs #(.LABEL("MAWB_ERR"),.N(MAWB_REPS),.W(2))m_mawb_err (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_err),.s_d_o(s_rmawb_err));
 `endif
 
 `ifdef PROTECTED
     //Triple-Modular-Redundancy
-    tmr_comb #(.W(32)) m_tmr_mawb_val (.s_d_i(s_wb_val),.s_d_o(s_mawb_val));
     tmr_comb #(.W($size(rf_add))) m_tmr_mawb_rd (.s_d_i(s_rmawb_rd),.s_d_o(s_mawb_rd));
     tmr_comb #(.W($size(ictrl))) m_tmr_mawb_ictrl (.s_d_i(s_rmawb_ictrl),.s_d_o(s_mawb_ictrl));
 `else
-    assign s_mawb_val       = s_wb_val;
     assign s_mawb_rd        = s_rmawb_rd;
     assign s_mawb_ictrl     = s_rmawb_ictrl;
 `endif
@@ -145,15 +141,18 @@ module pipeline_5_ma (
                                           s_exma_ictrl_i[i][ICTRL_UNIT_BRU] | 
                                           s_exma_ictrl_i[i][ICTRL_UNIT_ALU] | 
                                           s_exma_ictrl_i[i][ICTRL_UNIT_MDU]);
+`else
+            assign s_ex_discrepancy[i] = 1'b0;
 `endif
             //Reset pipeline condition prior to MA stage
             assign s_prior_rstpp[i] = (s_exma_imiscon_i[i] == IMISCON_DSCR) | (s_exma_imiscon_i[i] == IMISCON_PRED);
+            //Reset pipeline on first occurence of bus error (if enabled in mhrdctrl0)
+            assign s_trans_rst[i]   = (s_ibus_rst_en[i] & (s_exma_imiscon_i[i] == IMISCON_FERR)) | 
+                                      (s_dbus_rst_en[i] & s_lsu_hresp_i[i] & s_exma_ictrl_i[i][ICTRL_UNIT_LSU]);
+            //Reset pipeline if bus error occurred without previously intended transfer
+            assign s_berr_rst[i]    = s_lsu_hresp_i[i] & ~s_exma_ictrl_i[i][ICTRL_UNIT_LSU];
             //Gathering pipeline reset informations
-            assign s_rstpp[i]       = ~s_resetn_i[i] | s_prior_rstpp[i] | s_wb_reset[i]
-`ifdef PROTECTED
-                                    | s_ex_discrepancy[i]
-`endif
-                                    ;
+            assign s_rstpp[i]       = ~s_resetn_i[i] | s_prior_rstpp[i] | s_wb_reset[i] | s_trans_rst[i] | s_ex_discrepancy[i];
 
             //Branch/Jump unit
             bru m_bru
@@ -192,7 +191,7 @@ module pipeline_5_ma (
             assign s_interrupt[i]   = s_int_pending[i] & ~s_exma_ictrl_i[i][ICTRL_UNIT_LSU];
 
             //Stall if a data-bus transfer is extended
-            assign s_lsu_stall[i]   = ((~s_lsu_ready_i | s_lsu_busy_i[i]) & s_exma_ictrl_i[i][ICTRL_UNIT_LSU]);
+            assign s_lsu_stall[i]   = ~s_lsu_ready_i[i] | (s_lsu_busy_i[i] & s_exma_ictrl_i[i][ICTRL_UNIT_LSU]) ;
             assign s_stall_ma[i]    = s_lsu_stall[i];
             //Invalidate MA instruction if reset, interrupt, or exception is detected
             assign s_flush_ma[i]    = s_rstpp[i] | s_interrupt[i] | s_exception[i];
@@ -225,10 +224,10 @@ module pipeline_5_ma (
 
         /*  This section is part of WB stage  */
         for ( i = 0; i<MAWB_REPS ; i++ ) begin : wb_replicator
-            assign s_wb_val[i]   = (s_rmawb_ictrl[i][ICTRL_UNIT_LSU]) ? s_lsurdata[i] : s_rmawb_val[i];
+            assign s_mawb_val[i] = (s_rmawb_ictrl[i][ICTRL_UNIT_LSU]) ? s_lsurdata[i] : s_rmawb_val[i];
             //Decoding of the loaded data, that can be forwarded to the lower stages
             lsu_decoder m_lsu_decoder(.s_lsu_data_i(s_rmawb_val[i]),.s_ld_info_i(s_rmawb_ldi[i]),.s_data_o(s_lsurdata[i]));
-`ifdef EDAC_INTERFACE
+`ifdef PROTECTED_WITH_IFP
             //Decoding of the loaded data after potential fixing - long combinational path, data are not forwarded to the lower stages
             lsu_decoder m_lsu_decoder_slow(.s_lsu_data_i(s_lsu_fixed_data_i[i]),.s_ld_info_i(s_rmawb_ldi[i]),.s_data_o(s_lsurdatac[i])); 
             //Check LSU error information only if the WB-stage contains a LOAD instruction          
@@ -251,7 +250,7 @@ module pipeline_5_ma (
             assign s_int_lcer[i] = 1'b0;
             assign s_nmi_luce[i] = 1'b0;
             //Data to be written into the register file
-            assign s_rf_val_o[i] = s_wb_val[i];
+            assign s_rf_val_o[i] = s_mawb_val[i];
 `endif
         end
         /*  End of WB stage  */ 
@@ -291,6 +290,8 @@ module pipeline_5_ma (
         .s_treturn_o(s_tereturn),
         .s_int_pending_o(s_int_pending),
         .s_exception_o(s_exception),
+        .s_ibus_rst_en_o(s_ibus_rst_en),
+        .s_dbus_rst_en_o(s_dbus_rst_en),
         .s_pred_disable_o(s_pred_disable_o),
         .s_hrdmax_rst_o(s_hrdmax_rst_o)
     );

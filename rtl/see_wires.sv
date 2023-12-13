@@ -19,23 +19,30 @@ import p_hardisc::*;
 
 module see_wires #(
     parameter W=32,
-    parameter GROUP=1,
+    parameter N=1,
+    parameter GROUP=0,
+    parameter MPROB=1,
     parameter LABEL = "GENERAL"
 )(
     input logic s_c_i,
-    input logic[W-1:0] s_d_i,
-    output logic[W-1:0] s_d_o
+    input logic[W-1:0] s_d_i[N],
+    output logic[W-1:0] s_d_o[N]
 );
 
 `ifdef SEE_TESTING
-    logic[W-1:0] s_upset[1];
-    see_insert #(.W(W),.N(1),.LABEL(LABEL),.GROUP(GROUP)) see (.s_clk_i(s_c_i),.s_upset_o(s_upset));
+    logic[W-1:0] s_upset[N];
+    see_insert #(.W(W),.N(N),.LABEL(LABEL),.GROUP(GROUP),.MPROB(MPROB)) see (.s_clk_i(s_c_i),.s_upset_o(s_upset));
 `endif
 
-    assign s_d_o = s_d_i
+    genvar i;
+    generate
+        for (i = 0;i < N; i++) begin : iterate_i
+            assign s_d_o[i] = s_d_i[i]
 `ifdef SEE_TESTING            
-            ^ s_upset[0]
+                    ^ s_upset[i]
 `endif            
-            ;
+                    ;
+        end
+    endgenerate
 
 endmodule

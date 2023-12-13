@@ -4,8 +4,15 @@
 `define SIMULATION
 //`define SEE_TESTING
 //`define PROTECTED
-//`define EDAC_INTERFACE
+//`define IFP
 //`define FAST_MULTIPLY
+
+//Interface protection is supported only in PROTECTED core
+`ifdef PROTECTED
+`ifdef IFP
+`define PROTECTED_WITH_IFP
+`endif
+`endif
 
 `define SEE_MAX 1000000
 

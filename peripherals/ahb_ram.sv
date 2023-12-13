@@ -21,7 +21,8 @@ module ahb_ram#(
     parameter SIMULATION = 0,
     parameter ENABLE_LOG = 1,
     parameter GROUP = 1,
-    parameter EDAC = 0,
+    parameter MPROB = 1,
+    parameter IFP = 0,
     parameter LABEL = "MEMORY"
 )
 (
@@ -29,7 +30,7 @@ module ahb_ram#(
     input logic s_resetn_i,
     
     //AHB3-Lite
-    input logic[$clog2(MEM_SIZE)-1:0] s_haddr_i,
+    input logic[31:0] s_haddr_i,
     input logic[31:0] s_hwdata_i,
     input logic[2:0] s_hburst_i,
     input logic s_hmastlock_i,
@@ -39,6 +40,7 @@ module ahb_ram#(
     input logic s_hwrite_i,
     input logic s_hsel_i,
 
+    input logic[5:0] s_hparity_i,
     input logic[6:0] s_hwchecksum_i,
     output logic[6:0] s_hrchecksum_o,
     
@@ -48,26 +50,30 @@ module ahb_ram#(
 );
     /* Simple dual-port RAM with AMBA 3 AHB-Lite interface */
     localparam MSB = $clog2(MEM_SIZE) - 32'h1;
+    localparam[31:0] GROUP_MASK = (32'b1 << GROUP);
 
     logic[31:0] s_read_data, s_write_data;
     logic[MSB:0] r_address, r_paddress, s_ra;
     logic[1:0] r_size;
-    logic r_write, r_trans;
+    logic r_write, r_trans, r_hresp;
     logic[31:0] r_memory[MEM_SIZE[31:2]] = '{default:0};
     logic[31:0] r_data, r_wtor_data;
     logic s_wea[4];
-    logic s_we, r_wtor, s_cclock;
+    logic s_we, r_wtor, s_cclock, s_parity_error;
+    logic s_wrong_comb, s_transfer;
 
+    logic[5:0] s_parity;
     logic[6:0] s_read_checksum;
     logic[6:0] r_cmemory[MEM_SIZE[31:2]] = '{default:0};
     logic[31:0] r_checksum, r_wtor_checksum;
 
-generate
+    logic l_clock;
     logic[1:0] r_delay;
 
+generate
     if(SIMULATION == 1)begin
         int logging, see_prob, see_group;
-        logic latency, l_clock;
+        logic latency;
         logic[31:0] seed, randomval;
 
         initial begin
@@ -79,6 +85,7 @@ generate
             if($value$plusargs ("LOGGING=%d", logging));
             if($value$plusargs ("LAT=%d", latency));
             seed = $urandom;
+            see_prob = see_prob * MPROB;
             if(latency != 0)
                 $write("MEMORY SEED: %d\n",seed);
         end
@@ -103,23 +110,17 @@ generate
             end else if(r_delay != 2'b0)begin
                 r_delay   <= r_delay - 2'b1;
                 randomval <= randomval;
-            end else if(s_hsel_i & (s_htrans_i == 2'd2))begin
-                r_delay   <= randomval[1:0];
+            end else if(s_hsel_i & s_transfer)begin
+                r_delay   <= s_parity_error ? 2'b0 : randomval[1:0];
                 randomval <= $urandom(seed+randomval);
             end else begin
                 r_delay   <= 2'b0;
                 randomval <= randomval;
             end
         end
-        
-        //Disable update of the internal registers if a response is being delayed
-        always_latch begin : clockgating
-            if(~s_clk_i)
-                l_clock <= (r_delay == 2'b00);
-        end
 
         //Error generation
-        if(EDAC == 1)begin
+        if(IFP == 1)begin
             logic[31:0] r_seu_randomval, s_filtered;
             logic[MSB:0] s_error_addr;
             logic[7:0] s_error_bit;
@@ -128,7 +129,7 @@ generate
             assign s_error_bit  = r_seu_randomval[7:0]; //error probability 39/256
 
             always_ff @( posedge s_clk_i ) begin
-                if((see_prob != 0) & ((GROUP & see_group) != 0))begin
+                if((see_prob != 0) & ((GROUP_MASK & see_group) != 0))begin
                     r_seu_randomval <= $urandom(seed + r_seu_randomval);
                     if(s_error_bit < 8'd39)begin
                         r_memory[s_error_addr] <= r_memory[s_error_addr] ^ (1 << s_error_bit);
@@ -141,16 +142,38 @@ generate
             end
         end
 
-        assign s_cclock = s_clk_i & l_clock;
         assign s_we     = r_write & (r_delay == 2'b00);
-        assign s_ra     = (r_delay == 2'b00) ? s_haddr_i : r_address;
+        assign s_ra     = (r_delay == 2'b00) ? s_haddr_i[$clog2(MEM_SIZE)-1:0] : r_address;
     end else begin
-        assign s_cclock = s_clk_i;
         assign s_we     = r_write;
-        assign s_ra     = s_haddr_i;
+        assign s_ra     = s_haddr_i[$clog2(MEM_SIZE)-1:0];
         assign r_delay  = 2'b0;
     end
+    if(IFP == 1)begin
+        assign s_parity_error   = s_parity != s_hparity_i;
+        assign s_wrong_comb     = (^s_htrans_i) ^ s_hparity_i[5];
+    end else begin
+        assign s_parity_error   = 1'b0;
+        assign s_wrong_comb     = 1'b0;
+    end
 endgenerate
+
+    //Disable update of the internal registers if a response is being delayed
+    always_latch begin : clockgating
+        if(~s_clk_i)
+            l_clock <= (r_delay == 2'b00);
+    end
+
+    assign s_cclock = s_clk_i & l_clock;
+
+    assign s_parity[0]  = ^s_haddr_i[7:0];
+    assign s_parity[1]  = ^s_haddr_i[15:8];
+    assign s_parity[2]  = ^s_haddr_i[23:16];
+    assign s_parity[3]  = ^s_haddr_i[31:24];
+    assign s_parity[4]  = (^s_hsize_i) ^ (^s_hburst_i) ^ (^s_hprot_i) ^ s_hwrite_i ^ s_hmastlock_i; //hsize, hwrite, hprot, hburst, hmastlock
+    assign s_parity[5]  = (^s_htrans_i); //htrans
+
+    assign s_transfer   = s_wrong_comb | (s_htrans_i == 2'd2);
 
     //Forward data if a write is followed by the read from the same address
     assign s_read_data          = (r_wtor & (r_address[MSB:2] == r_paddress[MSB:2])) ? r_wtor_data : r_data;
@@ -161,8 +184,8 @@ endgenerate
 
     //Response
     assign s_hrdata_o   = s_read_data;
-    assign s_hready_o   = r_delay == 2'b00;
-    assign s_hresp_o    = 1'b0;
+    assign s_hready_o   = !(r_hresp & r_trans) & (r_delay == 2'b00);
+    assign s_hresp_o    = r_hresp;
 
     //Select which bytes to overwrite
     assign s_wea[0] = s_we & (r_address[1:0] == 2'd0);
@@ -177,7 +200,7 @@ endgenerate
                 if (s_wea[i])
                     r_memory[r_address[MSB:2]][(i+1)*8-1:i*8] <= s_hwdata_i[(i+1)*8-1:i*8];
         end
-        if (EDAC == 1) begin
+        if (IFP == 1) begin
             assign s_hrchecksum_o   = s_read_checksum;    
             assign s_read_checksum  = (r_wtor & (r_address[MSB:2] == r_paddress[MSB:2])) ? r_wtor_checksum : r_checksum;
             //Write checksum
@@ -193,7 +216,7 @@ endgenerate
             always_ff @(posedge s_cclock) begin : memory_control
                 if(~s_resetn_i)begin
                     r_wtor_checksum <= 32'b0;
-                end else if(s_hsel_i & (s_htrans_i == 2'd2))begin
+                end else if(s_hsel_i & s_transfer)begin
                     r_wtor_checksum <= s_we ? s_hwchecksum_i : s_read_checksum;
                 end else begin
                     r_wtor_checksum <= r_wtor_checksum;
@@ -211,7 +234,7 @@ endgenerate
 
     //Save transfer information
     always_ff @(posedge s_cclock) begin : memory_control
-        if(~s_resetn_i)begin
+        if(~s_resetn_i | (r_hresp & r_trans))begin
             r_trans <= 1'd0;
             r_write <= 1'd0;
             r_address <= {1'b0,{MSB{1'b0}}};
@@ -219,14 +242,16 @@ endgenerate
             r_wtor_data <= 32'b0;
             r_size <= 2'd0;
             r_wtor <= 1'b0;
-        end else if(s_hsel_i & (s_htrans_i == 2'd2))begin
+            r_hresp <= (~s_resetn_i) ? 1'b0 : (r_hresp & r_trans);
+        end else if(s_hsel_i & s_transfer)begin
             r_trans <= 1'd1;
-            r_write <= s_hwrite_i;
-            r_address <= s_haddr_i;
+            r_write <= !s_parity_error & s_hwrite_i;
+            r_address <= s_haddr_i[$clog2(MEM_SIZE)-1:0];
             r_paddress <= r_address;
             r_wtor_data <= s_write_data;
             r_size <= s_hsize_i[1:0];
-            r_wtor <= s_we;
+            r_wtor <= !s_parity_error & s_we;
+            r_hresp <= s_parity_error;
         end else begin
             r_trans <= 1'd0;
             r_write <= 1'd0;
@@ -235,7 +260,7 @@ endgenerate
             r_wtor_data <= r_wtor_data;
             r_size <= 2'd0;
             r_wtor <= 1'b0;
+            r_hresp <= 1'b0;
         end
     end
-
 endmodule

@@ -39,7 +39,7 @@ module pipeline_4_ex (
     input logic[3:0]s_opex_fwd_i[OPEX_REPS],        //forwarding information
 
     output logic[31:0] s_lsu_wdata_o[EXMA_REPS],    //LSU write data
-    output logic[31:0] s_lsu_address_o,             //LSU address phase address
+    output logic[31:0] s_lsu_address_o[EXMA_REPS],  //LSU address phase address
     output logic s_lsu_approve_o[EXMA_REPS],        //LSU address phase approval
 
 `ifdef PROTECTED
@@ -115,7 +115,7 @@ module pipeline_4_ex (
 `endif
 
     //LSU control
-    assign s_lsu_address_o  = s_operand1[0];
+    assign s_lsu_address_o  = s_operand1;
     assign s_lsu_wdata_o    = s_operand2;
     //Save offset for predictor
     assign s_wexma_offset[0]= s_opex_payload_i[0][19:0];
@@ -128,7 +128,7 @@ module pipeline_4_ex (
             assign s_opex_neq[i]  = (s_opex_op1_i[0] != s_opex_op1_i[1]) | (s_opex_op2_i[0] != s_opex_op2_i[1]) | 
                                     (s_opex_rd_i[0] != s_opex_rd_i[1]) | (s_opex_payload_i[0] != s_opex_payload_i[1]) | 
                                     (s_opex_f_i[0] != s_opex_f_i[1]) | (s_opex_ictrl_i[0] != s_opex_ictrl_i[1]) | 
-                                    (s_opex_fwd_i[0] != s_opex_fwd_i[1]);
+                                    (s_opex_fwd_i[0] != s_opex_fwd_i[1]) | (s_opex_imiscon_i[0] != s_opex_imiscon_i[1]);
 `endif
             //Auxiliary signals for Executor. NOTE: they do not need TMR outputs
             assign s_ma_jump[i]     = (s_rexma_f[i] == ALU_SET1) || (s_rexma_f[i] == ALU_IPC);
