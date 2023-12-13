@@ -63,6 +63,7 @@ module csr_executor (
     exception s_exceptions;
     logic[4:0] s_exc_code;
     logic[2:0] s_nmi; 
+
     assign s_int_pending_o  = s_int_pending;
     assign s_exception_o    = s_exception;
     assign s_int_trap_o     = s_int_trap;
@@ -101,7 +102,7 @@ module csr_executor (
     assign s_commit         = (s_ictrl_i != 7'b0) & ~s_stall_i & ~s_flush_i;
 
     //Interrupt and exception evaluation
-`ifdef EDAC_INTERFACE
+`ifdef PROTECTED_WITH_IFP
     assign s_nmi[0]         = s_nmi_luce_i;
     assign s_nmi[1]         = (s_imiscon_i == IMISCON_FUCE);
     assign s_int_fcer       = (s_imiscon_i == IMISCON_FCER);
@@ -154,7 +155,7 @@ module csr_executor (
             MCSR_HARTID:     s_mcsr_r_val = s_mcsr_i[MCSR_HARTID];
             MCSR_HRDCTRL0:   s_mcsr_r_val = s_mcsr_i[MCSR_HRDCTRL0];
             MCSR_ISA:        s_mcsr_r_val = s_mcsr_i[MCSR_ISA];
-`ifdef EDAC_INTERFACE
+`ifdef PROTECTED_WITH_IFP
             MCSR_ADDRERR:    s_mcsr_r_val = s_mcsr_i[MCSR_ADDRERR];
 `endif
             default:         s_mcsr_r_val = 32'b0;
@@ -355,25 +356,41 @@ module csr_executor (
 
     always_comb begin : mrhdctrl0_writer
         if(~s_resetn_i)begin
-            s_mcsr_o[MCSR_HRDCTRL0][31:21]  = 11'b0;    //reserved
+            s_mcsr_o[MCSR_HRDCTRL0][31:23]  = 9'b0;    //reserved
+            s_mcsr_o[MCSR_HRDCTRL0][22]     = 1'b0;     //data bus error detected
+            s_mcsr_o[MCSR_HRDCTRL0][21]     = 1'b0;     //instruction bus error detected
             s_mcsr_o[MCSR_HRDCTRL0][20]     = 1'b0;     //the restart counter not counting
             s_mcsr_o[MCSR_HRDCTRL0][19:16]  = 4'b0;     //the restart counter - reserved
             s_mcsr_o[MCSR_HRDCTRL0][15:12]  = 4'b0;     //reserved
             s_mcsr_o[MCSR_HRDCTRL0][11:8]   = 4'd10;    //maximum number of consecutive restarts is 10d
-            s_mcsr_o[MCSR_HRDCTRL0][7:6]    = 2'b00;    //reserved
+            s_mcsr_o[MCSR_HRDCTRL0][7]      = 1'b1;     //enable automatic pipeline restart after the first bus error
+            s_mcsr_o[MCSR_HRDCTRL0][6]      = 1'b0;     //reserved
             s_mcsr_o[MCSR_HRDCTRL0][5:4]    = 2'b01;    //acm settings
             s_mcsr_o[MCSR_HRDCTRL0][3]      = 1'b0;     //enable predictor
             s_mcsr_o[MCSR_HRDCTRL0][2]      = 1'b0;     //max consecutive restarts not reached
             s_mcsr_o[MCSR_HRDCTRL0][1]      = 1'b1;     //after the max number of consecutive restarts, try to disable the predictor at first
             s_mcsr_o[MCSR_HRDCTRL0][0]      = 1'b1;     //enable monitoring of consecutive restarts
         end else if (s_write_machine & (s_csr_add == MCSR_HRDCTRL0) & (s_payload_i[8:7] == 2'b01)) begin
-            s_mcsr_o[MCSR_HRDCTRL0][31:21]  = 11'b0;                //reserved
+            s_mcsr_o[MCSR_HRDCTRL0][31:23]  = 9'b0;                //reserved
+            s_mcsr_o[MCSR_HRDCTRL0][22]     = s_csr_w_val[22];
+            s_mcsr_o[MCSR_HRDCTRL0][21]     = s_csr_w_val[21];                
             s_mcsr_o[MCSR_HRDCTRL0][20:16]  = s_csr_w_val[20:16];
             s_mcsr_o[MCSR_HRDCTRL0][15:12]  = 4'b0;                 //reserved
             s_mcsr_o[MCSR_HRDCTRL0][11:8]   = s_csr_w_val[11:8];
-            s_mcsr_o[MCSR_HRDCTRL0][7:6]    = 2'b00;                //reserved
+            s_mcsr_o[MCSR_HRDCTRL0][7]      = s_csr_w_val[7];
+            s_mcsr_o[MCSR_HRDCTRL0][6]      = 1'b0;                 //reserved
             s_mcsr_o[MCSR_HRDCTRL0][5:0]    = s_csr_w_val[5:0];
         end else begin
+            if(s_rstpp_i & s_mcsr_i[MCSR_HRDCTRL0][7] & (s_exceptions[EXC_LSACCESS] | s_exceptions[EXC_IACCESS]))begin
+                //save bus-error indicator
+                s_mcsr_o[MCSR_HRDCTRL0][22] = s_exceptions[EXC_LSACCESS];
+                s_mcsr_o[MCSR_HRDCTRL0][21] = s_exceptions[EXC_IACCESS];
+            end else if(s_execute & s_mcsr_i[MCSR_HRDCTRL0][7])begin
+                //clear bus-error indicator
+                s_mcsr_o[MCSR_HRDCTRL0][22:21] = 2'b0;
+            end else begin
+                s_mcsr_o[MCSR_HRDCTRL0][22:21] = s_mcsr_i[MCSR_HRDCTRL0][22:21];
+            end
             if(s_execute)begin
                 //stop counting
                 s_mcsr_o[MCSR_HRDCTRL0][20] = 1'b0;
@@ -410,7 +427,7 @@ module csr_executor (
 
             s_mcsr_o[MCSR_HRDCTRL0][1:0]    = s_mcsr_i[MCSR_HRDCTRL0][1:0];
             s_mcsr_o[MCSR_HRDCTRL0][15:4]   = s_mcsr_i[MCSR_HRDCTRL0][15:4];
-            s_mcsr_o[MCSR_HRDCTRL0][31:21]  = s_mcsr_i[MCSR_HRDCTRL0][31:21];
+            s_mcsr_o[MCSR_HRDCTRL0][31:22]  = s_mcsr_i[MCSR_HRDCTRL0][31:22];
         end
     end
 
@@ -425,7 +442,7 @@ module csr_executor (
         end
     end
 
-`ifdef EDAC_INTERFACE
+`ifdef PROTECTED_WITH_IFP
     logic s_mcsr_addr_free;
     //CSR_ADDRERR is free to receive data if neither FCER nor LCER interrupt is pending
     assign s_mcsr_addr_free = (~s_mcsr_i[MCSR_IE][13] | (s_mcsr_i[MCSR_IE][13] & ~s_mcsr_i[MCSR_IP][13])) & 

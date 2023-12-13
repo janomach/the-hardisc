@@ -27,8 +27,8 @@ module hardisc
     input logic[31:0] s_boot_add_i,         //boot address
     
     input logic[31:0] s_i_hrdata_i,         //AHB instruction bus - incomming read data
-    input logic s_i_hready_i,               //AHB instruction bus - finish of transfer
-    input logic s_i_hresp_i,                //AHB instruction bus - error response
+    input logic s_i_hready_i[CTRL_REPS],    //AHB instruction bus - finish of transfer
+    input logic s_i_hresp_i[CTRL_REPS],     //AHB instruction bus - error response
     output logic[31:0] s_i_haddr_o,         //AHB instruction bus - request address
     output logic[31:0] s_i_hwdata_o,        //AHB instruction bus - request data to write
     output logic[2:0]s_i_hburst_o,          //AHB instruction bus - burst type indicator
@@ -38,14 +38,14 @@ module hardisc
     output logic[1:0]s_i_htrans_o,          //AHB instruction bus - transfer type indicator
     output logic s_i_hwrite_o,              //AHB instruction bus - write indicator
 
-    input logic[6:0] s_i_hrchecksum_i,      //AHB instruction bus - incoming checksum (custom)
-    output logic[6:0] s_i_hwchecksum_o,     //AHB instruction bus - outcoming checksum (custom)
-    input logic[6:0] s_d_hrchecksum_i,      //AHB data bus - incoming checksum (custom)    
-    output logic[6:0] s_d_hwchecksum_o,     //AHB data bus - outcoming checksum (custom)
+    //custom AHB protection
+    input logic[6:0] s_i_hrchecksum_i,      //AHB instruction bus - incoming checksum
+    output logic[6:0] s_i_hwchecksum_o,     //AHB instruction bus - outgoing checksum
+    output logic[5:0] s_i_hparity_o,        //AHB instruction bus - outgoing parity
 
     input logic[31:0] s_d_hrdata_i,         //AHB data bus - incomming read data
-    input logic s_d_hready_i,               //AHB data bus - finish of transfer
-    input logic s_d_hresp_i,                //AHB data bus - error response
+    input logic s_d_hready_i[CTRL_REPS],    //AHB data bus - finish of transfer
+    input logic s_d_hresp_i[CTRL_REPS],     //AHB data bus - error response
     output logic[31:0] s_d_haddr_o,         //AHB data bus - request address
     output logic[31:0] s_d_hwdata_o,        //AHB data bus - request data to write
     output logic[2:0]s_d_hburst_o,          //AHB data bus - burst type indicator
@@ -54,6 +54,11 @@ module hardisc
     output logic[2:0]s_d_hsize_o,           //AHB data bus - size of the transfer 
     output logic[1:0]s_d_htrans_o,          //AHB data bus - transfer type indicator
     output logic s_d_hwrite_o,              //AHB data bus - write indicator
+
+    //custom AHB protection
+    input logic[6:0] s_d_hrchecksum_i,      //AHB data bus - incoming checksum   
+    output logic[6:0] s_d_hwchecksum_o,     //AHB data bus - outgoing checksum
+    output logic[5:0] s_d_hparity_o,        //AHB data bus - outgoing parity
 
     output logic s_hrdmax_rst_o             //max consecutive pipeline restarts reached
 );
@@ -68,7 +73,7 @@ module hardisc
     logic[19:0] s_exma_offset;
     logic[11:0] s_exma_payload[EXMA_REPS];
     logic[31:0] s_exma_val[EXMA_REPS], s_mawb_val[MAWB_REPS], s_idop_p1, s_idop_p2, s_opex_op1[OPEX_REPS], s_opex_op2[OPEX_REPS], 
-                s_toc_addr[EXMA_REPS], s_rf_val[MAWB_REPS], s_lsu_address, s_lsu_wdata[EXMA_REPS], s_read_data[MAWB_REPS], s_lsu_fixed_data[MAWB_REPS];
+                s_toc_addr[EXMA_REPS], s_rf_val[MAWB_REPS], s_lsu_address[EXMA_REPS], s_lsu_wdata[EXMA_REPS], s_read_data[MAWB_REPS], s_lsu_fixed_data[MAWB_REPS];
     logic[20:0] s_idop_payload[IDOP_REPS];
     logic[1:0] s_feid_pred[FEID_REPS];
     f_part s_idop_f[IDOP_REPS], s_opex_f[OPEX_REPS], s_exma_f[EXMA_REPS];
@@ -80,7 +85,7 @@ module hardisc
             s_pred_bpu, s_pred_jpu, s_pred_btrue, s_pred_btbu, s_pred_clean, s_lsu_busy[EXMA_REPS], s_lsu_approve[EXMA_REPS];
     logic[31:0] s_rst_point[EXMA_REPS], s_lsu_ap_address, s_lsu_dp_data;
     logic[30:0] s_bop_tadd;
-    logic s_bop_pred, s_bop_pop, s_int_uce, s_lsu_ap_approve, s_lsu_dp_ready, s_lsu_dp_hresp[EXMA_REPS];
+    logic s_bop_pred, s_bop_pop, s_int_uce, s_lsu_ap_approve, s_lsu_dp_ready[EXMA_REPS], s_lsu_dp_hresp[EXMA_REPS];
     logic[2:0] s_lsu_einfo[MAWB_REPS];
 `ifdef PROTECTED
     logic[1:0] s_rf_uce[IDOP_REPS],s_rf_ce[IDOP_REPS], s_acm_settings;
@@ -89,7 +94,19 @@ module hardisc
 
     assign s_hrdmax_rst_o   = s_hrdmax_rst;
     
+    //AHB instruction bus - hardwired signals
     assign s_i_hwchecksum_o = 7'b0;
+    assign s_i_hwdata_o     = 32'b0;
+    assign s_i_hburst_o     = 3'b0;
+    assign s_i_hmastlock_o  = 1'b0;
+    assign s_i_hprot_o      = 4'b0;
+    assign s_i_hsize_o      = 3'b010;
+    assign s_i_hwrite_o     = 1'b0;
+
+    //AHB data bus - hardwired signals
+    assign s_d_hburst_o     = 3'b0;
+    assign s_d_hmastlock_o  = 1'b0;
+    assign s_d_hprot_o      = 4'b0;
 
     genvar i;
     generate
@@ -126,13 +143,8 @@ module hardisc
         .s_hready_i(s_i_hready_i),
         .s_hresp_i(s_i_hresp_i),
         .s_haddr_o(s_i_haddr_o),
-        .s_hwdata_o(s_i_hwdata_o),
-        .s_hburst_o(s_i_hburst_o),
-        .s_hmastlock_o(s_i_hmastlock_o),
-        .s_hprot_o(s_i_hprot_o),
-        .s_hsize_o(s_i_hsize_o),
         .s_htrans_o(s_i_htrans_o),
-        .s_hwrite_o(s_i_hwrite_o),
+        .s_hparity_o(s_i_hparity_o),
 
         .s_feid_info_o(s_feid_info),
         .s_feid_instr_o(s_feid_instr),
@@ -254,12 +266,10 @@ module hardisc
         .s_haddr_o(s_d_haddr_o),
         .s_hwdata_o(s_d_hwdata_o),
         .s_hwdcheck_o(s_d_hwchecksum_o),
-        .s_hburst_o(s_d_hburst_o),
-        .s_hmastlock_o(s_d_hmastlock_o),
-        .s_hprot_o(s_d_hprot_o),
         .s_hsize_o(s_d_hsize_o),
         .s_htrans_o(s_d_htrans_o),
         .s_hwrite_o(s_d_hwrite_o),
+        .s_hparity_o(s_d_hparity_o),
 
         .s_opex_f_i(s_opex_f),
         .s_ap_approve_i(s_lsu_approve),

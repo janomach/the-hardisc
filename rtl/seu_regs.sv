@@ -21,7 +21,7 @@ module seu_regs #(
     parameter W=32,
     parameter N=3,
     parameter NC=N,
-    parameter GROUP=1,
+    parameter GROUP=0,
     parameter LABEL = "GENERAL"
 )(
     input logic s_c_i[NC],

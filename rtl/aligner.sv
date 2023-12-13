@@ -170,11 +170,11 @@ module aligner (
             end else begin
                 if(s_input_is_valid) begin
                     //Unaligned RVI, report informations with higher prority
-                    s_info[3:1] = ((s_info_i[3:1] != FETCH_VALID) 
-`ifdef EDAC_INTERFACE                    
-                                 & (s_info_i[3:1] != FETCH_INCER)
+                    s_info[3:1] = ((s_info_i[4:2] != FETCH_VALID) 
+`ifdef PROTECTED_WITH_IFP                    
+                                 & (s_info_i[4:2] != FETCH_INCER)
 `endif
-                                  ) ? s_info_i[3:1] : s_rsvd_info[0][3:1];
+                                  ) ? s_info_i[4:2] : s_rsvd_info[0][3:1];
                     s_info[0]   = s_rsvd_info[0][0];
                     s_pred      = s_pred_i[0];
                 end else begin

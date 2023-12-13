@@ -34,15 +34,18 @@ module executor (
     output logic s_finished_o,          //indicates end of computation
     output logic[31:0] s_result_o       //result
 );
-    logic[31:0] s_alu_result, s_mdu_result, s_result;
+    logic[31:0] s_alu_result, s_mdu_result, s_result[1], s_result_see[1];
     logic[30:0] s_pc_offset;
-    logic s_mdu_finished;
+    logic s_mdu_finished[1], s_mdu_finished_see[1];
 
-    see_wires #(.LABEL("ALU_RES"),.GROUP(9),.W(32)) see_alu(.s_c_i(s_clk_i),.s_d_i(s_result),.s_d_o(s_result_o));
-    see_wires #(.LABEL("ALU_FIN"),.GROUP(9),.W(1)) see_fin(.s_c_i(s_clk_i),.s_d_i(s_mdu_finished),.s_d_o(s_finished_o));
+    assign s_result_o   = s_result_see[0];
+    assign s_finished_o = s_mdu_finished_see[0];
+
+    see_wires #(.LABEL("ALU_RES"),.GROUP(SEEGR_CORE_WIRE),.W(32)) see_alu(.s_c_i(s_clk_i),.s_d_i(s_result),.s_d_o(s_result_see));
+    see_wires #(.LABEL("ALU_FIN"),.GROUP(SEEGR_CORE_WIRE),.W(1)) see_fin(.s_c_i(s_clk_i),.s_d_i(s_mdu_finished),.s_d_o(s_mdu_finished_see));
 
     //result selection
-    assign s_result     = s_ictrl_i[ICTRL_UNIT_MDU] ? s_mdu_result : s_alu_result;
+    assign s_result[0]  = s_ictrl_i[ICTRL_UNIT_MDU] ? s_mdu_result : s_alu_result;
 
     //preparation of program counter offset for AUIPC and BRU instructions
     assign s_pc_offset  = s_ictrl_i[ICTRL_UNIT_BRU] ? {{11{s_payload_i[19]}},s_payload_i[19:0]} : {s_payload_i[19:0],11'b0} ;
@@ -71,7 +74,7 @@ module executor (
         .s_function_i(s_function_i),
         .s_operand1_i(s_operand1_i),
         .s_operand2_i(s_operand2_i),
-        .s_finished_o(s_mdu_finished),
+        .s_finished_o(s_mdu_finished[0]),
         .s_result_o(s_mdu_result)
     );
 

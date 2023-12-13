@@ -50,25 +50,28 @@ module ras
     logic s_wutd[1], s_rutd[1], s_wurvi[1], s_rurvi[1];
     
     //Indicates that first part of unaligned RVI is saved
-    seu_regs #(.LABEL("RAS_URVI"),.GROUP(5),.W(1),.N(1),.NC(1)) m_seu_urvi(.s_c_i({s_clk_i}),.s_d_i(s_wurvi),.s_d_o(s_rurvi));
+    seu_regs #(.LABEL("RAS_URVI"),.GROUP(SEEGR_PREDICTOR),.W(1),.N(1),.NC(1)) m_seu_urvi(.s_c_i({s_clk_i}),.s_d_i(s_wurvi),.s_d_o(s_rurvi));
     //First part of unaligned RVI
-    seu_regs #(.LABEL("RAS_INSTR"),.GROUP(5),.W(16),.N(1),.NC(1)) m_seu_instr(.s_c_i({s_clk_i}),.s_d_i(s_winstr),.s_d_o(s_rinstr));
+    seu_regs #(.LABEL("RAS_INSTR"),.GROUP(SEEGR_PREDICTOR),.W(16),.N(1),.NC(1)) m_seu_instr(.s_c_i({s_clk_i}),.s_d_i(s_winstr),.s_d_o(s_rinstr));
     //Up-to-date indicator of saved address and incomming fetched data
-    seu_regs #(.LABEL("RAS_UTD"),.GROUP(5),.W(1),.N(1),.NC(1)) m_seu_utd(.s_c_i({s_clk_i}),.s_d_i(s_wutd),.s_d_o(s_rutd));
+    seu_regs #(.LABEL("RAS_UTD"),.GROUP(SEEGR_PREDICTOR),.W(1),.N(1),.NC(1)) m_seu_utd(.s_c_i({s_clk_i}),.s_d_i(s_wutd),.s_d_o(s_rutd));
     //Saved address
-    seu_regs #(.LABEL("RAS_ADDRESS"),.GROUP(5),.W(30),.N(1),.NC(1)) m_seu_address(.s_c_i({s_clk_i}),.s_d_i(s_waddress),.s_d_o(s_raddress));
+    seu_regs #(.LABEL("RAS_ADDRESS"),.GROUP(SEEGR_PREDICTOR),.W(30),.N(1),.NC(1)) m_seu_address(.s_c_i({s_clk_i}),.s_d_i(s_waddress),.s_d_o(s_raddress));
 
     logic s_ipop, s_ipush, s_jal, s_jalr, s_rs1, s_rs5, s_rd1, s_rd5, s_rseqrd, s_pop, s_push, s_empty, s_cvalid[2], s_ivalid;
-    logic[1:0] s_cpush, s_cpop, s_cjal, s_cjr, s_cjalr, s_poped; 
-    logic[30:0] s_pop_addr, s_save_addr;
+    logic[1:0] s_cpush, s_cpop, s_cjal, s_cjr, s_cjalr, s_poped[1], s_poped_see[1]; 
+    logic[30:0] s_pop_addr[1], s_pop_addr_see[1], s_save_addr;
     logic[31:0] s_instruction_0;
     logic s_urvi_valid;
 
-    see_wires #(.LABEL("RAS_OUT_ADD"),.GROUP(9),.W(31)) see_pred_add(.s_c_i(s_clk_i),.s_d_i(s_pop_addr),.s_d_o(s_pop_addr_o));
-    see_wires #(.LABEL("RAS_OUT_POP"),.GROUP(9),.W(2))  see_pred_pop(.s_c_i(s_clk_i),.s_d_i(s_poped),.s_d_o(s_poped_o));
+    assign s_pop_addr_o = s_pop_addr_see[0];
+    assign s_poped_o    = s_poped_see[0];
 
-    assign s_poped[0]   = (s_ipop | s_cpop[0]) & s_rutd[0] & !s_empty & s_enable_i;
-    assign s_poped[1]   = (s_cpop[1]) & !s_empty & s_rutd[0] & ~s_poped[0] & s_enable_i;
+    see_wires #(.LABEL("RAS_OUT_ADD"),.GROUP(SEEGR_CORE_WIRE),.W(31)) see_pred_add(.s_c_i(s_clk_i),.s_d_i(s_pop_addr),.s_d_o(s_pop_addr_see));
+    see_wires #(.LABEL("RAS_OUT_POP"),.GROUP(SEEGR_CORE_WIRE),.W(2))  see_pred_pop(.s_c_i(s_clk_i),.s_d_i(s_poped),.s_d_o(s_poped_see));
+
+    assign s_poped[0][0]    = (s_ipop | s_cpop[0]) & s_rutd[0] & !s_empty & s_enable_i;
+    assign s_poped[0][1]    = (s_cpop[1]) & !s_empty & s_rutd[0] & ~s_poped[0] & s_enable_i;
 
     //Fetch address and valid information for the next clock cycle
     always_comb begin
@@ -150,7 +153,7 @@ module ras
     assign s_save_addr = ((s_urvi_valid & s_ipush) | s_cpush[0]) ? ({s_raddress[0],1'b1}) : ({s_raddress[0] + 30'd1,1'b0});                       
 
     //Return Address Stack Buffer
-    circular_buffer #(.LABEL("RAS"),.GROUP(5),.SIZE(`OPTION_RAS_SIZE),.WIDTH(31)) buffer
+    circular_buffer #(.LABEL("RAS"),.GROUP(SEEGR_PREDICTOR),.SIZE(`OPTION_RAS_SIZE),.WIDTH(31)) buffer
     (
         .s_clk_i(s_clk_i),
         .s_resetn_i(s_resetn_i & ~s_invalidate_i),
@@ -159,7 +162,7 @@ module ras
         .s_pop_i(s_pop),
         .s_data_i(s_save_addr),
         .s_empty_o(s_empty),
-        .s_data_o(s_pop_addr)
+        .s_data_o(s_pop_addr[0])
     );
     
 endmodule

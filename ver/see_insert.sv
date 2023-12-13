@@ -24,12 +24,13 @@ module see_insert #(
     parameter W = 32,
     parameter N = 3,
     parameter MPROB = 1,
-    parameter GROUP = 1,
+    parameter GROUP = 0,
     parameter LABEL = "SEE_INSERT"
 )(
     input logic s_clk_i,
     output logic[W-1:0] s_upset_o[N]
 );
+    localparam[31:0] GROUP_MASK = (32'b1 << GROUP);
     logic[31:0] r_seed_value[N], r_randomval[N], see_prob, see_group;
     logic[W-1:0] r_force[N];
     logic[31:0] s_filtered[N];
@@ -62,7 +63,7 @@ module see_insert #(
             assign s_filtered[i]    = (r_randomval[i] % `SEE_MAX);
 
             always_ff @( posedge s_clk_i ) begin
-                if((see_prob != 0) & ((GROUP & see_group) != 0))begin
+                if((see_prob != 0) & ((GROUP_MASK & see_group) != 0))begin
                     r_randomval[i] <= $urandom(r_seed_value[i]+r_randomval[i]);
                     for(j = 0; j < W; j++)begin : iterate_j
                         r_force[i][j] <= (s_filtered[i] >= (see_prob * j)) & (s_filtered[i] < (see_prob * (j+1)));

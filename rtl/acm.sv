@@ -175,7 +175,7 @@ module acm
 `ifdef SEE_TESTING
     int j;
     logic[6:0] s_upset[32];
-    see_insert #(.W(7),.N(32),.GROUP(3),.LABEL("ACMRF")) see (.s_clk_i(s_clk_i[2]),.s_upset_o(s_upset));
+    see_insert #(.W(7),.N(32),.GROUP(SEEGR_REG_FILE),.LABEL("ACMRF")) see (.s_clk_i(s_clk_i[2]),.s_upset_o(s_upset));
 `endif
 
     always_ff @( posedge s_clk_i[2] ) begin : rf_writer

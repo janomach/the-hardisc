@@ -56,9 +56,9 @@ module branch_predictor
     logic[15:0] s_branchp_off;
     logic[BASE_WIDTH-1:0] s_base_addu, s_base_addp;
 
-    seu_regs #(.LABEL("BP_VLD"),.GROUP(5),.W(ENTRIES),.N(1),.NC(1))m_r_branchv (.s_c_i({s_clk_i}),.s_d_i(s_wbp_valid),.s_d_o(s_rbp_valid));
+    seu_regs #(.LABEL("BP_VLD"),.GROUP(SEEGR_PREDICTOR),.W(ENTRIES),.N(1),.NC(1))m_r_branchv (.s_c_i({s_clk_i}),.s_d_i(s_wbp_valid),.s_d_o(s_rbp_valid));
 
-    seu_regs_file #(.LABEL("BTB"),.GROUP(5),.W(ENTRY_WIDTH),.N(ENTRIES),.RP(1)) m_btb 
+    seu_regs_file #(.LABEL("BTB"),.GROUP(SEEGR_PREDICTOR),.W(ENTRY_WIDTH),.N(ENTRIES),.RP(1)) m_btb 
     (
         .s_clk_i(s_clk_i),
         .s_we_i(s_btb_update),
@@ -67,7 +67,7 @@ module branch_predictor
         .s_radd_i(s_branchp_index),
         .s_val_o(s_btb_entry)
     );
-    seu_regs_file #(.LABEL("BHT"),.GROUP(5),.W(2),.N(HENTRIES),.RP(2)) m_bht 
+    seu_regs_file #(.LABEL("BHT"),.GROUP(SEEGR_PREDICTOR),.W(2),.N(HENTRIES),.RP(2)) m_bht 
     (
         .s_clk_i(s_clk_i),
         .s_we_i(s_branch_update_i),

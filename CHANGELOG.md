@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2023-12-13
+
+### Added
+ - Parity protection for instruction bus interface and data bus interface
+ - Configurable option in the hrdctrl0 CSR for automatic restart (only one try) of an instruction that perceived bus error
+ - Specification of GROUPS in see_insert modules
+
+### Changed
+ - Option EDAC_INTERFACE renamed to IFP (interface protection)
+ - Signals connected to the output port of see_wires modules have an "_see" sufix
+ - Unused interface signal bundles are moved out of the LSU and the FE stage to the top module
+ - The data bus checksum is prepared in each replicated stage within the LSU and connected to the bus via TMR to increase dependability
+ - Even if the MA stage does not contain LSU instruction and the data bus is not ready, the pipeline is stalled
+ - Simplification of hazard detection logic in the Preparer
+ - The see_wires module accepts unpacked arrays at the input/output
+ - Bit 0 in the SEE_GROUP option does not enable SEE in all groups
+ - The address signal in AHB memories is set to 32-bits
+
+### Removed
+ - Support for EDAC interface in NOT PROTECTED core
+ - TMR from the MAWB data at the output of the MA stage since it is no longer needed thanks to data bus parity protection (the TMR for data in the ACM remains)
+ - General hazards if the EX stage or MA stage contains CSR instruction
+
+### Fixed
+ - Propagation of fetch information through the Aligner if it contains the first half of a 32-bit instruction
+ - Discrepancy of the IMISCON registers between OP and EX stages is not checked
+
 ## [1.1.0] - 2023-11-16
 
 ### Added
@@ -45,5 +72,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public version
 
+[1.2.0]: https://github.com/janomach/the-hardisc/releases/tag/v1.2.0
 [1.1.0]: https://github.com/janomach/the-hardisc/releases/tag/v1.1.0
 [1.0.0]: https://github.com/janomach/the-hardisc/releases/tag/v1.0.0

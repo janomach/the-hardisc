@@ -41,16 +41,11 @@ module pipeline_1_fe (
 
     input logic[6:0] s_hrdcheck_i,                  //AHB bus - incoming checksum
     input logic[31:0] s_hrdata_i,                   //AHB bus - incomming read data
-    input logic s_hready_i,                         //AHB bus - finish of transfer
-    input logic s_hresp_i,                          //AHB bus - error response
+    input logic s_hready_i[CTRL_REPS],              //AHB bus - finish of transfer
+    input logic s_hresp_i[CTRL_REPS],               //AHB bus - error response
     output logic[31:0] s_haddr_o,                   //AHB bus - request address
-    output logic[31:0] s_hwdata_o,                  //AHB bus - request data to write
-    output logic[2:0]s_hburst_o,                    //AHB bus - burst type indicator
-    output logic s_hmastlock_o,                     //AHB bus - locked sequence indicator
-    output logic[3:0]s_hprot_o,                     //AHB bus - protection control signals
-    output logic[2:0]s_hsize_o,                     //AHB bus - size of the transfer
     output logic[1:0]s_htrans_o,                    //AHB bus - transfer type indicator
-    output logic s_hwrite_o,                        //AHB bus - write indicator
+    output logic[5:0] s_hparity_o,                  //AHB bus - outgoing parity
 
     output logic[31:0] s_feid_instr_o[FEID_REPS],   //instruction to execute for ID stage
     output logic[4:0] s_feid_info_o[FEID_REPS],     //instruction payload information for ID stage
@@ -93,13 +88,15 @@ module pipeline_1_fe (
     
     //Instruction bus interface signals
     assign s_haddr_o    = {s_rfe0_add[0][30:1],2'b0};
-    assign s_hwdata_o   = 32'b0;
-    assign s_hburst_o   = 3'b0;
-    assign s_hmastlock_o= 1'b0;
-    assign s_hprot_o    = 4'b0;
-    assign s_hsize_o    = 3'b010;
-    assign s_htrans_o   = s_rfe0_utd[0] ? 2'b10 : 2'b00;
-    assign s_hwrite_o   = 1'b0;
+    assign s_htrans_o   = (s_rfe0_utd[0] & s_resetn_i[0]) ? 2'b10 : 2'b00;
+
+`ifdef PROTECTED_WITH_IFP
+    assign s_hparity_o[3:0] = {^s_rfe0_add[INTF_REPS-1][30:23], ^s_rfe0_add[INTF_REPS-1][22:15], ^s_rfe0_add[INTF_REPS-1][14:7], ^s_rfe0_add[INTF_REPS-1][6:1]};
+    assign s_hparity_o[4]   = 1'b1;                             //hsize, hwrite, hprot, hburst, hmastlock
+    assign s_hparity_o[5]   = (s_rfe0_utd[INTF_REPS-1] & s_resetn_i[INTF_REPS-1]);  //htrans
+`else
+    assign s_hparity_o      = 6'b0;
+`endif
 
     //Prediction of the next fetch address
     logic[1:0] s_pred_taken, s_pred_toc, s_ras_pop;
@@ -188,7 +185,7 @@ module pipeline_1_fe (
 
             //Update and control of the IFB
             assign s_ifb_pop[i]         = ~(s_stall_i[i][PIPE_ID]);
-            assign s_ifb_push[i]        = s_hready_i & s_rfe1_utd[i] & ~s_ras_toc_valid[i];
+            assign s_ifb_push[i]        = s_hready_i[i] & s_rfe1_utd[i] & ~s_ras_toc_valid[i];
             assign s_ifb_wdata[i][31:0] = s_hrdata_i;
             assign s_ifb_wdata[i][32]   = s_rfe1_add[i][0];
             assign s_ifb_wdata[i][35:33]= 
@@ -201,7 +198,7 @@ module pipeline_1_fe (
                 the instruction is marked corrupted, and it's fetch will be restarted from MA-stage. */
                     (s_rfe1_add[0] != s_rfe1_add[1]) ? FETCH_DISCR :
 `endif            
-                    s_hresp_i ? FETCH_BSERR : FETCH_VALID ;
+                    s_hresp_i[i] ? FETCH_BSERR : FETCH_VALID ;
             assign s_ifb_wdata[i][37:36]= s_rfe1_inf[i];
             //Output of the IFB
             assign s_feid_info_o[i]     = {s_ifb_rdata[i][35:32], ~s_ifb_valid[i]};
@@ -235,7 +232,7 @@ module pipeline_1_fe (
             assign s_toc_in_fe1[i]      = (~s_rfe1_utd[i] & (s_rfe1_inf[i] == 2'b11));                             
 
             always_comb begin : fe1_update
-                if((s_flush_fe[i] | s_ras_toc_valid[i]) & ~s_hready_i & s_rfe0_utd[i])begin
+                if((s_flush_fe[i] | s_ras_toc_valid[i]) & ~s_hready_i[i] & s_rfe0_utd[i])begin
                 /*  The core cannot change an address of the following request, if the hready signal 
                     from bus interface is held at 0 after leading request. This means the FE0 cannot
                     be updated, so the TOC informations are saved in the FE1. */
@@ -247,12 +244,12 @@ module pipeline_1_fe (
                     s_wfe1_utd[i]   = 1'b0;
                     s_wfe1_inf[i]   = 2'b11;
                 end else begin
-                    if(s_flush_fe[i] | s_ras_toc_valid[i] | (s_hready_i & s_toc_in_fe1[i]))begin
+                    if(s_flush_fe[i] | s_ras_toc_valid[i] | (s_hready_i[i] & s_toc_in_fe1[i]))begin
                         //FE1 can be flushed
                         s_wfe1_add[i]   = 31'b0;
                         s_wfe1_utd[i]   = 1'b0;
                         s_wfe1_inf[i]   = 2'b0;
-                    end else if(~s_hready_i)begin
+                    end else if(~s_hready_i[i])begin
                         //FE1 must be preserved
                         s_wfe1_add[i]   = s_rfe1_add[i];
                         s_wfe1_utd[i]   = s_rfe1_utd[i];
@@ -267,7 +264,7 @@ module pipeline_1_fe (
             end
             
             always_comb begin : fe0_update
-                if(~s_hready_i & s_rfe0_utd[i])begin
+                if(~s_hready_i[i] & s_rfe0_utd[i])begin
                 /*  The core cannot change an address of the following request, if the hready signal 
                     from bus interface is held at 0 after leading request. */
                     s_wfe0_add[i] = s_rfe0_add[i];

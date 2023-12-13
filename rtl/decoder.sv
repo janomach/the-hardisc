@@ -56,7 +56,7 @@ module decoder (
     assign s_f_o        = (s_rvc) ? s_c_f : s_i_f;
     assign s_sctrl_o    = (s_rvc) ? s_c_src_ctrl : s_src_ctrl;
     assign s_ictrl_o    = ((s_imiscon_o != IMISCON_FREE)
-`ifdef EDAC_INTERFACE
+`ifdef PROTECTED_WITH_IFP
                          & (s_imiscon_o != IMISCON_FCER)
 `endif
                           ) ? {s_align_error_i | s_rvc, 6'b000000} : //The RVC means the Predictor will not increment address before invalidiation
@@ -66,7 +66,7 @@ module decoder (
                           (s_fetch_error_i == FETCH_DISCR) ? IMISCON_DSCR :
 `endif
                           (s_fetch_error_i == FETCH_BSERR) ? IMISCON_FERR :
-`ifdef EDAC_INTERFACE
+`ifdef PROTECTED_WITH_IFP
                           (s_fetch_error_i == FETCH_INUCE) ? IMISCON_FUCE :
                           ((s_fetch_error_i == FETCH_INCER) & (s_dec_imiscon == IMISCON_FREE)) ? IMISCON_FCER :
 `endif 
@@ -165,7 +165,7 @@ module decoder (
             CSR_MHARTID:     s_csr_add = MCSR_HARTID;
             CSR_MHRDCTRL0:   s_csr_add = MCSR_HRDCTRL0;
             CSR_MISA:        s_csr_add = MCSR_ISA;
-`ifdef EDAC_INTERFACE
+`ifdef PROTECTED_WITH_IFP
             CSR_MADDRERR:    s_csr_add = MCSR_ADDRERR;
 `endif
             default:         s_csr_add = 5'b11111;

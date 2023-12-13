@@ -35,22 +35,25 @@ module predictor
     output logic[1:0] s_pred_taken_o,   //[0]([1]) - predicted TOC from aligned (unaligned) part of the fetched address
     output logic[31:0] s_pred_add_o     //predicted target address
 );
-    logic[1:0] s_pred_taken;
+    logic[1:0] s_pred_taken[1], s_pred_taken_see[1];
     logic s_jp_taken, s_bp_taken, s_predictor;
     logic s_taken_align, s_taken_ualign;
-    logic[31:0] s_bp_tadd, s_jp_tadd, s_pred_add, s_base_add, s_basep2_add, s_offm2, s_offsetu, s_offset;
+    logic[31:0] s_bp_tadd, s_jp_tadd, s_pred_add[1], s_pred_add_see[1], s_base_add, s_basep2_add, s_offm2, s_offsetu, s_offset;
     logic s_ualig;
     logic s_jp_ualigc, s_bp_ualigc;
 
-    see_wires #(.LABEL("PRED_ADD"),.GROUP(9),.W(32))  see_pred_add(.s_c_i(s_clk_i),.s_d_i(s_pred_add),.s_d_o(s_pred_add_o));
-    see_wires #(.LABEL("PRED_TAKEN"),.GROUP(9),.W(2)) see_pred_taken(.s_c_i(s_clk_i),.s_d_i(s_pred_taken),.s_d_o(s_pred_taken_o));
+    assign s_pred_add_o     = s_pred_add_see[0];
+    assign s_pred_taken_o   = s_pred_taken_see[0];
+
+    see_wires #(.LABEL("PRED_ADD"),.GROUP(SEEGR_CORE_WIRE),.W(32))  see_pred_add(.s_c_i(s_clk_i),.s_d_i(s_pred_add),.s_d_o(s_pred_add_see));
+    see_wires #(.LABEL("PRED_TAKEN"),.GROUP(SEEGR_CORE_WIRE),.W(2)) see_pred_taken(.s_c_i(s_clk_i),.s_d_i(s_pred_taken),.s_d_o(s_pred_taken_see));
 
     //Prediction
     assign s_predictor      = s_bp_taken & (~s_bp_ualigc | ~s_jp_taken);
     assign s_taken_align    = (s_jp_taken ? ~s_jp_ualigc : 1'b0) | (s_bp_taken ? ~s_bp_ualigc : 1'b0);
     assign s_taken_ualign   = ~s_taken_align & ((s_jp_taken ? s_jp_ualigc : 1'b0) | (s_bp_taken ? s_bp_ualigc : 1'b0));
-    assign s_pred_add       = (s_predictor) ? s_bp_tadd : s_jp_tadd;
-    assign s_pred_taken     = {s_taken_ualign,s_taken_align};
+    assign s_pred_add[0]    = (s_predictor) ? s_bp_tadd : s_jp_tadd;
+    assign s_pred_taken[0]  = {s_taken_ualign,s_taken_align};
 
     //Updating
     /* 

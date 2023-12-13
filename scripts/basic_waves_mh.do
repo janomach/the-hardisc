@@ -7,6 +7,7 @@ add wave -noupdate -divider {Fetch Interface}
 add wave -noupdate -radix hexadecimal /tb_mh_wrapper/dut/s_i_haddr_o
 add wave -noupdate /tb_mh_wrapper/dut/s_i_htrans_o
 add wave -noupdate /tb_mh_wrapper/dut/s_i_hready_i
+add wave -noupdate /tb_mh_wrapper/dut/s_i_hresp_i
 add wave -noupdate -radix hexadecimal /tb_mh_wrapper/dut/s_i_hrdata_i
 add wave -noupdate -divider {Data Interface}
 add wave -noupdate -radix hexadecimal /tb_mh_wrapper/dut/s_d_haddr_o
@@ -15,11 +16,13 @@ add wave -noupdate /tb_mh_wrapper/dut/s_d_hwrite_o
 add wave -noupdate -radix hexadecimal /tb_mh_wrapper/dut/s_d_hsize_o
 add wave -noupdate -radix hexadecimal /tb_mh_wrapper/dut/s_d_hwdata_o
 add wave -noupdate /tb_mh_wrapper/dut/s_d_hready_i
+add wave -noupdate /tb_mh_wrapper/dut/s_d_hresp_i
 add wave -noupdate -radix hexadecimal /tb_mh_wrapper/dut/s_d_hrdata_i
 add wave -noupdate -divider {Core State}
 add wave -noupdate -color Orange -radix unsigned {/tb_mh_wrapper/dut/m_pipe_5_ma/m_csru/s_rmcycle[0]}
 add wave -noupdate -color Orange -radix unsigned {/tb_mh_wrapper/dut/m_pipe_5_ma/m_csru/s_rminstret[0]}
 add wave -noupdate -color Orange -radix hexadecimal {/tb_mh_wrapper/dut/m_pipe_5_ma/m_csru/s_rstpoint[0]}
+add wave -noupdate -color Orange -radix hexadecimal {/tb_mh_wrapper/dut/m_pipe_5_ma/m_csru/s_rmhrdctrl0[0]}
 add wave -noupdate -divider {Fetch Stage}
 add wave -noupdate -color Orange {/tb_mh_wrapper/dut/m_pipe_1_fe/s_flush_fe[0]}
 add wave -noupdate {/tb_mh_wrapper/dut/m_pipe_1_fe/s_rfe0_utd[0]}
