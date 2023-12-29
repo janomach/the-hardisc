@@ -18,14 +18,14 @@
 import p_hardisc::*;
 
 module lsu (
-    input logic s_clk_i[CTRL_REPS],     //clock signal
-    input logic s_resetn_i[CTRL_REPS],  //reset signal
-    input logic s_flush_i[CTRL_REPS],   //flush signal      
+    input logic s_clk_i[PROT_3REP],     //clock signal
+    input logic s_resetn_i[PROT_3REP],  //reset signal
+    input logic s_flush_i[PROT_3REP],   //flush signal      
 
     input logic[6:0] s_hrdcheck_i,      //AHB bus - incoming checksum
     input logic[31:0] s_hrdata_i,       //AHB bus - incomming read data
-    input logic s_hready_i[CTRL_REPS],  //AHB bus - finish of transfer
-    input logic s_hresp_i[CTRL_REPS],   //AHB bus - error response
+    input logic s_hready_i[PROT_3REP],  //AHB bus - finish of transfer
+    input logic s_hresp_i[PROT_3REP],   //AHB bus - error response
 
     output logic[31:0] s_haddr_o,       //AHB bus - request address
     output logic[31:0] s_hwdata_o,      //AHB bus - request data to write
@@ -36,47 +36,47 @@ module lsu (
     output logic[5:0] s_hparity_o,      //AHB bus - outgoing parity
 
     //Address phase
-    input f_part s_opex_f_i[OPEX_REPS],         //instruction function from EX stage
-    input logic s_ap_approve_i[EXMA_REPS],      //address phase approval  
-    input logic[31:0] s_ap_address_i[EXMA_REPS],//address phase address 
-    input logic[31:0] s_wdata_i[EXMA_REPS],     //data to write
-    output logic s_ap_busy_o[EXMA_REPS],        //busy indicator - cannot start new address phase   
+    input f_part s_opex_f_i[PROT_2REP],         //instruction function from EX stage
+    input logic s_ap_approve_i[PROT_3REP],      //address phase approval  
+    input logic[31:0] s_ap_address_i[PROT_3REP],//address phase address 
+    input logic[31:0] s_wdata_i[PROT_3REP],     //data to write
+    output logic s_ap_busy_o[PROT_3REP],        //busy indicator - cannot start new address phase   
 
     //Data phase
-    input f_part s_exma_f_i[EXMA_REPS],         //instruction function from MA stage
-    input logic[31:0] s_dp_address_i[EXMA_REPS],//data phase address  
-    output logic s_dp_ready_o[EXMA_REPS],       //data phase stall signal
-    output logic s_dp_hresp_o[EXMA_REPS],       //data phase bus error
+    input f_part s_exma_f_i[PROT_3REP],         //instruction function from MA stage
+    input logic[31:0] s_dp_address_i[PROT_3REP],//data phase address  
+    output logic s_dp_ready_o[PROT_3REP],       //data phase stall signal
+    output logic s_dp_hresp_o[PROT_3REP],       //data phase bus error
     output logic[31:0] s_dp_data_o,             //data phase read data
 
     //Fix data
-    input logic[31:0] s_read_data_i[MAWB_REPS],     //data read by previous transfer
-    output logic[31:0] s_fixed_data_o[MAWB_REPS],   //fixed data
-    output logic[2:0] s_einfo_o[MAWB_REPS]          //data error info
+    input logic[31:0] s_read_data_i[PROT_3REP],     //data read by previous transfer
+    output logic[31:0] s_fixed_data_o[PROT_3REP],   //fixed data
+    output logic[2:0] s_einfo_o[PROT_3REP]          //data error info
 );
-    logic s_ap_active[EXMA_REPS], s_whresp[MAWB_REPS], s_rhresp[MAWB_REPS];
-    logic[31:0] s_wwdata[EXMA_REPS], s_rwdata[EXMA_REPS];
+    logic s_ap_active[PROT_3REP], s_whresp[PROT_3REP], s_rhresp[PROT_3REP];
+    logic[31:0] s_wwdata[PROT_3REP], s_rwdata[PROT_3REP];
 `ifdef PROTECTED_WITH_IFP
-    logic[31:0] s_haddr[INTF_REPS];
-    logic[5:0] s_hparity[INTF_REPS];
-    logic[2:0] s_hsize[INTF_REPS];
-    logic[1:0] s_htrans[INTF_REPS];
-    logic s_hwrite[INTF_REPS];
-    logic rmw_activate[EXMA_REPS], s_ce[MAWB_REPS], s_uce[MAWB_REPS];
-    logic[31:0] s_data_merged[EXMA_REPS], s_data_fixed[EXMA_REPS], s_wdata[1];
-    logic[6:0] s_achecksum[MAWB_REPS], s_wlsyndrome[MAWB_REPS], s_rlsyndrome[MAWB_REPS], s_checksum[MAWB_REPS], s_wchecksum[1];
-    logic[1:0] s_wfsm[EXMA_REPS], s_rfsm[EXMA_REPS];
+    logic[31:0] s_haddr[PROT_2REP];
+    logic[5:0] s_hparity[PROT_2REP];
+    logic[2:0] s_hsize[PROT_2REP];
+    logic[1:0] s_htrans[PROT_2REP];
+    logic s_hwrite[PROT_2REP];
+    logic rmw_activate[PROT_3REP], s_ce[PROT_3REP], s_uce[PROT_3REP];
+    logic[31:0] s_data_merged[PROT_3REP], s_data_fixed[PROT_3REP], s_wdata[1];
+    logic[6:0] s_achecksum[PROT_3REP], s_wlsyndrome[PROT_3REP], s_rlsyndrome[PROT_3REP], s_checksum[PROT_3REP], s_wchecksum[1];
+    logic[1:0] s_wfsm[PROT_3REP], s_rfsm[PROT_3REP];
 `endif
 
     //Data for write
-    seu_regs #(.LABEL("WDATA"),.N(EXMA_REPS))m_wdata (.s_c_i(s_clk_i),.s_d_i(s_wwdata),.s_d_o(s_rwdata));
+    seu_regs #(.LABEL("WDATA"),.N(PROT_3REP))m_wdata (.s_c_i(s_clk_i),.s_d_i(s_wwdata),.s_d_o(s_rwdata));
     //Bus-transfer error
-    seu_regs #(.LABEL("HRESP"),.W(1),.N(EXMA_REPS))m_hresp (.s_c_i(s_clk_i),.s_d_i(s_whresp),.s_d_o(s_rhresp));
+    seu_regs #(.LABEL("HRESP"),.W(1),.N(PROT_3REP))m_hresp (.s_c_i(s_clk_i),.s_d_i(s_whresp),.s_d_o(s_rhresp));
 `ifdef PROTECTED_WITH_IFP
     //Finite state machine for the Read-Modify-Write sequence
-    seu_regs #(.LABEL("FSM"),.W(2),.N(EXMA_REPS))m_fsm (.s_c_i(s_clk_i),.s_d_i(s_wfsm),.s_d_o(s_rfsm));
+    seu_regs #(.LABEL("FSM"),.W(2),.N(PROT_3REP))m_fsm (.s_c_i(s_clk_i),.s_d_i(s_wfsm),.s_d_o(s_rfsm));
     //Syndrome of the loaded value
-    seu_regs #(.LABEL("LSYNDROME"),.N(EXMA_REPS),.W(7))m_lsyndrome(.s_c_i(s_clk_i),.s_d_i(s_wlsyndrome),.s_d_o(s_rlsyndrome));
+    seu_regs #(.LABEL("LSYNDROME"),.N(PROT_3REP),.W(7))m_lsyndrome(.s_c_i(s_clk_i),.s_d_i(s_wlsyndrome),.s_d_o(s_rlsyndrome));
     //Majority voting prevents save of corrupted data
     tmr_comb #(.OUT_REPS(1)) m_tmr_sval (.s_d_i(s_rwdata),.s_d_o(s_wdata));
     //Majority voting prevents save of corrupted checksum 
@@ -94,9 +94,9 @@ module lsu (
     assign s_hwdata_o       = s_wdata[0];
 
     //Parity protection signal is determined by pipeline 1
-    assign s_hparity_o[3:0] = {^s_haddr[INTF_REPS-1][31:24], ^s_haddr[INTF_REPS-1][23:16], ^s_haddr[INTF_REPS-1][15:8], ^s_haddr[INTF_REPS-1][7:0]};
-    assign s_hparity_o[4]   = (^s_hsize[INTF_REPS-1]) ^ s_hwrite[INTF_REPS-1];    //hsize, hwrite, hprot, hburst, hmastlock
-    assign s_hparity_o[5]   = (^s_htrans[INTF_REPS-1]);                           //htrans
+    assign s_hparity_o[3:0] = {^s_haddr[PROT_2REP-1][31:24], ^s_haddr[PROT_2REP-1][23:16], ^s_haddr[PROT_2REP-1][15:8], ^s_haddr[PROT_2REP-1][7:0]};
+    assign s_hparity_o[4]   = (^s_hsize[PROT_2REP-1]) ^ s_hwrite[PROT_2REP-1];    //hsize, hwrite, hprot, hburst, hmastlock
+    assign s_hparity_o[5]   = (^s_htrans[PROT_2REP-1]);                           //htrans
 `else
     assign s_hsize_o        = {1'b0,s_opex_f_i[0][1:0]};
     assign s_hwrite_o       = s_opex_f_i[0][3];
@@ -115,7 +115,7 @@ module lsu (
     genvar i;
     generate
 `ifdef PROTECTED_WITH_IFP 
-        for (i = 0; i<INTF_REPS ;i++ ) begin : interface_replicator
+        for (i = 0; i<PROT_2REP ;i++ ) begin : interface_replicator
             assign s_hsize[i]        = (rmw_activate[i]) ? 3'b010 : (s_rfsm[i] == LSU_RMW_WRITE) ? {1'b0,s_exma_f_i[i][1:0]} : {1'b0,s_opex_f_i[i][1:0]};
             assign s_hwrite[i]       = (rmw_activate[i]) ? 1'b0 : (s_rfsm[i] == LSU_RMW_WRITE) ? 1'b1 : s_opex_f_i[i][3]; 
             assign s_haddr[i][1:0]   = (rmw_activate[i]) ? 2'b00 : (s_rfsm[i] == LSU_RMW_WRITE) ? s_dp_address_i[i][1:0] : s_ap_address_i[i][1:0];
@@ -123,7 +123,7 @@ module lsu (
             assign s_htrans[i]       = (s_rfsm[i] == LSU_RMW_WRITE) ? 2'b10 : {s_ap_active[i],1'b0};
         end
 `endif
-        for (i = 0; i<EXMA_REPS ;i++ ) begin : lsu_replicator
+        for (i = 0; i<PROT_3REP ;i++ ) begin : lsu_replicator
             //LSU activation
             assign s_ap_active[i]   = s_ap_approve_i[i] & ~s_flush_i[i];
 

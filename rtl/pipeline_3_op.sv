@@ -18,57 +18,57 @@
 import p_hardisc::*;
 
 module pipeline_3_op (
-    input logic s_clk_i[CTRL_REPS],                 //clock signal
-    input logic s_resetn_i[CTRL_REPS],              //reset signal
+    input logic s_clk_i[PROT_3REP],                 //clock signal
+    input logic s_resetn_i[PROT_3REP],              //reset signal
 
-    input logic[4:0] s_stall_i[CTRL_REPS],          //stall signals from upper stages
-    input logic s_flush_i[CTRL_REPS],               //flush signal from MA stage
-    output logic s_stall_o[CTRL_REPS],              //signalize stalling to the lower stages
+    input logic[4:0] s_stall_i[PROT_3REP],          //stall signals from upper stages
+    input logic s_flush_i[PROT_3REP],               //flush signal from MA stage
+    output logic s_stall_o[PROT_3REP],              //signalize stalling to the lower stages
 
-    input rf_add s_mawb_rd_i[MAWB_REPS],            //WB-stage destination register address
-    input logic[31:0] s_mawb_val_i[MAWB_REPS],      //WB-stage instruction result
-    input ictrl s_mawb_ictrl_i[MAWB_REPS],          //WB-stage instruction control indicator
-    input rf_add s_exma_rd_i[EXMA_REPS],            //MA-stage destination register address
-    input logic[31:0] s_exma_val_i[EXMA_REPS],      //MA-stage instruction result
-    input ictrl s_exma_ictrl_i[EXMA_REPS],          //MA-stage instruction control indicator
+    input rf_add s_mawb_rd_i[PROT_3REP],            //WB-stage destination register address
+    input logic[31:0] s_mawb_val_i[PROT_3REP],      //WB-stage instruction result
+    input ictrl s_mawb_ictrl_i[PROT_3REP],          //WB-stage instruction control indicator
+    input rf_add s_exma_rd_i[PROT_3REP],            //MA-stage destination register address
+    input logic[31:0] s_exma_val_i[PROT_3REP],      //MA-stage instruction result
+    input ictrl s_exma_ictrl_i[PROT_3REP],          //MA-stage instruction control indicator
 
 `ifdef PROTECTED
-    input logic[1:0] s_rf_uce_i[IDOP_REPS],         //uncorrectable error in the register-file
-    input logic[1:0] s_rf_ce_i[IDOP_REPS],          //correctable error in the register-file
+    input logic[1:0] s_rf_uce_i[PROT_2REP],         //uncorrectable error in the register-file
+    input logic[1:0] s_rf_ce_i[PROT_2REP],          //correctable error in the register-file
 `endif
       
     input logic[31:0] s_idop_p1_i,                  //value read from RS1 address of register file
     input logic[31:0] s_idop_p2_i,                  //value read from RS2 address of register file
-    input logic[20:0] s_idop_payload_i[IDOP_REPS],  //instruction payload information
-    input f_part s_idop_f_i[IDOP_REPS],             //instruction function
-    input rf_add s_idop_rs1_i[IDOP_REPS],           //source register 1 address
-    input rf_add s_idop_rs2_i[IDOP_REPS],           //source register 2 address
-    input rf_add s_idop_rd_i[IDOP_REPS],            //destination register address
-    input sctrl s_idop_sctrl_i[IDOP_REPS],          //source control indicator
-    input ictrl s_idop_ictrl_i[IDOP_REPS],          //instruction control indicator
-    input imiscon s_idop_imiscon_i[IDOP_REPS],      //instruction misconduct indicator
+    input logic[20:0] s_idop_payload_i[PROT_2REP],  //instruction payload information
+    input f_part s_idop_f_i[PROT_2REP],             //instruction function
+    input rf_add s_idop_rs1_i[PROT_2REP],           //source register 1 address
+    input rf_add s_idop_rs2_i[PROT_2REP],           //source register 2 address
+    input rf_add s_idop_rd_i[PROT_2REP],            //destination register address
+    input sctrl s_idop_sctrl_i[PROT_2REP],          //source control indicator
+    input ictrl s_idop_ictrl_i[PROT_2REP],          //instruction control indicator
+    input imiscon s_idop_imiscon_i[PROT_2REP],      //instruction misconduct indicator
 
-    output logic[31:0] s_opex_op1_o[OPEX_REPS],     //prepared operand 1 for EX stage
-    output logic[31:0] s_opex_op2_o[OPEX_REPS],     //prepared operand 2 for EX stage
-    output logic[20:0] s_opex_payload_o[OPEX_REPS], //payload information for EX stage
-    output ictrl s_opex_ictrl_o[OPEX_REPS],         //instruction control indicator for EX stage
-    output imiscon s_opex_imiscon_o[OPEX_REPS],     //instruction misconduct indicator for EX stage
-    output rf_add s_opex_rd_o[OPEX_REPS],           //destination register address for EX stage
-    output f_part s_opex_f_o[OPEX_REPS],            //instruction function for EX stage
-    output logic[3:0]s_opex_fwd_o[OPEX_REPS]        //forwarding information for EX stage
+    output logic[31:0] s_opex_op1_o[PROT_2REP],     //prepared operand 1 for EX stage
+    output logic[31:0] s_opex_op2_o[PROT_2REP],     //prepared operand 2 for EX stage
+    output logic[20:0] s_opex_payload_o[PROT_2REP], //payload information for EX stage
+    output ictrl s_opex_ictrl_o[PROT_2REP],         //instruction control indicator for EX stage
+    output imiscon s_opex_imiscon_o[PROT_2REP],     //instruction misconduct indicator for EX stage
+    output rf_add s_opex_rd_o[PROT_2REP],           //destination register address for EX stage
+    output f_part s_opex_f_o[PROT_2REP],            //instruction function for EX stage
+    output logic[3:0]s_opex_fwd_o[PROT_2REP]        //forwarding information for EX stage
 );
 
-    logic[31:0] s_wopex_op1[OPEX_REPS], s_wopex_op2[OPEX_REPS],s_ropex_op1[OPEX_REPS], s_ropex_op2[OPEX_REPS], s_operand1[OPEX_REPS], s_operand2[OPEX_REPS];
-    logic[20:0] s_wopex_payload[OPEX_REPS], s_ropex_payload[OPEX_REPS];
-    rf_add s_wopex_rd[OPEX_REPS], s_ropex_rd[OPEX_REPS];
-    f_part s_wopex_f[OPEX_REPS], s_ropex_f[OPEX_REPS];
-    ictrl s_wopex_ictrl[OPEX_REPS], s_ropex_ictrl[OPEX_REPS];
-    imiscon s_wopex_imiscon[OPEX_REPS], s_ropex_imiscon[OPEX_REPS]; 
-    logic[3:0] s_wopex_fwd[OPEX_REPS], s_ropex_fwd[OPEX_REPS], s_forward[OPEX_REPS];
+    logic[31:0] s_wopex_op1[PROT_2REP], s_wopex_op2[PROT_2REP],s_ropex_op1[PROT_2REP], s_ropex_op2[PROT_2REP], s_operand1[PROT_2REP], s_operand2[PROT_2REP];
+    logic[20:0] s_wopex_payload[PROT_2REP], s_ropex_payload[PROT_2REP];
+    rf_add s_wopex_rd[PROT_2REP], s_ropex_rd[PROT_2REP];
+    f_part s_wopex_f[PROT_2REP], s_ropex_f[PROT_2REP];
+    ictrl s_wopex_ictrl[PROT_2REP], s_ropex_ictrl[PROT_2REP];
+    imiscon s_wopex_imiscon[PROT_2REP], s_ropex_imiscon[PROT_2REP]; 
+    logic[3:0] s_wopex_fwd[PROT_2REP], s_ropex_fwd[PROT_2REP], s_forward[PROT_2REP];
 
-    logic s_bubble[OPEX_REPS];
-    logic s_stall_op[CTRL_REPS], s_flush_op[CTRL_REPS];
-    logic s_clk_prw[OPEX_REPS], s_resetn_prw[OPEX_REPS];
+    logic s_bubble[PROT_2REP];
+    logic s_stall_op[PROT_3REP], s_flush_op[PROT_3REP];
+    logic s_clk_prw[PROT_2REP], s_resetn_prw[PROT_2REP];
 
     assign s_opex_ictrl_o   = s_ropex_ictrl;
     assign s_opex_rd_o      = s_ropex_rd;
@@ -80,31 +80,31 @@ module pipeline_3_op (
     assign s_opex_imiscon_o = s_ropex_imiscon;
 
     //Computation operand 1
-    seu_regs #(.LABEL({"OPEX_OP1"}),.N(OPEX_REPS))m_opex_op1 (.s_c_i(s_clk_prw),.s_d_i(s_wopex_op1),.s_d_o(s_ropex_op1));
+    seu_regs #(.LABEL({"OPEX_OP1"}),.N(PROT_2REP))m_opex_op1 (.s_c_i(s_clk_prw),.s_d_i(s_wopex_op1),.s_d_o(s_ropex_op1));
     //Computation operand 2
-    seu_regs #(.LABEL({"OPEX_OP2"}),.N(OPEX_REPS))m_opex_op2 (.s_c_i(s_clk_prw),.s_d_i(s_wopex_op2),.s_d_o(s_ropex_op2));
+    seu_regs #(.LABEL({"OPEX_OP2"}),.N(PROT_2REP))m_opex_op2 (.s_c_i(s_clk_prw),.s_d_i(s_wopex_op2),.s_d_o(s_ropex_op2));
     //Destination register address
-    seu_regs #(.LABEL({"OPEX_RD"}),.W($size(rf_add)),.N(OPEX_REPS)) m_opex_rd (.s_c_i(s_clk_prw),.s_d_i(s_wopex_rd),.s_d_o(s_ropex_rd));
+    seu_regs #(.LABEL({"OPEX_RD"}),.W($size(rf_add)),.N(PROT_2REP)) m_opex_rd (.s_c_i(s_clk_prw),.s_d_i(s_wopex_rd),.s_d_o(s_ropex_rd));
     //Instruction payload information
-    seu_regs #(.LABEL({"OPEX_PYLD"}),.W(21),.N(OPEX_REPS)) m_opex_payload (.s_c_i(s_clk_prw),.s_d_i(s_wopex_payload),.s_d_o(s_ropex_payload));
+    seu_regs #(.LABEL({"OPEX_PYLD"}),.W(21),.N(PROT_2REP)) m_opex_payload (.s_c_i(s_clk_prw),.s_d_i(s_wopex_payload),.s_d_o(s_ropex_payload));
     //Instruction function information
-    seu_regs #(.LABEL({"OPEX_F"}),.W($size(f_part)),.N(OPEX_REPS)) m_opex_f (.s_c_i(s_clk_prw),.s_d_i(s_wopex_f),.s_d_o(s_ropex_f));
+    seu_regs #(.LABEL({"OPEX_F"}),.W($size(f_part)),.N(PROT_2REP)) m_opex_f (.s_c_i(s_clk_prw),.s_d_i(s_wopex_f),.s_d_o(s_ropex_f));
     //Instruction control indicator
-    seu_regs #(.LABEL({"OPEX_ICTRL"}),.W($size(ictrl)),.N(OPEX_REPS)) m_opex_ictrl (.s_c_i(s_clk_prw),.s_d_i(s_wopex_ictrl),.s_d_o(s_ropex_ictrl));
+    seu_regs #(.LABEL({"OPEX_ICTRL"}),.W($size(ictrl)),.N(PROT_2REP)) m_opex_ictrl (.s_c_i(s_clk_prw),.s_d_i(s_wopex_ictrl),.s_d_o(s_ropex_ictrl));
     //Instruction misconduct indicator
-    seu_regs #(.LABEL({"OPEX_IMISCON"}),.W($size(imiscon)),.N(OPEX_REPS)) m_opex_imiscon (.s_c_i(s_clk_prw),.s_d_i(s_wopex_imiscon),.s_d_o(s_ropex_imiscon));
+    seu_regs #(.LABEL({"OPEX_IMISCON"}),.W($size(imiscon)),.N(PROT_2REP)) m_opex_imiscon (.s_c_i(s_clk_prw),.s_d_i(s_wopex_imiscon),.s_d_o(s_ropex_imiscon));
     //Forwarding information
-    seu_regs #(.LABEL({"OPEX_FWD"}),.W(4),.N(OPEX_REPS)) m_opex_fwd (.s_c_i(s_clk_prw),.s_d_i(s_wopex_fwd),.s_d_o(s_ropex_fwd));
+    seu_regs #(.LABEL({"OPEX_FWD"}),.W(4),.N(PROT_2REP)) m_opex_fwd (.s_c_i(s_clk_prw),.s_d_i(s_wopex_fwd),.s_d_o(s_ropex_fwd));
 
-    logic s_id_misconduct[OPEX_REPS];
+    logic s_id_misconduct[PROT_2REP];
 `ifdef PROTECTED
-    logic s_op_misconduct[OPEX_REPS], s_uce[OPEX_REPS], s_ce[OPEX_REPS];
+    logic s_op_misconduct[PROT_2REP], s_uce[PROT_2REP], s_ce[PROT_2REP];
 `endif
 
     genvar i;
     generate
         //----------------------//
-        for (i = 0;i<CTRL_REPS ;i++ ) begin : op_replicator_0
+        for (i = 0;i<PROT_3REP ;i++ ) begin : op_replicator_0
             assign s_stall_op[i]    = (|s_stall_i[i][PIPE_MA:PIPE_EX]);
             //If a bubble is signalized by the Preparer, stall lower stages and insert NOP to the EX stage
             assign s_stall_o[i]     = s_bubble[i%2];
@@ -112,7 +112,7 @@ module pipeline_3_op (
             assign s_flush_op[i]    = s_flush_i[i] | (s_bubble[i%2] & ~s_stall_op[i]);
         end
 
-        for (i = 0;i<OPEX_REPS ;i++ ) begin : op_replicator_1
+        for (i = 0;i<PROT_2REP ;i++ ) begin : op_replicator_1
             assign s_clk_prw[i]     = s_clk_i[i];
             assign s_resetn_prw[i]  = s_resetn_i[i];
 

@@ -19,23 +19,23 @@ import p_hardisc::*;
 
 module rf_controller
 (
-	input logic s_clk_i[CTRL_REPS],             //clock signal
-    input logic s_resetn_i[CTRL_REPS],          //reset signal
+	input logic s_clk_i[PROT_3REP],             //clock signal
+    input logic s_resetn_i[PROT_3REP],          //reset signal
 
-    input logic[31:0] s_mawb_val_i[MAWB_REPS],  //instruction result from WB stage
-    input rf_add s_mawb_add_i[MAWB_REPS],       //destination register address from WB stage
-    input ictrl s_mawb_ictrl_i[MAWB_REPS],      //instruction control indicator from WB stage
+    input logic[31:0] s_mawb_val_i[PROT_3REP],  //instruction result from WB stage
+    input rf_add s_mawb_add_i[PROT_3REP],       //destination register address from WB stage
+    input ictrl s_mawb_ictrl_i[PROT_3REP],      //instruction control indicator from WB stage
 
-    input rf_add s_r_p1_add_i[IDOP_REPS],       //read port 1 address
-    input rf_add s_r_p2_add_i[IDOP_REPS],       //read port 2 address
+    input rf_add s_r_p1_add_i[PROT_2REP],       //read port 1 address
+    input rf_add s_r_p2_add_i[PROT_2REP],       //read port 2 address
 
 `ifdef PROTECTED
-    input rf_add s_exma_add_i[EXMA_REPS],       //destination register address from MA stage
-    input ictrl s_exma_ictrl_i[EXMA_REPS],      //instruction control indicator from MA stage
-    input rf_add s_opex_add_i[OPEX_REPS],       //destination register address from EX stage
-    input ictrl s_opex_ictrl_i[OPEX_REPS],      //instruction control indicator from EX stage
-    output logic[1:0] s_uce_o[IDOP_REPS],       //uncorrectable error
-    output logic[1:0] s_ce_o[IDOP_REPS],        //correctable error
+    input rf_add s_exma_add_i[PROT_3REP],       //destination register address from MA stage
+    input ictrl s_exma_ictrl_i[PROT_3REP],      //instruction control indicator from MA stage
+    input rf_add s_opex_add_i[PROT_2REP],       //destination register address from EX stage
+    input ictrl s_opex_ictrl_i[PROT_2REP],      //instruction control indicator from EX stage
+    output logic[1:0] s_uce_o[PROT_2REP],       //uncorrectable error
+    output logic[1:0] s_ce_o[PROT_2REP],        //correctable error
 `endif
     output logic[31:0] s_p1_val_o,              //read value from port 1
     output logic[31:0] s_p2_val_o               //read value from port 2

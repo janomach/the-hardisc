@@ -18,11 +18,11 @@
 import p_hardisc::*;
 
 module pipeline_1_fe (
-    input logic s_clk_i[CTRL_REPS],                 //clock signal
-    input logic s_resetn_i[CTRL_REPS],              //reset signal
+    input logic s_clk_i[PROT_3REP],                 //clock signal
+    input logic s_resetn_i[PROT_3REP],              //reset signal
 
-    input logic[4:0] s_stall_i[CTRL_REPS],          //stall signals from upper stages
-    input logic s_flush_i[CTRL_REPS],               //flush signal from MA stage
+    input logic[4:0] s_stall_i[PROT_3REP],          //stall signals from upper stages
+    input logic s_flush_i[PROT_3REP],               //flush signal from MA stage
 
     input logic s_bop_pop_i,                        //pop of the oldest entry in the BOP
     output logic s_bop_pred_o,                      //the prediction is prepared in the BOP
@@ -37,63 +37,63 @@ module pipeline_1_fe (
     input logic s_pred_jpu_i,                       //update jump predictor
     input logic[19:0] s_pred_offset_i,              //address offset for prediction
     input logic[31:0] s_pred_base_i,                //base address for prediction
-    input logic[31:0] s_toc_add_i[EXMA_REPS],       //address for transfer of control
+    input logic[31:0] s_toc_add_i[PROT_3REP],       //address for transfer of control
 
     input logic[6:0] s_hrdcheck_i,                  //AHB bus - incoming checksum
     input logic[31:0] s_hrdata_i,                   //AHB bus - incomming read data
-    input logic s_hready_i[CTRL_REPS],              //AHB bus - finish of transfer
-    input logic s_hresp_i[CTRL_REPS],               //AHB bus - error response
+    input logic s_hready_i[PROT_3REP],              //AHB bus - finish of transfer
+    input logic s_hresp_i[PROT_3REP],               //AHB bus - error response
     output logic[31:0] s_haddr_o,                   //AHB bus - request address
     output logic[1:0]s_htrans_o,                    //AHB bus - transfer type indicator
     output logic[5:0] s_hparity_o,                  //AHB bus - outgoing parity
 
-    output logic[31:0] s_feid_instr_o[FEID_REPS],   //instruction to execute for ID stage
-    output logic[4:0] s_feid_info_o[FEID_REPS],     //instruction payload information for ID stage
-    output logic[1:0] s_feid_pred_o[FEID_REPS]      //instruction prediction information for ID stage
+    output logic[31:0] s_feid_instr_o[PROT_2REP],   //instruction to execute for ID stage
+    output logic[4:0] s_feid_info_o[PROT_2REP],     //instruction payload information for ID stage
+    output logic[1:0] s_feid_pred_o[PROT_2REP]      //instruction prediction information for ID stage
 );
     /*  Fetch stage separation:
         The core uses AHB3-Lite protocol for bus transfers. Each transfer is composed of the address phase and the data phase.
         This means that also the fetch stage is separated into two phases: FE0 (address phase) and FE1 (data phase).
         A request is sent out by the core in the FE0 and in the phase FE1, the core awaits response.
         According to the protocol the core can initiate address phase of transfer B if it waits for the transfer A. */
-    logic[30:0] s_wfe0_add[FEID_REPS], s_rfe0_add[FEID_REPS], s_wfe1_add[FEID_REPS], s_rfe1_add[FEID_REPS];
-    logic s_wfe0_utd[FEID_REPS], s_rfe0_utd[FEID_REPS], s_wfe1_utd[FEID_REPS], s_rfe1_utd[FEID_REPS];
-    logic[1:0] s_rfe1_inf[FEID_REPS], s_wfe1_inf[FEID_REPS];
-    logic[IFB_WIDTH-1:0] s_ifb_wdata[FEID_REPS], s_ifb_rdata[FEID_REPS];
-    logic s_clk_prw[FEID_REPS], s_resetn_prw[FEID_REPS], s_ifb_valid[FEID_REPS];
+    logic[30:0] s_wfe0_add[PROT_2REP], s_rfe0_add[PROT_2REP], s_wfe1_add[PROT_2REP], s_rfe1_add[PROT_2REP];
+    logic s_wfe0_utd[PROT_2REP], s_rfe0_utd[PROT_2REP], s_wfe1_utd[PROT_2REP], s_rfe1_utd[PROT_2REP];
+    logic[1:0] s_rfe1_inf[PROT_2REP], s_wfe1_inf[PROT_2REP];
+    logic[IFB_WIDTH-1:0] s_ifb_wdata[PROT_2REP], s_ifb_rdata[PROT_2REP];
+    logic s_clk_prw[PROT_2REP], s_resetn_prw[PROT_2REP], s_ifb_valid[PROT_2REP];
 
     //Fetch address saved in FE0
-    seu_regs #(.LABEL("FE0_ADD"),.W(31),.N(FEID_REPS))  m_fe0_add (.s_c_i(s_clk_prw),.s_d_i(s_wfe0_add),.s_d_o(s_rfe0_add));
+    seu_regs #(.LABEL("FE0_ADD"),.W(31),.N(PROT_2REP))  m_fe0_add (.s_c_i(s_clk_prw),.s_d_i(s_wfe0_add),.s_d_o(s_rfe0_add));
     //Address in FE0 is up-to-date, the fetched data will be needed
-    seu_regs #(.LABEL("FE0_UTD"),.W(1),.N(FEID_REPS))   m_fe0_utd (.s_c_i(s_clk_prw),.s_d_i(s_wfe0_utd),.s_d_o(s_rfe0_utd));
+    seu_regs #(.LABEL("FE0_UTD"),.W(1),.N(PROT_2REP))   m_fe0_utd (.s_c_i(s_clk_prw),.s_d_i(s_wfe0_utd),.s_d_o(s_rfe0_utd));
     //Fetch address saved in FE1
-    seu_regs #(.LABEL("FE1_ADD"),.W(31),.N(FEID_REPS))  m_fe1_add (.s_c_i(s_clk_prw),.s_d_i(s_wfe1_add),.s_d_o(s_rfe1_add));
+    seu_regs #(.LABEL("FE1_ADD"),.W(31),.N(PROT_2REP))  m_fe1_add (.s_c_i(s_clk_prw),.s_d_i(s_wfe1_add),.s_d_o(s_rfe1_add));
     //Address in FE1 is up-to-date, the fetched data will be needed
-    seu_regs #(.LABEL("FE1_UTD"),.W(1),.N(FEID_REPS))   m_fe1_utd (.s_c_i(s_clk_prw),.s_d_i(s_wfe1_utd),.s_d_o(s_rfe1_utd));
+    seu_regs #(.LABEL("FE1_UTD"),.W(1),.N(PROT_2REP))   m_fe1_utd (.s_c_i(s_clk_prw),.s_d_i(s_wfe1_utd),.s_d_o(s_rfe1_utd));
     /*  Additional informations about FE1:
         2'b00: none
         2'b01: prediction of TOC from aligned part of the address
         2'b10: prediction of TOC from unaligned part of the address
         2'b11: contains an address that should be copied into the FE0 */
-    seu_regs #(.LABEL("FE1_INF"),.W(2),.N(FEID_REPS))   m_fe1_inf (.s_c_i(s_clk_prw),.s_d_i(s_wfe1_inf),.s_d_o(s_rfe1_inf));
+    seu_regs #(.LABEL("FE1_INF"),.W(2),.N(PROT_2REP))   m_fe1_inf (.s_c_i(s_clk_prw),.s_d_i(s_wfe1_inf),.s_d_o(s_rfe1_inf));
 
     //Internal signals
-    logic s_ifb_push[FEID_REPS], s_ifb_pop[FEID_REPS], s_flush_fe[FEID_REPS],
-        s_toc_in_fe1[FEID_REPS],  s_ifb_available[FEID_REPS];
-    logic[`OPTION_FIFO_SIZE-1:0] s_ifb_occupied[FEID_REPS];
-    logic[IFB_WIDTH-1:0] s_ifb_last_entry[FEID_REPS];
-    logic[31:0] s_f0_add_next[FEID_REPS];
-    logic s_ras_toc_valid[FEID_REPS], s_ras_pred_free[FEID_REPS];
-    logic[1:0] s_ras_toc[FEID_REPS];
+    logic s_ifb_push[PROT_2REP], s_ifb_pop[PROT_2REP], s_flush_fe[PROT_2REP],
+        s_toc_in_fe1[PROT_2REP],  s_ifb_available[PROT_2REP];
+    logic[`OPTION_FIFO_SIZE-1:0] s_ifb_occupied[PROT_2REP];
+    logic[IFB_WIDTH-1:0] s_ifb_last_entry[PROT_2REP];
+    logic[31:0] s_f0_add_next[PROT_2REP];
+    logic s_ras_toc_valid[PROT_2REP], s_ras_pred_free[PROT_2REP];
+    logic[1:0] s_ras_toc[PROT_2REP];
     
     //Instruction bus interface signals
     assign s_haddr_o    = {s_rfe0_add[0][30:1],2'b0};
     assign s_htrans_o   = (s_rfe0_utd[0] & s_resetn_i[0]) ? 2'b10 : 2'b00;
 
 `ifdef PROTECTED_WITH_IFP
-    assign s_hparity_o[3:0] = {^s_rfe0_add[INTF_REPS-1][30:23], ^s_rfe0_add[INTF_REPS-1][22:15], ^s_rfe0_add[INTF_REPS-1][14:7], ^s_rfe0_add[INTF_REPS-1][6:1]};
+    assign s_hparity_o[3:0] = {^s_rfe0_add[PROT_2REP-1][30:23], ^s_rfe0_add[PROT_2REP-1][22:15], ^s_rfe0_add[PROT_2REP-1][14:7], ^s_rfe0_add[PROT_2REP-1][6:1]};
     assign s_hparity_o[4]   = 1'b1;                             //hsize, hwrite, hprot, hburst, hmastlock
-    assign s_hparity_o[5]   = (s_rfe0_utd[INTF_REPS-1] & s_resetn_i[INTF_REPS-1]);  //htrans
+    assign s_hparity_o[5]   = (s_rfe0_utd[PROT_2REP-1] & s_resetn_i[PROT_2REP-1]);  //htrans
 `else
     assign s_hparity_o      = 6'b0;
 `endif
@@ -173,7 +173,7 @@ module pipeline_1_fe (
 
     genvar i;
     generate
-        for (i = 0; i < FEID_REPS ; i++) begin : fe_rep
+        for (i = 0; i < PROT_2REP ; i++) begin : fe_rep
             assign s_clk_prw[i]         = s_clk_i[i];
             assign s_resetn_prw[i]      = s_resetn_i[i];
             assign s_flush_fe[i]        = s_flush_i[i]; 
