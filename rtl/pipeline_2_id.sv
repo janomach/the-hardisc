@@ -18,38 +18,38 @@
 import p_hardisc::*;
 
 module pipeline_2_id (
-    input logic s_clk_i[CTRL_REPS],                 //clock signal
-    input logic s_resetn_i[CTRL_REPS],              //reset signal
+    input logic s_clk_i[PROT_3REP],                 //clock signal
+    input logic s_resetn_i[PROT_3REP],              //reset signal
 
-    input logic[4:0] s_stall_i[CTRL_REPS],          //stall signals from upper stages
-    input logic s_flush_i[CTRL_REPS],               //flush signal from MA stage
-    output logic s_stall_o[CTRL_REPS],              //signalize stalling to the FE stage
+    input logic[4:0] s_stall_i[PROT_3REP],          //stall signals from upper stages
+    input logic s_flush_i[PROT_3REP],               //flush signal from MA stage
+    output logic s_stall_o[PROT_3REP],              //signalize stalling to the FE stage
 `ifdef PROTECTED
     input logic[1:0] s_acm_settings_i,              //acm settings
 `endif
-    input logic[4:0] s_feid_info_i[FEID_REPS],      //instruction payload information
-    input logic[31:0] s_feid_instr_i[FEID_REPS],    //instruction to execute
-    input logic[1:0] s_feid_pred_i[FEID_REPS],      //instruction prediction information
+    input logic[4:0] s_feid_info_i[PROT_2REP],      //instruction payload information
+    input logic[31:0] s_feid_instr_i[PROT_2REP],    //instruction to execute
+    input logic[1:0] s_feid_pred_i[PROT_2REP],      //instruction prediction information
 
-    output logic[20:0] s_idop_payload_o[IDOP_REPS], //payload information for OP stage
-    output f_part s_idop_f_o[IDOP_REPS],            //instruction function for OP stage
-    output rf_add s_idop_rd_o[IDOP_REPS],           //destination register address for OP stage
-    output rf_add s_idop_rs1_o[IDOP_REPS],          //source register 1 address for OP stage
-    output rf_add s_idop_rs2_o[IDOP_REPS],          //source register 2 address for OP stage
-    output sctrl s_idop_sctrl_o[IDOP_REPS],         //source control indicator for OP stage
-    output ictrl s_idop_ictrl_o[IDOP_REPS],         //instruction control indicator for OP stage
-    output imiscon s_idop_imiscon_o[IDOP_REPS]      //instruction misconduct indicator for OP stage
+    output logic[20:0] s_idop_payload_o[PROT_2REP], //payload information for OP stage
+    output f_part s_idop_f_o[PROT_2REP],            //instruction function for OP stage
+    output rf_add s_idop_rd_o[PROT_2REP],           //destination register address for OP stage
+    output rf_add s_idop_rs1_o[PROT_2REP],          //source register 1 address for OP stage
+    output rf_add s_idop_rs2_o[PROT_2REP],          //source register 2 address for OP stage
+    output sctrl s_idop_sctrl_o[PROT_2REP],         //source control indicator for OP stage
+    output ictrl s_idop_ictrl_o[PROT_2REP],         //instruction control indicator for OP stage
+    output imiscon s_idop_imiscon_o[PROT_2REP]      //instruction misconduct indicator for OP stage
 );
 
-    logic[20:0] s_widop_payload[IDOP_REPS], s_ridop_payload[IDOP_REPS];
-    f_part s_widop_f[IDOP_REPS],s_ridop_f[IDOP_REPS]; 
-    rf_add s_widop_rd[IDOP_REPS], s_ridop_rd[IDOP_REPS], 
-            s_widop_rs1[IDOP_REPS], s_ridop_rs1[IDOP_REPS], 
-            s_widop_rs2[IDOP_REPS], s_ridop_rs2[IDOP_REPS]; 
-    sctrl s_widop_sctrl[IDOP_REPS],s_ridop_sctrl[IDOP_REPS];
-    ictrl s_widop_ictrl[IDOP_REPS],s_ridop_ictrl[IDOP_REPS];
-    imiscon s_widop_imiscon[IDOP_REPS],s_ridop_imiscon[IDOP_REPS];
-    logic s_clk_prw[IDOP_REPS], s_resetn_prw[IDOP_REPS];
+    logic[20:0] s_widop_payload[PROT_2REP], s_ridop_payload[PROT_2REP];
+    f_part s_widop_f[PROT_2REP],s_ridop_f[PROT_2REP]; 
+    rf_add s_widop_rd[PROT_2REP], s_ridop_rd[PROT_2REP], 
+            s_widop_rs1[PROT_2REP], s_ridop_rs1[PROT_2REP], 
+            s_widop_rs2[PROT_2REP], s_ridop_rs2[PROT_2REP]; 
+    sctrl s_widop_sctrl[PROT_2REP],s_ridop_sctrl[PROT_2REP];
+    ictrl s_widop_ictrl[PROT_2REP],s_ridop_ictrl[PROT_2REP];
+    imiscon s_widop_imiscon[PROT_2REP],s_ridop_imiscon[PROT_2REP];
+    logic s_clk_prw[PROT_2REP], s_resetn_prw[PROT_2REP];
 
     assign s_idop_rd_o      = s_ridop_rd;
     assign s_idop_rs1_o     = s_ridop_rs1;
@@ -61,33 +61,33 @@ module pipeline_2_id (
     assign s_idop_imiscon_o = s_ridop_imiscon;
 
     //Instruction payload information
-    seu_regs #(.LABEL("IDOP_PYLD"),.W(21),.N(IDOP_REPS))m_idop_payload (.s_c_i(s_clk_prw),.s_d_i(s_widop_payload),.s_d_o(s_ridop_payload));
+    seu_regs #(.LABEL("IDOP_PYLD"),.W(21),.N(PROT_2REP))m_idop_payload (.s_c_i(s_clk_prw),.s_d_i(s_widop_payload),.s_d_o(s_ridop_payload));
     //Destination register address
-    seu_regs #(.LABEL("IDOP_RD"),.W($size(rf_add)),.N(IDOP_REPS)) m_idop_rd (.s_c_i(s_clk_prw),.s_d_i(s_widop_rd),.s_d_o(s_ridop_rd));
+    seu_regs #(.LABEL("IDOP_RD"),.W($size(rf_add)),.N(PROT_2REP)) m_idop_rd (.s_c_i(s_clk_prw),.s_d_i(s_widop_rd),.s_d_o(s_ridop_rd));
     //Source register 1 address 
-    seu_regs #(.LABEL("IDOP_RS1"),.W($size(rf_add)),.N(IDOP_REPS)) m_idop_rs1 (.s_c_i(s_clk_prw),.s_d_i(s_widop_rs1),.s_d_o(s_ridop_rs1));
+    seu_regs #(.LABEL("IDOP_RS1"),.W($size(rf_add)),.N(PROT_2REP)) m_idop_rs1 (.s_c_i(s_clk_prw),.s_d_i(s_widop_rs1),.s_d_o(s_ridop_rs1));
     //Source register 2 address 
-    seu_regs #(.LABEL("IDOP_RS2"),.W($size(rf_add)),.N(IDOP_REPS)) m_idop_rs2 (.s_c_i(s_clk_prw),.s_d_i(s_widop_rs2),.s_d_o(s_ridop_rs2));
+    seu_regs #(.LABEL("IDOP_RS2"),.W($size(rf_add)),.N(PROT_2REP)) m_idop_rs2 (.s_c_i(s_clk_prw),.s_d_i(s_widop_rs2),.s_d_o(s_ridop_rs2));
     //Instruction function information
-    seu_regs #(.LABEL("IDOP_F"),.W($size(f_part)),.N(IDOP_REPS)) m_idop_f (.s_c_i(s_clk_prw),.s_d_i(s_widop_f),.s_d_o(s_ridop_f));
+    seu_regs #(.LABEL("IDOP_F"),.W($size(f_part)),.N(PROT_2REP)) m_idop_f (.s_c_i(s_clk_prw),.s_d_i(s_widop_f),.s_d_o(s_ridop_f));
     //Source control indicator
-    seu_regs #(.LABEL("IDOP_SCTRL"),.W($size(sctrl)),.N(IDOP_REPS)) m_idop_sctrl (.s_c_i(s_clk_prw),.s_d_i(s_widop_sctrl),.s_d_o(s_ridop_sctrl));
+    seu_regs #(.LABEL("IDOP_SCTRL"),.W($size(sctrl)),.N(PROT_2REP)) m_idop_sctrl (.s_c_i(s_clk_prw),.s_d_i(s_widop_sctrl),.s_d_o(s_ridop_sctrl));
     //Instruction control indicator
-    seu_regs #(.LABEL("IDOP_ICTRL"),.W($size(ictrl)),.N(IDOP_REPS)) m_idop_ictrl (.s_c_i(s_clk_prw),.s_d_i(s_widop_ictrl),.s_d_o(s_ridop_ictrl));
+    seu_regs #(.LABEL("IDOP_ICTRL"),.W($size(ictrl)),.N(PROT_2REP)) m_idop_ictrl (.s_c_i(s_clk_prw),.s_d_i(s_widop_ictrl),.s_d_o(s_ridop_ictrl));
     //Instruction misconduct indicator
-    seu_regs #(.LABEL("IDOP_IMISCON"),.W($size(imiscon)),.N(IDOP_REPS)) m_idop_imiscon (.s_c_i(s_clk_prw),.s_d_i(s_widop_imiscon),.s_d_o(s_ridop_imiscon));
+    seu_regs #(.LABEL("IDOP_IMISCON"),.W($size(imiscon)),.N(PROT_2REP)) m_idop_imiscon (.s_c_i(s_clk_prw),.s_d_i(s_widop_imiscon),.s_d_o(s_ridop_imiscon));
 
-	logic  s_flush_id[CTRL_REPS], s_stall_id[CTRL_REPS];
-    logic[31:0] s_aligner_instr[IDOP_REPS];
-    logic[20:0] s_payload[IDOP_REPS];
-    rf_add s_rs1[IDOP_REPS], s_rs2[IDOP_REPS], s_rd[IDOP_REPS];
-    f_part s_f[IDOP_REPS];
-    sctrl s_src_ctrl[IDOP_REPS];
-    ictrl s_instr_ctrl[IDOP_REPS];
-    imiscon s_instr_miscon[IDOP_REPS];
-    logic s_aligner_stall[IDOP_REPS], s_align_error[IDOP_REPS], 
-          s_aligner_nop[IDOP_REPS], s_aligner_pred[IDOP_REPS], s_idop_empty[IDOP_REPS];
-    logic [2:0] s_fetch_error[IDOP_REPS];
+	logic  s_flush_id[PROT_3REP], s_stall_id[PROT_3REP];
+    logic[31:0] s_aligner_instr[PROT_2REP];
+    logic[20:0] s_payload[PROT_2REP];
+    rf_add s_rs1[PROT_2REP], s_rs2[PROT_2REP], s_rd[PROT_2REP];
+    f_part s_f[PROT_2REP];
+    sctrl s_src_ctrl[PROT_2REP];
+    ictrl s_instr_ctrl[PROT_2REP];
+    imiscon s_instr_miscon[PROT_2REP];
+    logic s_aligner_stall[PROT_2REP], s_align_error[PROT_2REP], 
+          s_aligner_nop[PROT_2REP], s_aligner_pred[PROT_2REP], s_idop_empty[PROT_2REP];
+    logic [2:0] s_fetch_error[PROT_2REP];
 `ifdef PROTECTED
     rf_add r_acm_add, r_acm_new_add;
     logic s_acm_add_update;
@@ -97,14 +97,14 @@ module pipeline_2_id (
 
     genvar i;
     generate  
-        for (i = 0; i<CTRL_REPS ; i++ ) begin : id_pc_replicator
+        for (i = 0; i<PROT_3REP ; i++ ) begin : id_pc_replicator
             //Stall is valid, only if IDOP registers contains executable instruction
             assign s_stall_id[i]   = (|s_stall_i[i][PIPE_MA:PIPE_OP]) & ~s_idop_empty[i%2];
             assign s_stall_o[i]    = s_aligner_stall[i%2];
             assign s_flush_id[i]   = s_flush_i[i];      
         end
 
-        for (i = 0; i<IDOP_REPS ; i++ ) begin : id_replicator
+        for (i = 0; i<PROT_2REP ; i++ ) begin : id_replicator
             assign s_clk_prw[i]    = s_clk_i[i];
             assign s_resetn_prw[i] = s_resetn_i[i];
             

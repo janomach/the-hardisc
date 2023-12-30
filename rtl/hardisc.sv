@@ -19,16 +19,16 @@ import p_hardisc::*;
 
 module hardisc
 (
-    input logic s_clk_i[CTRL_REPS],         //clock signal
-    input logic s_resetn_i[CTRL_REPS],      //reset signal
+    input logic s_clk_i[PROT_3REP],         //clock signal
+    input logic s_resetn_i[PROT_3REP],      //reset signal
 
     input logic s_int_meip_i,               //external interrupt
     input logic s_int_mtip_i,               //timer interrupt
     input logic[31:0] s_boot_add_i,         //boot address
     
     input logic[31:0] s_i_hrdata_i,         //AHB instruction bus - incomming read data
-    input logic s_i_hready_i[CTRL_REPS],    //AHB instruction bus - finish of transfer
-    input logic s_i_hresp_i[CTRL_REPS],     //AHB instruction bus - error response
+    input logic s_i_hready_i[PROT_3REP],    //AHB instruction bus - finish of transfer
+    input logic s_i_hresp_i[PROT_3REP],     //AHB instruction bus - error response
     output logic[31:0] s_i_haddr_o,         //AHB instruction bus - request address
     output logic[31:0] s_i_hwdata_o,        //AHB instruction bus - request data to write
     output logic[2:0]s_i_hburst_o,          //AHB instruction bus - burst type indicator
@@ -44,8 +44,8 @@ module hardisc
     output logic[5:0] s_i_hparity_o,        //AHB instruction bus - outgoing parity
 
     input logic[31:0] s_d_hrdata_i,         //AHB data bus - incomming read data
-    input logic s_d_hready_i[CTRL_REPS],    //AHB data bus - finish of transfer
-    input logic s_d_hresp_i[CTRL_REPS],     //AHB data bus - error response
+    input logic s_d_hready_i[PROT_3REP],    //AHB data bus - finish of transfer
+    input logic s_d_hresp_i[PROT_3REP],     //AHB data bus - error response
     output logic[31:0] s_d_haddr_o,         //AHB data bus - request address
     output logic[31:0] s_d_hwdata_o,        //AHB data bus - request data to write
     output logic[2:0]s_d_hburst_o,          //AHB data bus - burst type indicator
@@ -63,33 +63,33 @@ module hardisc
     output logic s_hrdmax_rst_o             //max consecutive pipeline restarts reached
 );
 
-    logic[4:0] s_stall[CTRL_REPS];
-    logic s_flush[CTRL_REPS], s_hold[CTRL_REPS];
-    logic[3:0] s_opex_fwd[OPEX_REPS];
-    logic[20:0] s_opex_payload[OPEX_REPS];
-    logic[31:0]s_feid_instr[FEID_REPS];
-    logic[4:0] s_feid_info[FEID_REPS];
+    logic[4:0] s_stall[PROT_3REP];
+    logic s_flush[PROT_3REP], s_hold[PROT_3REP];
+    logic[3:0] s_opex_fwd[PROT_2REP];
+    logic[20:0] s_opex_payload[PROT_2REP];
+    logic[31:0]s_feid_instr[PROT_2REP];
+    logic[4:0] s_feid_info[PROT_2REP];
     logic s_pred_disable, s_hrdmax_rst;
     logic[19:0] s_exma_offset;
-    logic[11:0] s_exma_payload[EXMA_REPS];
-    logic[31:0] s_exma_val[EXMA_REPS], s_mawb_val[MAWB_REPS], s_idop_p1, s_idop_p2, s_opex_op1[OPEX_REPS], s_opex_op2[OPEX_REPS], 
-                s_toc_addr[EXMA_REPS], s_rf_val[MAWB_REPS], s_lsu_address[EXMA_REPS], s_lsu_wdata[EXMA_REPS], s_read_data[MAWB_REPS], s_lsu_fixed_data[MAWB_REPS];
-    logic[20:0] s_idop_payload[IDOP_REPS];
-    logic[1:0] s_feid_pred[FEID_REPS];
-    f_part s_idop_f[IDOP_REPS], s_opex_f[OPEX_REPS], s_exma_f[EXMA_REPS];
-    rf_add s_idop_rs1[IDOP_REPS], s_idop_rs2[IDOP_REPS], s_idop_rd[IDOP_REPS], s_opex_rd[OPEX_REPS], s_exma_rd[EXMA_REPS], s_mawb_rd[MAWB_REPS];
-    ictrl s_idop_ictrl[IDOP_REPS], s_exma_ictrl[EXMA_REPS], s_mawb_ictrl[MAWB_REPS], s_opex_ictrl[OPEX_REPS];
-    imiscon s_idop_imiscon[IDOP_REPS], s_opex_imiscon[OPEX_REPS], s_exma_imiscon[EXMA_REPS];
-    sctrl s_idop_sctrl[IDOP_REPS];
-    logic s_stall_ma[CTRL_REPS],s_stall_ex[CTRL_REPS],s_stall_op[CTRL_REPS],s_stall_id[CTRL_REPS],
-            s_pred_bpu, s_pred_jpu, s_pred_btrue, s_pred_btbu, s_pred_clean, s_lsu_busy[EXMA_REPS], s_lsu_approve[EXMA_REPS];
-    logic[31:0] s_rst_point[EXMA_REPS], s_lsu_ap_address, s_lsu_dp_data;
+    logic[11:0] s_exma_payload[PROT_3REP];
+    logic[31:0] s_exma_val[PROT_3REP], s_mawb_val[PROT_3REP], s_idop_p1, s_idop_p2, s_opex_op1[PROT_2REP], s_opex_op2[PROT_2REP], 
+                s_toc_addr[PROT_3REP], s_rf_val[PROT_3REP], s_lsu_address[PROT_3REP], s_lsu_wdata[PROT_3REP], s_read_data[PROT_3REP], s_lsu_fixed_data[PROT_3REP];
+    logic[20:0] s_idop_payload[PROT_2REP];
+    logic[1:0] s_feid_pred[PROT_2REP];
+    f_part s_idop_f[PROT_2REP], s_opex_f[PROT_2REP], s_exma_f[PROT_3REP];
+    rf_add s_idop_rs1[PROT_2REP], s_idop_rs2[PROT_2REP], s_idop_rd[PROT_2REP], s_opex_rd[PROT_2REP], s_exma_rd[PROT_3REP], s_mawb_rd[PROT_3REP];
+    ictrl s_idop_ictrl[PROT_2REP], s_exma_ictrl[PROT_3REP], s_mawb_ictrl[PROT_3REP], s_opex_ictrl[PROT_2REP];
+    imiscon s_idop_imiscon[PROT_2REP], s_opex_imiscon[PROT_2REP], s_exma_imiscon[PROT_3REP];
+    sctrl s_idop_sctrl[PROT_2REP];
+    logic s_stall_ma[PROT_3REP],s_stall_ex[PROT_3REP],s_stall_op[PROT_3REP],s_stall_id[PROT_3REP],
+            s_pred_bpu, s_pred_jpu, s_pred_btrue, s_pred_btbu, s_pred_clean, s_lsu_busy[PROT_3REP], s_lsu_approve[PROT_3REP];
+    logic[31:0] s_rst_point[PROT_3REP], s_lsu_ap_address, s_lsu_dp_data;
     logic[30:0] s_bop_tadd;
-    logic s_bop_pred, s_bop_pop, s_int_uce, s_lsu_ap_approve, s_lsu_dp_ready[EXMA_REPS], s_lsu_dp_hresp[EXMA_REPS];
-    logic[2:0] s_lsu_einfo[MAWB_REPS];
+    logic s_bop_pred, s_bop_pop, s_int_uce, s_lsu_ap_approve, s_lsu_dp_ready[PROT_3REP], s_lsu_dp_hresp[PROT_3REP];
+    logic[2:0] s_lsu_einfo[PROT_3REP];
 `ifdef PROTECTED
-    logic[1:0] s_rf_uce[IDOP_REPS],s_rf_ce[IDOP_REPS], s_acm_settings;
-    logic s_exma_neq[EXMA_REPS];
+    logic[1:0] s_rf_uce[PROT_2REP],s_rf_ce[PROT_2REP], s_acm_settings;
+    logic s_exma_neq[PROT_3REP];
 `endif
 
     assign s_hrdmax_rst_o   = s_hrdmax_rst;
@@ -110,7 +110,7 @@ module hardisc
 
     genvar i;
     generate
-        for (i = 0; i<CTRL_REPS ;i++ ) begin : integration_replicator
+        for (i = 0; i<PROT_3REP ;i++ ) begin : integration_replicator
             assign s_stall[i] = {s_stall_ma[i],s_stall_ex[i],s_stall_op[i],s_stall_id[i],1'b0};          
         end  
     endgenerate

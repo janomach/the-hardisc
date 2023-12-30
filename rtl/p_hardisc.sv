@@ -24,23 +24,11 @@ package p_hardisc;
     parameter BOP_WIDTH     = 31;
 
 `ifdef PROTECTED
-    parameter FEID_REPS     = 2;
-    parameter IDOP_REPS     = 2;
-    parameter OPEX_REPS     = 2;
-    parameter EX_REPS       = 2;
-    parameter EXMA_REPS     = 3;
-    parameter MAWB_REPS     = 3;
-    parameter CTRL_REPS     = 3;
-    parameter INTF_REPS     = 2;
+    parameter PROT_2REP     = 2;
+    parameter PROT_3REP     = 3;
 `else
-    parameter FEID_REPS     = 1;
-    parameter IDOP_REPS     = 1;
-    parameter OPEX_REPS     = 1;
-    parameter EX_REPS       = 1;
-    parameter EXMA_REPS     = 1;
-    parameter MAWB_REPS     = 1;
-    parameter CTRL_REPS     = 1;
-    parameter INTF_REPS     = 1;
+    parameter PROT_2REP     = 1;
+    parameter PROT_3REP     = 1;
 `endif
 
 	parameter[OPC_WIDTH-1:0]

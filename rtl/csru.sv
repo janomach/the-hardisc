@@ -18,80 +18,80 @@
 import p_hardisc::*;
 
 module csru (
-    input logic s_clk_i[CTRL_REPS],                 //clock signal
-    input logic s_resetn_i[CTRL_REPS],              //reset signal
+    input logic s_clk_i[PROT_3REP],                 //clock signal
+    input logic s_resetn_i[PROT_3REP],              //reset signal
     input logic[31:0] s_boot_add_i,                 //boot address
 
-    input logic s_stall_i[CTRL_REPS],               //stall of MA stage
-    input logic s_flush_i[CTRL_REPS],               //flush of MA stage
+    input logic s_stall_i[PROT_3REP],               //stall of MA stage
+    input logic s_flush_i[PROT_3REP],               //flush of MA stage
 
     input logic s_int_meip_i,                       //external interrupt
     input logic s_int_mtip_i,                       //timer interrupt
     input logic s_int_msip_i,                       //software interrupt
     input logic s_int_uce_i,                        //uncorrectable error in register-file
-    input logic s_int_lcer_i[MAWB_REPS],            //correctable error on load interface
-    input logic s_nmi_luce_i[MAWB_REPS],            //uncorrectable error on load interface
+    input logic s_int_lcer_i[PROT_3REP],            //correctable error on load interface
+    input logic s_nmi_luce_i[PROT_3REP],            //uncorrectable error on load interface
 `ifdef PROTECTED
     output logic[1:0] s_acm_settings_o,             //acm settings
 `endif
-    input logic s_hresp_i[EXMA_REPS],               //registered hresp signal
-    input imiscon s_imiscon_i[EXMA_REPS],           //instruction misconduct indicator
-    input logic s_rstpp_i[EXMA_REPS],               //pipeline reset
-    input logic[31:0] s_newrst_point_i[EXMA_REPS],  //new reset-point address
-    input logic s_interrupted_i[EXMA_REPS],         //interrupt approval
+    input logic s_hresp_i[PROT_3REP],               //registered hresp signal
+    input imiscon s_imiscon_i[PROT_3REP],           //instruction misconduct indicator
+    input logic s_rstpp_i[PROT_3REP],               //pipeline reset
+    input logic[31:0] s_newrst_point_i[PROT_3REP],  //new reset-point address
+    input logic s_interrupted_i[PROT_3REP],         //interrupt approval
 
-    input ictrl s_ictrl_i[EXMA_REPS],               //instruction control indicator
-    input f_part s_function_i[EXMA_REPS],           //instruction function
-    input logic[11:0] s_payload_i[EXMA_REPS],       //instruction payload information
-    input logic[31:0] s_val_i[EXMA_REPS],           //result from EX stage
-    output logic[31:0] s_csr_r_o[EXMA_REPS],        //value read from requested CSR
-    output logic[31:0] s_exc_trap_o[EXMA_REPS],     //exception trap-handler address
-    output logic[31:0] s_int_trap_o[EXMA_REPS],     //interrupt trap-handler address
-    output logic[31:0] s_rst_point_o[EXMA_REPS],    //reset-point address
-    output logic[31:0] s_mepc_o[EXMA_REPS],         //address saved in MEPC CSR
-    output logic s_treturn_o[EXMA_REPS],            //return from trap-handler
-    output logic s_int_pending_o[EXMA_REPS],        //pending interrupt
-    output logic s_exception_o[EXMA_REPS],          //exception
-    output logic s_ibus_rst_en_o[EXMA_REPS],        //enables the repetition of transfer that resulted in a instruction bus error
-    output logic s_dbus_rst_en_o[EXMA_REPS],        //enables the repetition of transfer that resulted in a data bus error
+    input ictrl s_ictrl_i[PROT_3REP],               //instruction control indicator
+    input f_part s_function_i[PROT_3REP],           //instruction function
+    input logic[11:0] s_payload_i[PROT_3REP],       //instruction payload information
+    input logic[31:0] s_val_i[PROT_3REP],           //result from EX stage
+    output logic[31:0] s_csr_r_o[PROT_3REP],        //value read from requested CSR
+    output logic[31:0] s_exc_trap_o[PROT_3REP],     //exception trap-handler address
+    output logic[31:0] s_int_trap_o[PROT_3REP],     //interrupt trap-handler address
+    output logic[31:0] s_rst_point_o[PROT_3REP],    //reset-point address
+    output logic[31:0] s_mepc_o[PROT_3REP],         //address saved in MEPC CSR
+    output logic s_treturn_o[PROT_3REP],            //return from trap-handler
+    output logic s_int_pending_o[PROT_3REP],        //pending interrupt
+    output logic s_exception_o[PROT_3REP],          //exception
+    output logic s_ibus_rst_en_o[PROT_3REP],        //enables the repetition of transfer that resulted in a instruction bus error
+    output logic s_dbus_rst_en_o[PROT_3REP],        //enables the repetition of transfer that resulted in a data bus error
     output logic s_pred_disable_o,                  //disable any predictions
     output logic s_hrdmax_rst_o                     //max consecutive pipeline restarts reached
 );
 
-    logic[31:0]s_rmcsr[EXMA_REPS][0:MAX_MCSR];
-    logic[31:0]s_wmcsr[EXMA_REPS][0:MAX_MCSR];
-    logic[31:0] s_csr_r_val[EXMA_REPS], s_exc_trap[EXMA_REPS], s_int_trap[EXMA_REPS];
-    logic s_int_pending[EXMA_REPS], s_exception[EXMA_REPS], s_mret[EXMA_REPS];
-    logic[14:0]s_wmie[EXMA_REPS], s_rmie[EXMA_REPS], s_wmip[EXMA_REPS], s_rmip[EXMA_REPS],s_mie[EXMA_REPS], s_mip[EXMA_REPS];
-    logic[31:0]s_wmstatus[EXMA_REPS],s_wmscratch[EXMA_REPS],s_wminstret[EXMA_REPS],s_wminstreth[EXMA_REPS],s_wmcycle[EXMA_REPS],s_wmcycleh[EXMA_REPS],
-                s_wmtvec[EXMA_REPS],s_wmepc[EXMA_REPS],s_wmcause[EXMA_REPS],s_wmtval[EXMA_REPS],s_wmhrdctrl0[EXMA_REPS], s_wrstpoint[EXMA_REPS];
-    logic[31:0]s_rmstatus[EXMA_REPS],s_rmscratch[EXMA_REPS],s_rminstret[EXMA_REPS],s_rminstreth[EXMA_REPS],s_rmcycle[EXMA_REPS],s_rmcycleh[EXMA_REPS],
-                s_rmtvec[EXMA_REPS],s_rmepc[EXMA_REPS],s_rmcause[EXMA_REPS],s_rmtval[EXMA_REPS],s_rmhrdctrl0[EXMA_REPS], s_rrstpoint[EXMA_REPS], 
-                s_mstatus[EXMA_REPS],s_mscratch[EXMA_REPS],s_minstret[EXMA_REPS],s_minstreth[EXMA_REPS],s_mcycle[EXMA_REPS],s_mcycleh[EXMA_REPS],
-                s_mtvec[EXMA_REPS],s_mepc[EXMA_REPS],s_mcause[EXMA_REPS],s_mtval[EXMA_REPS],s_mhrdctrl0[EXMA_REPS], s_rstpoint[EXMA_REPS];
-    logic s_clk_prw[EXMA_REPS], s_resetn_prw[EXMA_REPS];
+    logic[31:0]s_rmcsr[PROT_3REP][0:MAX_MCSR];
+    logic[31:0]s_wmcsr[PROT_3REP][0:MAX_MCSR];
+    logic[31:0] s_csr_r_val[PROT_3REP], s_exc_trap[PROT_3REP], s_int_trap[PROT_3REP];
+    logic s_int_pending[PROT_3REP], s_exception[PROT_3REP], s_mret[PROT_3REP];
+    logic[14:0]s_wmie[PROT_3REP], s_rmie[PROT_3REP], s_wmip[PROT_3REP], s_rmip[PROT_3REP],s_mie[PROT_3REP], s_mip[PROT_3REP];
+    logic[31:0]s_wmstatus[PROT_3REP],s_wmscratch[PROT_3REP],s_wminstret[PROT_3REP],s_wminstreth[PROT_3REP],s_wmcycle[PROT_3REP],s_wmcycleh[PROT_3REP],
+                s_wmtvec[PROT_3REP],s_wmepc[PROT_3REP],s_wmcause[PROT_3REP],s_wmtval[PROT_3REP],s_wmhrdctrl0[PROT_3REP], s_wrstpoint[PROT_3REP];
+    logic[31:0]s_rmstatus[PROT_3REP],s_rmscratch[PROT_3REP],s_rminstret[PROT_3REP],s_rminstreth[PROT_3REP],s_rmcycle[PROT_3REP],s_rmcycleh[PROT_3REP],
+                s_rmtvec[PROT_3REP],s_rmepc[PROT_3REP],s_rmcause[PROT_3REP],s_rmtval[PROT_3REP],s_rmhrdctrl0[PROT_3REP], s_rrstpoint[PROT_3REP], 
+                s_mstatus[PROT_3REP],s_mscratch[PROT_3REP],s_minstret[PROT_3REP],s_minstreth[PROT_3REP],s_mcycle[PROT_3REP],s_mcycleh[PROT_3REP],
+                s_mtvec[PROT_3REP],s_mepc[PROT_3REP],s_mcause[PROT_3REP],s_mtval[PROT_3REP],s_mhrdctrl0[PROT_3REP], s_rstpoint[PROT_3REP];
+    logic s_clk_prw[PROT_3REP], s_resetn_prw[PROT_3REP];
 `ifdef PROTECTED_WITH_IFP
-    logic[31:0]s_wmaddrerr[EXMA_REPS],s_rmaddrerr[EXMA_REPS], s_maddrerr[EXMA_REPS];
+    logic[31:0]s_wmaddrerr[PROT_3REP],s_rmaddrerr[PROT_3REP], s_maddrerr[PROT_3REP];
 `endif
 
     //CSR registers
-    seu_regs #(.LABEL("CSR_MSTATUS"),.N(EXMA_REPS))m_mstatus (.s_c_i(s_clk_prw),.s_d_i(s_wmstatus),.s_d_o(s_rmstatus));
-    seu_regs #(.LABEL("CSR_MINSTRET"),.N(EXMA_REPS))m_minstret (.s_c_i(s_clk_prw),.s_d_i(s_wminstret),.s_d_o(s_rminstret));
-    seu_regs #(.LABEL("CSR_MINSTRETH"),.N(EXMA_REPS))m_minstreth (.s_c_i(s_clk_prw),.s_d_i(s_wminstreth),.s_d_o(s_rminstreth));
-    seu_regs #(.LABEL("CSR_MCYCLE"),.N(EXMA_REPS))m_mcycle (.s_c_i(s_clk_prw),.s_d_i(s_wmcycle),.s_d_o(s_rmcycle));
-    seu_regs #(.LABEL("CSR_MCYCLEH"),.N(EXMA_REPS))m_mcycleh (.s_c_i(s_clk_prw),.s_d_i(s_wmcycleh),.s_d_o(s_rmcycleh));
-    seu_regs #(.LABEL("CSR_MSCRATCH"),.N(EXMA_REPS))m_mscratch (.s_c_i(s_clk_prw),.s_d_i(s_wmscratch),.s_d_o(s_rmscratch));
-    seu_regs #(.LABEL("CSR_MTVEC"),.N(EXMA_REPS))m_mtvec (.s_c_i(s_clk_prw),.s_d_i(s_wmtvec),.s_d_o(s_rmtvec));
-    seu_regs #(.LABEL("CSR_MEPC"),.N(EXMA_REPS))m_mepc (.s_c_i(s_clk_prw),.s_d_i(s_wmepc),.s_d_o(s_rmepc));
-    seu_regs #(.LABEL("CSR_MCAUSE"),.N(EXMA_REPS))m_mcause (.s_c_i(s_clk_prw),.s_d_i(s_wmcause),.s_d_o(s_rmcause));
-    seu_regs #(.LABEL("CSR_MTVAL"),.N(EXMA_REPS))m_mtval (.s_c_i(s_clk_prw),.s_d_i(s_wmtval),.s_d_o(s_rmtval));
-    seu_regs #(.LABEL("CSR_MHRDCTRL0"),.N(EXMA_REPS))m_mhrdctrl0 (.s_c_i(s_clk_prw),.s_d_i(s_wmhrdctrl0),.s_d_o(s_rmhrdctrl0));
-    seu_regs #(.LABEL("CSR_MIE"),.W(15),.N(EXMA_REPS)) m_mie (.s_c_i(s_clk_prw),.s_d_i(s_wmie),.s_d_o(s_rmie));
-    seu_regs #(.LABEL("CSR_MIP"),.W(15),.N(EXMA_REPS)) m_mip (.s_c_i(s_clk_prw),.s_d_i(s_wmip),.s_d_o(s_rmip));
+    seu_regs #(.LABEL("CSR_MSTATUS"),.N(PROT_3REP))m_mstatus (.s_c_i(s_clk_prw),.s_d_i(s_wmstatus),.s_d_o(s_rmstatus));
+    seu_regs #(.LABEL("CSR_MINSTRET"),.N(PROT_3REP))m_minstret (.s_c_i(s_clk_prw),.s_d_i(s_wminstret),.s_d_o(s_rminstret));
+    seu_regs #(.LABEL("CSR_MINSTRETH"),.N(PROT_3REP))m_minstreth (.s_c_i(s_clk_prw),.s_d_i(s_wminstreth),.s_d_o(s_rminstreth));
+    seu_regs #(.LABEL("CSR_MCYCLE"),.N(PROT_3REP))m_mcycle (.s_c_i(s_clk_prw),.s_d_i(s_wmcycle),.s_d_o(s_rmcycle));
+    seu_regs #(.LABEL("CSR_MCYCLEH"),.N(PROT_3REP))m_mcycleh (.s_c_i(s_clk_prw),.s_d_i(s_wmcycleh),.s_d_o(s_rmcycleh));
+    seu_regs #(.LABEL("CSR_MSCRATCH"),.N(PROT_3REP))m_mscratch (.s_c_i(s_clk_prw),.s_d_i(s_wmscratch),.s_d_o(s_rmscratch));
+    seu_regs #(.LABEL("CSR_MTVEC"),.N(PROT_3REP))m_mtvec (.s_c_i(s_clk_prw),.s_d_i(s_wmtvec),.s_d_o(s_rmtvec));
+    seu_regs #(.LABEL("CSR_MEPC"),.N(PROT_3REP))m_mepc (.s_c_i(s_clk_prw),.s_d_i(s_wmepc),.s_d_o(s_rmepc));
+    seu_regs #(.LABEL("CSR_MCAUSE"),.N(PROT_3REP))m_mcause (.s_c_i(s_clk_prw),.s_d_i(s_wmcause),.s_d_o(s_rmcause));
+    seu_regs #(.LABEL("CSR_MTVAL"),.N(PROT_3REP))m_mtval (.s_c_i(s_clk_prw),.s_d_i(s_wmtval),.s_d_o(s_rmtval));
+    seu_regs #(.LABEL("CSR_MHRDCTRL0"),.N(PROT_3REP))m_mhrdctrl0 (.s_c_i(s_clk_prw),.s_d_i(s_wmhrdctrl0),.s_d_o(s_rmhrdctrl0));
+    seu_regs #(.LABEL("CSR_MIE"),.W(15),.N(PROT_3REP)) m_mie (.s_c_i(s_clk_prw),.s_d_i(s_wmie),.s_d_o(s_rmie));
+    seu_regs #(.LABEL("CSR_MIP"),.W(15),.N(PROT_3REP)) m_mip (.s_c_i(s_clk_prw),.s_d_i(s_wmip),.s_d_o(s_rmip));
 `ifdef PROTECTED_WITH_IFP
-    seu_regs #(.LABEL("CSR_MADDRERR"),.N(EXMA_REPS))m_maddrerr (.s_c_i(s_clk_prw),.s_d_i(s_wmaddrerr),.s_d_o(s_rmaddrerr));
+    seu_regs #(.LABEL("CSR_MADDRERR"),.N(PROT_3REP))m_maddrerr (.s_c_i(s_clk_prw),.s_d_i(s_wmaddrerr),.s_d_o(s_rmaddrerr));
 `endif
-    seu_regs #(.LABEL("RSTPOINT"),.N(EXMA_REPS)) m_rstpoint (.s_c_i(s_clk_prw),.s_d_i(s_wrstpoint),.s_d_o(s_rrstpoint));
+    seu_regs #(.LABEL("RSTPOINT"),.N(PROT_3REP)) m_rstpoint (.s_c_i(s_clk_prw),.s_d_i(s_wrstpoint),.s_d_o(s_rrstpoint));
 
 `ifdef PROTECTED
     //Triple-Modular-Redundancy
@@ -143,7 +143,7 @@ module csru (
 
     genvar i;
     generate
-        for (i = 0; i<EXMA_REPS ;i++ ) begin : csr_replicator
+        for (i = 0; i<PROT_3REP ;i++ ) begin : csr_replicator
             assign s_clk_prw[i]    = s_clk_i[i];
             assign s_resetn_prw[i] = s_resetn_i[i];
 

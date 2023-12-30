@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2023-12-30
+
+### Added
+ - Peripheral module of ACLINT MTIMER with AMBA 3 AHB-Lite interface
+ - MTIMER integrated into the testbench and connected to the core's timer interrupt port _s_int_mtip_i_
+ - FreeRTOS demo application with prebuilt binary
+ - Figures for the newly launched [Wiki](https://github.com/janomach/the-hardisc/wiki) documentation
+
+### Changed
+ - Replication parameters _xxxx_REPS_ defined in the **p_hardisc** package were reduced into two parameters (_PROT_3REP_ for three replicas, _PROT_2REP_ for two replicas)
+
 ## [1.2.0] - 2023-12-13
 
 ### Added
@@ -72,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public version
 
+[1.2.1]: https://github.com/janomach/the-hardisc/releases/tag/v1.2.1
 [1.2.0]: https://github.com/janomach/the-hardisc/releases/tag/v1.2.0
 [1.1.0]: https://github.com/janomach/the-hardisc/releases/tag/v1.1.0
 [1.0.0]: https://github.com/janomach/the-hardisc/releases/tag/v1.0.0

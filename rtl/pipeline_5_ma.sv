@@ -18,8 +18,8 @@
 import p_hardisc::*;
 
 module pipeline_5_ma (
-    input logic s_clk_i[CTRL_REPS],                 //clock signal
-    input logic s_resetn_i[CTRL_REPS],              //reset signal
+    input logic s_clk_i[PROT_3REP],                 //clock signal
+    input logic s_resetn_i[PROT_3REP],              //reset signal
     input logic[31:0] s_boot_add_i,                 //boot address
 
     input logic s_int_meip_i,                       //external interrupt
@@ -27,27 +27,27 @@ module pipeline_5_ma (
     input logic s_int_uce_i,                        //uncorrectable error in register-file
 `ifdef PROTECTED
     output logic[1:0] s_acm_settings_o,             //acm settings
-    input logic s_exma_neq_i[EXMA_REPS],            //discrepancy in result
+    input logic s_exma_neq_i[PROT_3REP],            //discrepancy in result
 `endif
 
-    output logic s_stall_o[CTRL_REPS],              //stall signal for lower stages
-    output logic s_flush_o[CTRL_REPS],              //flush signal for lower stages
-    output logic s_hold_o[CTRL_REPS],               //hold signal for lower stages 
+    output logic s_stall_o[PROT_3REP],              //stall signal for lower stages
+    output logic s_flush_o[PROT_3REP],              //flush signal for lower stages
+    output logic s_hold_o[PROT_3REP],               //hold signal for lower stages 
 
     input logic[31:0] s_lsu_data_i,                 //LSU read data
-    input logic s_lsu_ready_i[EXMA_REPS],           //LSU ready
-    input logic s_lsu_hresp_i[EXMA_REPS],           //LSU bus error
-    input logic s_lsu_busy_i[EXMA_REPS],            //LSU cannot start new request
+    input logic s_lsu_ready_i[PROT_3REP],           //LSU ready
+    input logic s_lsu_hresp_i[PROT_3REP],           //LSU bus error
+    input logic s_lsu_busy_i[PROT_3REP],            //LSU cannot start new request
 
-    input ictrl s_exma_ictrl_i[EXMA_REPS],          //instruction control indicator
-    input imiscon s_exma_imiscon_i[EXMA_REPS],      //instruction misconduct indicator
-    input f_part s_exma_f_i[EXMA_REPS],             //instruction function
-    input rf_add s_exma_rd_i[EXMA_REPS],            //destination register address
-    input logic[31:0] s_exma_val_i[EXMA_REPS],      //result from EX stage
-    input logic[11:0] s_exma_payload_i[EXMA_REPS],  //instruction payload information    
+    input ictrl s_exma_ictrl_i[PROT_3REP],          //instruction control indicator
+    input imiscon s_exma_imiscon_i[PROT_3REP],      //instruction misconduct indicator
+    input f_part s_exma_f_i[PROT_3REP],             //instruction function
+    input rf_add s_exma_rd_i[PROT_3REP],            //destination register address
+    input logic[31:0] s_exma_val_i[PROT_3REP],      //result from EX stage
+    input logic[11:0] s_exma_payload_i[PROT_3REP],  //instruction payload information    
 
-    input logic[2:0] s_lsu_einfo_i[MAWB_REPS],      //lsu error info
-    input logic[31:0] s_lsu_fixed_data_i[MAWB_REPS],//lsu fixed data
+    input logic[2:0] s_lsu_einfo_i[PROT_3REP],      //lsu error info
+    input logic[31:0] s_lsu_fixed_data_i[PROT_3REP],//lsu fixed data
 
     input logic[30:0] s_bop_tadd_i,                 //predicted target address saved in the BOP
     input logic s_bop_pred_i,                       //the prediction is prepared in the BOP
@@ -58,38 +58,38 @@ module pipeline_5_ma (
     output logic s_ma_pred_bpu_o,                   //update branch predictor
     output logic s_ma_pred_jpu_o,                   //update jump predictor
 
-    output logic[31:0] s_ma_toc_addr_o[MAWB_REPS],  //address for transfer of control
-    output ictrl s_mawb_ictrl_o[MAWB_REPS],         //instruction control indicator in WB stage
-    output rf_add s_mawb_rd_o[MAWB_REPS],           //destination register address in WB stage
-    output logic[31:0] s_mawb_val_o[MAWB_REPS],     //instruction result in WB stage
-    output logic[31:0] s_rf_val_o[MAWB_REPS],       //instruction result for register file
-    output logic[31:0] s_read_data_o[MAWB_REPS],    //direct access to read value
+    output logic[31:0] s_ma_toc_addr_o[PROT_3REP],  //address for transfer of control
+    output ictrl s_mawb_ictrl_o[PROT_3REP],         //instruction control indicator in WB stage
+    output rf_add s_mawb_rd_o[PROT_3REP],           //destination register address in WB stage
+    output logic[31:0] s_mawb_val_o[PROT_3REP],     //instruction result in WB stage
+    output logic[31:0] s_rf_val_o[PROT_3REP],       //instruction result for register file
+    output logic[31:0] s_read_data_o[PROT_3REP],    //direct access to read value
     
-    output logic[31:0] s_rst_point_o[MAWB_REPS],    //reset-point address
+    output logic[31:0] s_rst_point_o[PROT_3REP],    //reset-point address
     output logic s_pred_disable_o,                  //disable any predictions
     output logic s_hrdmax_rst_o                     //max consecutive pipeline restarts reached
 );
 
-    logic s_flush_ma[CTRL_REPS], s_stall_ma[CTRL_REPS], s_lsu_stall[MAWB_REPS];
-    logic[31:0] s_write_val[MAWB_REPS], s_lsurdata[MAWB_REPS], s_int_trap[MAWB_REPS], s_exc_trap[MAWB_REPS], s_mepc[MAWB_REPS], 
-                s_ma_toc_addr[MAWB_REPS], s_csr_val[MAWB_REPS], s_bru_add[MAWB_REPS], s_rst_point[MAWB_REPS], 
-                s_newrst_point[MAWB_REPS], s_next_pc[MAWB_REPS];
-    logic[2:0] s_pc_incr[MAWB_REPS];
-    logic s_int_pending[MAWB_REPS], s_exception[MAWB_REPS], s_tereturn[MAWB_REPS], s_ma_toc[MAWB_REPS];
-    logic s_bru_toc[MAWB_REPS], s_rstpp[MAWB_REPS], s_prior_rstpp[MAWB_REPS], s_pred_bpu[MAWB_REPS], s_pred_jpu[MAWB_REPS], 
-            s_ma_pred_btbu[MAWB_REPS], s_ma_pred_btrue[MAWB_REPS];
-    logic s_interrupt[MAWB_REPS], s_itaken[MAWB_REPS];
-    rf_add s_wmawb_rd[MAWB_REPS], s_rmawb_rd[MAWB_REPS], s_mawb_rd[MAWB_REPS]; 
-    logic[31:0] s_wmawb_val[MAWB_REPS],s_rmawb_val[MAWB_REPS],s_mawb_val[MAWB_REPS];  
-    ictrl s_wmawb_ictrl[MAWB_REPS], s_rmawb_ictrl[MAWB_REPS], s_mawb_ictrl[MAWB_REPS];
-    logic s_clk_prw[MAWB_REPS], s_resetn_prw[MAWB_REPS];
-    ld_info s_wmawb_ldi[MAWB_REPS], s_rmawb_ldi[MAWB_REPS];
-    logic s_int_lcer[MAWB_REPS], s_nmi_luce[MAWB_REPS], s_wb_error[MAWB_REPS], s_wb_reset[MAWB_REPS], s_ex_discrepancy[MAWB_REPS], 
-            s_ibus_rst_en[MAWB_REPS], s_dbus_rst_en[MAWB_REPS], s_berr_rst[MAWB_REPS], s_trans_rst[MAWB_REPS];
+    logic s_flush_ma[PROT_3REP], s_stall_ma[PROT_3REP], s_lsu_stall[PROT_3REP];
+    logic[31:0] s_write_val[PROT_3REP], s_lsurdata[PROT_3REP], s_int_trap[PROT_3REP], s_exc_trap[PROT_3REP], s_mepc[PROT_3REP], 
+                s_ma_toc_addr[PROT_3REP], s_csr_val[PROT_3REP], s_bru_add[PROT_3REP], s_rst_point[PROT_3REP], 
+                s_newrst_point[PROT_3REP], s_next_pc[PROT_3REP];
+    logic[2:0] s_pc_incr[PROT_3REP];
+    logic s_int_pending[PROT_3REP], s_exception[PROT_3REP], s_tereturn[PROT_3REP], s_ma_toc[PROT_3REP];
+    logic s_bru_toc[PROT_3REP], s_rstpp[PROT_3REP], s_prior_rstpp[PROT_3REP], s_pred_bpu[PROT_3REP], s_pred_jpu[PROT_3REP], 
+            s_ma_pred_btbu[PROT_3REP], s_ma_pred_btrue[PROT_3REP];
+    logic s_interrupt[PROT_3REP], s_itaken[PROT_3REP];
+    rf_add s_wmawb_rd[PROT_3REP], s_rmawb_rd[PROT_3REP], s_mawb_rd[PROT_3REP]; 
+    logic[31:0] s_wmawb_val[PROT_3REP],s_rmawb_val[PROT_3REP],s_mawb_val[PROT_3REP];  
+    ictrl s_wmawb_ictrl[PROT_3REP], s_rmawb_ictrl[PROT_3REP], s_mawb_ictrl[PROT_3REP];
+    logic s_clk_prw[PROT_3REP], s_resetn_prw[PROT_3REP];
+    ld_info s_wmawb_ldi[PROT_3REP], s_rmawb_ldi[PROT_3REP];
+    logic s_int_lcer[PROT_3REP], s_nmi_luce[PROT_3REP], s_wb_error[PROT_3REP], s_wb_reset[PROT_3REP], s_ex_discrepancy[PROT_3REP], 
+            s_ibus_rst_en[PROT_3REP], s_dbus_rst_en[PROT_3REP], s_berr_rst[PROT_3REP], s_trans_rst[PROT_3REP];
 `ifdef PROTECTED_WITH_IFP
-    logic[2:0] s_lsu_einfo[MAWB_REPS];
-    logic[1:0] s_wmawb_err[MAWB_REPS], s_rmawb_err[MAWB_REPS];
-    logic[31:0] s_lsurdatac[MAWB_REPS];
+    logic[2:0] s_lsu_einfo[PROT_3REP];
+    logic[1:0] s_wmawb_err[PROT_3REP], s_rmawb_err[PROT_3REP];
+    logic[31:0] s_lsurdatac[PROT_3REP];
 `endif
 
     assign s_mawb_rd_o      = s_mawb_rd;
@@ -98,16 +98,16 @@ module pipeline_5_ma (
     assign s_read_data_o    = s_rmawb_val;
 
     //Result value from the MA stage
-    seu_regs #(.LABEL("MAWB_VAL"),.N(MAWB_REPS))m_mawb_val (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_val),.s_d_o(s_rmawb_val));
+    seu_regs #(.LABEL("MAWB_VAL"),.N(PROT_3REP))m_mawb_val (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_val),.s_d_o(s_rmawb_val));
     //Destination register address
-    seu_regs #(.LABEL("MAWB_RD"),.W($size(rf_add)),.N(MAWB_REPS)) m_mawb_rd (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_rd),.s_d_o(s_rmawb_rd));
+    seu_regs #(.LABEL("MAWB_RD"),.W($size(rf_add)),.N(PROT_3REP)) m_mawb_rd (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_rd),.s_d_o(s_rmawb_rd));
     //Instruction control indicator
-    seu_regs #(.LABEL("MAWB_ICTRL"),.W($size(ictrl)),.N(MAWB_REPS)) m_mawb_ictrl (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_ictrl),.s_d_o(s_rmawb_ictrl));
+    seu_regs #(.LABEL("MAWB_ICTRL"),.W($size(ictrl)),.N(PROT_3REP)) m_mawb_ictrl (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_ictrl),.s_d_o(s_rmawb_ictrl));
     //Load instruction information
-    seu_regs #(.LABEL("MAWB_LDINFO"),.W($size(ld_info)),.N(MAWB_REPS)) m_exma_ldinfo (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_ldi),.s_d_o(s_rmawb_ldi));
+    seu_regs #(.LABEL("MAWB_LDINFO"),.W($size(ld_info)),.N(PROT_3REP)) m_exma_ldinfo (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_ldi),.s_d_o(s_rmawb_ldi));
 `ifdef PROTECTED_WITH_IFP
     //Checksum for loaded value
-    seu_regs #(.LABEL("MAWB_ERR"),.N(MAWB_REPS),.W(2))m_mawb_err (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_err),.s_d_o(s_rmawb_err));
+    seu_regs #(.LABEL("MAWB_ERR"),.N(PROT_3REP),.W(2))m_mawb_err (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_err),.s_d_o(s_rmawb_err));
 `endif
 
 `ifdef PROTECTED
@@ -132,7 +132,7 @@ module pipeline_5_ma (
 
     genvar i;
     generate
-        for ( i = 0; i<MAWB_REPS ; i++ ) begin : ma_replicator
+        for ( i = 0; i<PROT_3REP ; i++ ) begin : ma_replicator
             assign s_clk_prw[i]     = s_clk_i[i];
             assign s_resetn_prw[i]  = s_resetn_i[i];
 `ifdef PROTECTED
@@ -223,7 +223,7 @@ module pipeline_5_ma (
         end
 
         /*  This section is part of WB stage  */
-        for ( i = 0; i<MAWB_REPS ; i++ ) begin : wb_replicator
+        for ( i = 0; i<PROT_3REP ; i++ ) begin : wb_replicator
             assign s_mawb_val[i] = (s_rmawb_ictrl[i][ICTRL_UNIT_LSU]) ? s_lsurdata[i] : s_rmawb_val[i];
             //Decoding of the loaded data, that can be forwarded to the lower stages
             lsu_decoder m_lsu_decoder(.s_lsu_data_i(s_rmawb_val[i]),.s_ld_info_i(s_rmawb_ldi[i]),.s_data_o(s_lsurdata[i]));
