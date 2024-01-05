@@ -44,12 +44,11 @@ module acm
 );
 
     logic s_write[1];
-    logic[6:0] s_r1_checksum, s_r2_checksum, s_w_checksum[1], s_w1_checksum[3], 
-                s_r1_achecksum[2], s_r2_achecksum[2], s_r1_syndrome[2], s_r2_syndrome[2];
+    logic[6:0] s_w_checksum[1], s_w1_checksum[3], s_r1_achecksum[2], s_r2_achecksum[2], s_r1_syndrome[2], s_r2_syndrome[2], s_rp_checksum[2];
     logic s_r1_ce[2], s_r1_uce[2], s_r2_ce[2], s_r2_uce[2];
     logic[31:0] s_r1_dec[2], s_r2_dec[2], s_wacm_val[2], s_racm_val[2], s_repair_val[2], s_file_w_val[3], s_w_data[1];
     logic s_file_we[3], s_mawb_we[3];
-    rf_add s_file_w_add[3], s_w_address[1], s_wacm_add[2], s_racm_add[2], s_repair_add[2];
+    rf_add s_file_w_add[3], s_w_address[1], s_wacm_add[2], s_racm_add[2], s_repair_add[2], s_rp_add[2];
     rp_info s_rp1_info[2], s_rp2_info[2];
     logic s_rs1_repreq[2], s_rs2_repreq[2], s_rs2_repair[2], s_rs1_repair[2];
     logic[1:0] s_fwd[2], s_valid_err[2];
@@ -64,10 +63,8 @@ module acm
     //checksum register file
     logic[6:0]r_checksum_file[0:31] = '{default:0};
 
-    //read port 1
-    assign s_r1_checksum     = r_checksum_file[s_r_p1_add_i[0]];
-    //read port 2
-    assign s_r2_checksum     = r_checksum_file[s_r_p2_add_i[0]];
+    assign s_rp_add[0]  = s_r_p1_add_i[0];
+    assign s_rp_add[1]  = s_r_p2_add_i[0];
 
     assign s_val_o  = s_w_data[0];
     assign s_add_o  = s_w_address[0];
@@ -150,12 +147,12 @@ module acm
             secded_encode m_p1_encode   (.s_data_i(s_r_p1_val_i),.s_checksum_o(s_r1_achecksum[i]));
             secded_analyze m_p1_analyze (.s_syndrome_i(s_r1_syndrome[i]),.s_ce_o(s_r1_ce[i]),.s_uce_o(s_r1_uce[i]));
             secded_decode m_p1_decode   (.s_data_i(s_r_p1_val_i),.s_syndrome_i(s_r1_syndrome[i]),.s_data_o(s_r1_dec[i]));
-            assign s_r1_syndrome[i]     = s_r1_achecksum[i] ^ s_r1_checksum;
+            assign s_r1_syndrome[i]     = s_r1_achecksum[i] ^ s_rp_checksum[0];
 
             secded_encode m_p2_encode   (.s_data_i(s_r_p2_val_i),.s_checksum_o(s_r2_achecksum[i]));
             secded_analyze m_p2_analyze (.s_syndrome_i(s_r2_syndrome[i]),.s_ce_o(s_r2_ce[i]),.s_uce_o(s_r2_uce[i]));
             secded_decode m_p2_decode   (.s_data_i(s_r_p2_val_i),.s_syndrome_i(s_r2_syndrome[i]),.s_data_o(s_r2_dec[i]));
-            assign s_r2_syndrome[i]     = s_r2_achecksum[i] ^ s_r2_checksum;
+            assign s_r2_syndrome[i]     = s_r2_achecksum[i] ^ s_rp_checksum[1];
         end
         for (i =0 ;i<3 ;i++ ) begin : codeword_encoder
             secded_encode m_w1_encode
@@ -172,26 +169,14 @@ module acm
     tmr_comb #(.W(7),.OUT_REPS(1)) m_tmr_checksum (.s_d_i(s_w1_checksum),.s_d_o(s_w_checksum));
     tmr_comb #(.W(32),.OUT_REPS(1)) m_tmr_data (.s_d_i(s_file_w_val),.s_d_o(s_w_data));
 
-`ifdef SEE_TESTING
-    int j;
-    logic[6:0] s_upset[32];
-    see_insert #(.W(7),.N(32),.GROUP(SEEGR_REG_FILE),.LABEL("ACMRF")) see (.s_clk_i(s_clk_i[2]),.s_upset_o(s_upset));
-`endif
-
-    always_ff @( posedge s_clk_i[2] ) begin : rf_writer
-        if(s_write[0])begin
-            r_checksum_file[s_w_address[0]] <= s_w_checksum[0]
-`ifdef SEE_TESTING            
-            ^ s_upset[s_w_address[0]]
-`endif 
-            ;
-        end
-`ifdef SEE_TESTING  
-        for (j=1;j<32;j++) begin
-            if(!(s_write[0] & (s_w_address[0] == j)))
-                r_checksum_file[j] <= r_checksum_file[j] ^ s_upset[j];
-        end
-`endif
-    end
+    seu_regs_file #(.LABEL("RFACM"),.W(7),.N(32),.RP(2)) m_rf_acm 
+    (
+        .s_clk_i(s_clk_i[2]),
+        .s_we_i(s_write[0]),
+        .s_wadd_i(s_w_address[0]),
+        .s_val_i(s_w_checksum[0]),
+        .s_radd_i(s_rp_add),
+        .s_val_o(s_rp_checksum)
+    );   
 
 endmodule

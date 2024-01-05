@@ -405,8 +405,8 @@ assign s_i_hresp[2]     = s_i_hresp[0];
    - each fault creates a new rising and falling edge during the second half of the source clock period 
 */
 `ifdef SEE_TESTING
-see_insert #(.W(1),.N(PROT_3REP),.GROUP(SEEGR_CORE_WIRE),.LABEL("CLK")) see_clk(.s_clk_i(r_ver_clk),.s_upset_o(s_upset_clk));
-see_insert #(.W(1),.N(PROT_3REP),.GROUP(SEEGR_CORE_WIRE),.LABEL("RSTN")) see_rst(.s_clk_i(r_ver_clk),.s_upset_o(s_upset_resetn));
+see_insert #(.W(1),.N(PROT_3REP),.GROUP(SEEGR_CORE_WIRE),.ELOG("T"),.LABEL("CLK"),.MPROB(0)) see_clk(.s_clk_i(r_ver_clk),.s_upset_o(s_upset_clk));
+see_insert #(.W(1),.N(PROT_3REP),.GROUP(SEEGR_CORE_WIRE),.ELOG("T"),.LABEL("RSTN"),.MPROB(0)) see_rst(.s_clk_i(r_ver_clk),.s_upset_o(s_upset_resetn));
 
 always #(r_clk_time + {1'b0,r_clk_time[31:1]}) r_err_clk = ~r_err_clk;
 `endif

@@ -33,7 +33,7 @@ logic[W-1:0] r_data[N] /* cadence preserve_sequential */;
 logic[W-1:0] s_wdata[N];
 `ifdef SEE_TESTING
 logic[W-1:0] s_upset[N];
-see_insert #(.W(W),.N(N),.LABEL(LABEL),.GROUP(GROUP)) see (.s_clk_i(s_c_i[0]),.s_upset_o(s_upset));
+see_insert #(.W(W),.N(N),.LABEL(LABEL),.ELOG("U"),.GROUP(GROUP)) see (.s_clk_i(s_c_i[0]),.s_upset_o(s_upset));
 `endif
 
 genvar i;
@@ -72,7 +72,7 @@ module seu_regs_file #(
 `ifdef SEE_TESTING
     int j;
     logic[W-1:0] s_upset[N];
-    see_insert #(.W(W),.N(N),.GROUP(GROUP),.LABEL(LABEL)) see (.s_clk_i(s_clk_i),.s_upset_o(s_upset));
+    see_insert #(.W(W),.N(N),.GROUP(GROUP),.ELOG("U"),.LABEL(LABEL)) see (.s_clk_i(s_clk_i),.s_upset_o(s_upset));
 `endif
 
     logic[W-1:0] r_register_file[0:N-1] = '{default:0};

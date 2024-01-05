@@ -84,7 +84,7 @@ module tracer
                 s_dut_mcycle_i, s_dut_minstret_i, 
                 (s_dut_mcycle_i == 32'b0) ? $bitstoreal(0) : ($bitstoreal({32'b0,s_dut_minstret_i})/$bitstoreal({32'b0,s_dut_mcycle_i})),
                 s_dut_fe0_utd_i ? {s_dut_fe0_add_i,1'b0} : 32'd0, 
-                s_dut_fe1_add_i ? {s_dut_fe1_add_i,1'b0} : 32'd0,
+                s_dut_fe1_utd_i ? {s_dut_fe1_add_i,1'b0} : 32'd0,
                 s_dut_id_ictrl_i, 
                 s_dut_aligner_nop_i ? "no operation" : ((s_dec_instr_i[1:0] == 2'b11) ? decoder_instruction.text : {"c.",decoder_instruction.text}),
                 s_dut_op_ictrl_i, s_dut_ex_ictrl_i,s_dut_ma_ictrl_i, s_dut_wb_ictrl_i,

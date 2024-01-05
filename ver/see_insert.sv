@@ -25,6 +25,7 @@ module see_insert #(
     parameter N = 3,
     parameter MPROB = 1,
     parameter GROUP = 0,
+    parameter ELOG = "E",
     parameter LABEL = "SEE_INSERT"
 )(
     input logic s_clk_i,
@@ -57,7 +58,7 @@ module see_insert #(
                 r_seed_value[i]     = $urandom;
                 r_randomval[i]      = $urandom(r_seed_value[i]);
                 r_force[i]          = 0;
-                $write("SEE initial seed in %s[%02d] = %d\n",LABEL,i,r_seed_value[i]);
+                $write("SE%s initial seed in %s[%02d] = %d\n",ELOG,LABEL,i,r_seed_value[i]);
             end
 
             assign s_filtered[i]    = (r_randomval[i] % `SEE_MAX);
@@ -68,7 +69,7 @@ module see_insert #(
                     for(j = 0; j < W; j++)begin : iterate_j
                         r_force[i][j] <= (s_filtered[i] >= (see_prob * j)) & (s_filtered[i] < (see_prob * (j+1)));
                         if(r_force[i][j] & (logging > 2))begin
-                            $write("SEU in %s[%02d][%02d]\n",LABEL,i,j);
+                            $write("SE%s in %s[%02d][%02d]\n",ELOG,LABEL,i,j);
                         end
                     end
                 end
@@ -78,7 +79,7 @@ module see_insert #(
         if(N == 3)begin
             always_ff @( posedge s_clk_i )begin
                 if((r_force[0] & r_force[1]) | (r_force[0] & r_force[2]) | (r_force[2] & r_force[1]))begin
-                    $write("MBU in the same bits of %s, execution not reliable!\n",LABEL);
+                    $write("MB%s in the same bits of %s, execution not reliable!\n",ELOG,LABEL);
                     $finish;
                 end
             end
