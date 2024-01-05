@@ -181,7 +181,7 @@ module pipeline_1_fe (
             //RAS barrier, active if BOP is full, prediction is not allowed, last entry of IFB is not valid, or predictor did prediction 
             assign s_ras_toc[i]         = (s_bop_hazard | s_pred_disable_i | ~s_ras_pred_free[i] | ~s_ifb_occupied[i][0]) ? 2'b0 : s_ras_pop;
             assign s_ras_toc_valid[i]   = s_ras_toc[i] != 2'b0;
-            assign s_ras_pred_free[i]   = s_ifb_last_entry[i][35:34] == 2'b0; 
+            assign s_ras_pred_free[i]   = s_ifb_last_entry[i][37:36] == 2'b0; 
 
             //Update and control of the IFB
             assign s_ifb_pop[i]         = ~(s_stall_i[i][PIPE_ID]);
