@@ -43,9 +43,9 @@ module circular_buffer #(
     //Buffer to hold data
     seu_regs #(.LABEL(LABEL),.GROUP(GROUP),.W(WIDTH),.N(SIZE),.NC(1)) m_seu_cbuf(.s_c_i({s_clk_i}),.s_d_i(s_wbuffer),.s_d_o(s_rbuffer));
     //Count of entries in the buffer
-    seu_regs #(.LABEL(LABEL + "COUNT"),.GROUP(GROUP),.W(PTRW+1),.N(1),.NC(1)) m_seu_count(.s_c_i({s_clk_i}),.s_d_i(s_wcount),.s_d_o(s_rcount));
+    seu_regs #(.LABEL({LABEL,"_COUNT"}),.GROUP(GROUP),.W(PTRW+1),.N(1),.NC(1)) m_seu_count(.s_c_i({s_clk_i}),.s_d_i(s_wcount),.s_d_o(s_rcount));
     //Pointer for last pushed data
-    seu_regs #(.LABEL(LABEL + "LAST"),.GROUP(GROUP),.W(PTRW),.N(1),.NC(1)) m_seu_last(.s_c_i({s_clk_i}),.s_d_i(s_wlast),.s_d_o(s_rlast));
+    seu_regs #(.LABEL({LABEL,"_LAST"}),.GROUP(GROUP),.W(PTRW),.N(1),.NC(1)) m_seu_last(.s_c_i({s_clk_i}),.s_d_i(s_wlast),.s_d_o(s_rlast));
 
     logic[PTRW-1:0] s_wpos;
     logic s_empty;

@@ -31,7 +31,7 @@ module see_wires #(
 
 `ifdef SEE_TESTING
     logic[W-1:0] s_upset[N];
-    see_insert #(.W(W),.N(N),.LABEL(LABEL),.GROUP(GROUP),.MPROB(MPROB)) see (.s_clk_i(s_c_i),.s_upset_o(s_upset));
+    see_insert #(.W(W),.N(N),.LABEL(LABEL),.GROUP(GROUP),.ELOG("T"),.MPROB(MPROB)) see (.s_clk_i(s_c_i),.s_upset_o(s_upset));
 `endif
 
     genvar i;

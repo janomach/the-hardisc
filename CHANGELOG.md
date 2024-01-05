@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2024-01-05
+
+### Added
+ - The see_insert module enables parametrization of the logging message on SEE insertion
+
+### Changed
+ - The deprecated logic of the checksum registers file inside the ACM is replaced by an instance of seu_regs_file module
+ - The probability of faults in the signals for clock and reset is set to zero by default
+
+### Fixed
+ - Concatenation of labels inside the BOP, IFB, and circular buffer modules
+ - Tracing of the FE1 address by the Tracer
+
 ## [1.2.1] - 2023-12-30
 
 ### Added
@@ -83,6 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public version
 
+[1.2.2]: https://github.com/janomach/the-hardisc/releases/tag/v1.2.2
 [1.2.1]: https://github.com/janomach/the-hardisc/releases/tag/v1.2.1
 [1.2.0]: https://github.com/janomach/the-hardisc/releases/tag/v1.2.0
 [1.1.0]: https://github.com/janomach/the-hardisc/releases/tag/v1.1.0

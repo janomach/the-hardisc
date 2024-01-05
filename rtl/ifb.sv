@@ -59,10 +59,10 @@ module ifb #(
     //Buffer to hold data
     seu_regs #(.LABEL(LABEL),.W(IFB_WIDTH),.N(SIZE),.NC(1)) m_seu_buffer(.s_c_i({s_clk_i}),.s_d_i(s_wbuffer),.s_d_o(s_rbuffer));
     //Entries occupancy information
-    seu_regs #(.LABEL(LABEL + "OCPD"),.W(SIZE),.N(1),.NC(1)) m_seu_occupied(.s_c_i({s_clk_i}),.s_d_i(s_woccupied),.s_d_o(s_roccupied));
+    seu_regs #(.LABEL({LABEL,"_OCPD"}),.W(SIZE),.N(1),.NC(1)) m_seu_occupied(.s_c_i({s_clk_i}),.s_d_i(s_woccupied),.s_d_o(s_roccupied));
 `ifdef PROTECTED_WITH_IFP
     //Data checksum
-    seu_regs #(.LABEL(LABEL + "CHECKSUM"),.W(7),.N(1),.NC(1)) m_seu_checksum(.s_c_i({s_clk_i}),.s_d_i(s_wchecksum),.s_d_o(s_rchecksum));
+    seu_regs #(.LABEL({LABEL,"_CHECKSUM"}),.W(7),.N(1),.NC(1)) m_seu_checksum(.s_c_i({s_clk_i}),.s_d_i(s_wchecksum),.s_d_o(s_rchecksum));
 `endif
 
     //Output the last entry
