@@ -60,9 +60,6 @@ module acm
     seu_regs #(.LABEL("ACM_ADD"),.W(5),.N(2))   m_acm_add (.s_c_i(s_clk_prw),.s_d_i(s_wacm_add),.s_d_o(s_racm_add));
     seu_regs #(.LABEL("ACM_VAL"),.N(2))         m_acm_val (.s_c_i(s_clk_prw),.s_d_i(s_wacm_val),.s_d_o(s_racm_val));
 
-    //checksum register file
-    logic[6:0]r_checksum_file[0:31] = '{default:0};
-
     assign s_rp_add[0]  = s_r_p1_add_i[0];
     assign s_rp_add[1]  = s_r_p2_add_i[0];
 
@@ -157,7 +154,7 @@ module acm
         for (i =0 ;i<3 ;i++ ) begin : codeword_encoder
             secded_encode m_w1_encode
             (
-                .s_data_i(s_file_w_val[i]),
+                .s_data_i(s_w_data[0]),
                 .s_checksum_o(s_w1_checksum[i])
             );
         end
