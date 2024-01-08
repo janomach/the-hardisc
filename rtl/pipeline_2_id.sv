@@ -38,7 +38,8 @@ module pipeline_2_id (
     output rf_add s_idop_rs2_o[PROT_2REP],          //source register 2 address for OP stage
     output sctrl s_idop_sctrl_o[PROT_2REP],         //source control indicator for OP stage
     output ictrl s_idop_ictrl_o[PROT_2REP],         //instruction control indicator for OP stage
-    output imiscon s_idop_imiscon_o[PROT_2REP]      //instruction misconduct indicator for OP stage
+    output imiscon s_idop_imiscon_o[PROT_2REP],     //instruction misconduct indicator for OP stage
+    output logic s_idop_fixed_o[PROT_2REP]          //fix indicator for OP stage
 );
 
     logic[20:0] s_widop_payload[PROT_2REP], s_ridop_payload[PROT_2REP];
@@ -49,7 +50,7 @@ module pipeline_2_id (
     sctrl s_widop_sctrl[PROT_2REP],s_ridop_sctrl[PROT_2REP];
     ictrl s_widop_ictrl[PROT_2REP],s_ridop_ictrl[PROT_2REP];
     imiscon s_widop_imiscon[PROT_2REP],s_ridop_imiscon[PROT_2REP];
-    logic s_clk_prw[PROT_2REP], s_resetn_prw[PROT_2REP];
+    logic s_clk_prw[PROT_2REP], s_resetn_prw[PROT_2REP], s_widop_fixed[PROT_2REP], s_ridop_fixed[PROT_2REP];
 
     assign s_idop_rd_o      = s_ridop_rd;
     assign s_idop_rs1_o     = s_ridop_rs1;
@@ -59,6 +60,7 @@ module pipeline_2_id (
     assign s_idop_sctrl_o   = s_ridop_sctrl;
     assign s_idop_ictrl_o   = s_ridop_ictrl;
     assign s_idop_imiscon_o = s_ridop_imiscon;
+    assign s_idop_fixed_o   = s_ridop_fixed;
 
     //Instruction payload information
     seu_regs #(.LABEL("IDOP_PYLD"),.W(21),.N(PROT_2REP))m_idop_payload (.s_c_i(s_clk_prw),.s_d_i(s_widop_payload),.s_d_o(s_ridop_payload));
@@ -76,6 +78,12 @@ module pipeline_2_id (
     seu_regs #(.LABEL("IDOP_ICTRL"),.W($size(ictrl)),.N(PROT_2REP)) m_idop_ictrl (.s_c_i(s_clk_prw),.s_d_i(s_widop_ictrl),.s_d_o(s_ridop_ictrl));
     //Instruction misconduct indicator
     seu_regs #(.LABEL("IDOP_IMISCON"),.W($size(imiscon)),.N(PROT_2REP)) m_idop_imiscon (.s_c_i(s_clk_prw),.s_d_i(s_widop_imiscon),.s_d_o(s_ridop_imiscon));
+`ifdef PROTECTED_WITH_IFP
+    //Instruction was fixed (SEU corrected)
+    seu_regs #(.LABEL("IDOP_FIXED"),.W(1),.N(PROT_2REP)) m_idop_fixed (.s_c_i(s_clk_prw),.s_d_i(s_widop_fixed),.s_d_o(s_ridop_fixed));
+`else
+    assign s_ridop_fixed[0] = 1'b0;
+`endif
 
 	logic  s_flush_id[PROT_3REP], s_stall_id[PROT_3REP];
     logic[31:0] s_aligner_instr[PROT_2REP];
@@ -88,7 +96,7 @@ module pipeline_2_id (
     logic s_aligner_stall[PROT_2REP], s_align_error[PROT_2REP], 
           s_aligner_nop[PROT_2REP], s_aligner_pred[PROT_2REP], s_idop_empty[PROT_2REP];
     logic [2:0] s_fetch_error[PROT_2REP];
-`ifdef PROTECTED
+`ifdef PROTECTED_WITH_IFP
     rf_add r_acm_add, r_acm_new_add;
     logic s_acm_add_update;
     logic s_seu_search_enabled;
@@ -174,6 +182,17 @@ module pipeline_2_id (
                     s_widop_imiscon[i]  = s_instr_miscon[i];
                 end
             end
+`ifdef PROTECTED_WITH_IFP
+            always_comb begin : pipe_2_fixed_writer
+                if(~s_resetn_i[i] | s_flush_id[i] | (s_aligner_nop[i] & ~s_stall_id[i]))begin
+                    s_widop_fixed[i]= 1'b0;
+                end else if(s_stall_id[i])begin
+                    s_widop_fixed[i]= s_ridop_fixed[i];
+                end else begin
+                    s_widop_fixed[i]= s_fetch_error[i] == FETCH_INCER;
+                end
+            end
+`endif
 
 `ifndef PROTECTED
             //Update values for IDOP read-address registers

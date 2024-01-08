@@ -47,6 +47,7 @@ module pipeline_3_op (
     input sctrl s_idop_sctrl_i[PROT_2REP],          //source control indicator
     input ictrl s_idop_ictrl_i[PROT_2REP],          //instruction control indicator
     input imiscon s_idop_imiscon_i[PROT_2REP],      //instruction misconduct indicator
+    input logic s_idop_fixed_i[PROT_2REP],          //fix indicator
 
     output logic[31:0] s_opex_op1_o[PROT_2REP],     //prepared operand 1 for EX stage
     output logic[31:0] s_opex_op2_o[PROT_2REP],     //prepared operand 2 for EX stage
@@ -117,11 +118,7 @@ module pipeline_3_op (
             assign s_resetn_prw[i]  = s_resetn_i[i];
 
             //The ID stage requests restart of the instruction
-            assign s_id_misconduct[i]   = (s_idop_imiscon_i[i] != IMISCON_FREE)
-`ifdef PROTECTED_WITH_IFP
-                                         & (s_idop_imiscon_i[i] != IMISCON_FCER)
-`endif            
-                                        ;
+            assign s_id_misconduct[i]   = (s_idop_imiscon_i[i] != IMISCON_FREE);
 `ifdef PROTECTED
             //Correctable error or differences between read-address registers lead to restart of the instruction
             assign s_op_misconduct[i]   = (s_ce[i] | (s_idop_rs1_i[0] != s_idop_rs1_i[1]) | (s_idop_rs2_i[0] != s_idop_rs2_i[1])); 
@@ -147,6 +144,7 @@ module pipeline_3_op (
                 .s_idop_rs2_i(s_idop_rs2_i[i]),
                 .s_idop_ictrl_i(s_idop_ictrl_i[i]),
                 .s_idop_sctrl_i(s_idop_sctrl_i[i]),
+                .s_idop_fixed_i(s_idop_fixed_i[i]),
 `ifdef PROTECTED 
                 .s_rf_uce_i(s_rf_uce_i[i]),
                 .s_rf_ce_i(s_rf_ce_i[i]),

@@ -176,6 +176,6 @@ module c_decoder (
     assign s_instr_ctrl[ICTRL_RVC]      = 1'b1;
     //Prediction is not allowed from other instructions than branch/jump
     assign s_pred_not_allowed           = s_prediction_i & (~s_instr_ctrl[ICTRL_UNIT_BRU]);
-    assign s_instr_miscon               = s_illegal ? IMISCON_ILLE : s_pred_not_allowed ? IMISCON_PRED : IMISCON_FREE;
+    assign s_instr_miscon               = s_illegal ? IMISCON_ILLE : s_pred_not_allowed ? IMISCON_DSCR : IMISCON_FREE;
 
 endmodule

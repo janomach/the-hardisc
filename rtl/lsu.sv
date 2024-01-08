@@ -38,6 +38,7 @@ module lsu (
     //Address phase
     input f_part s_opex_f_i[PROT_2REP],         //instruction function from EX stage
     input logic s_ap_approve_i[PROT_3REP],      //address phase approval  
+    input logic s_idempotent_i[PROT_3REP],      //idempotent access
     input logic[31:0] s_ap_address_i[PROT_3REP],//address phase address 
     input logic[31:0] s_wdata_i[PROT_3REP],     //data to write
     output logic s_ap_busy_o[PROT_3REP],        //busy indicator - cannot start new address phase   
@@ -162,7 +163,7 @@ module lsu (
             end
 `ifdef PROTECTED_WITH_IFP
             //The RMW sequence begins if a non-word-wide store operation is requested
-            assign rmw_activate[i]  = (s_rfsm[i] == LSU_RMW_IDLE) & s_opex_f_i[i%2][3] & (s_opex_f_i[i%2][1:0] != 2'b10);
+            assign rmw_activate[i]  = (s_rfsm[i] == LSU_RMW_IDLE) & s_opex_f_i[i%2][3] & (s_opex_f_i[i%2][1:0] != 2'b10) & s_idempotent_i[i];
             
             always_comb begin : lsu_control
                 if(~s_resetn_i[i])begin

@@ -30,6 +30,7 @@ module csru (
     input logic s_int_msip_i,                       //software interrupt
     input logic s_int_uce_i,                        //uncorrectable error in register-file
     input logic s_int_lcer_i[PROT_3REP],            //correctable error on load interface
+    input logic s_int_fcer_i,                       //fetch correctable error
     input logic s_nmi_luce_i[PROT_3REP],            //uncorrectable error on load interface
 `ifdef PROTECTED
     output logic[1:0] s_acm_settings_o,             //acm settings
@@ -194,6 +195,7 @@ module csru (
                 .s_int_msip_i(s_int_msip_i),
                 .s_int_uce_i(s_int_uce_i),
                 .s_int_lcer_i(s_int_lcer_i[i]),
+                .s_int_fcer_i(s_int_fcer_i),
                 .s_nmi_luce_i(s_nmi_luce_i[i]),
                 .s_hresp_i(s_hresp_i[i]),
                 .s_imiscon_i(s_imiscon_i[i]),

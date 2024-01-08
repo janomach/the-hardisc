@@ -28,8 +28,15 @@ import edac::*;
 
 module tb_mh_wrapper();
 
+localparam SUBORDINATES = 3;
 localparam MEM_SIZE = 32'h100000;
 localparam MEM_MSB  = $clog2(MEM_SIZE) - 32'h1;
+localparam BOOTADD  = 32'h10000000;
+localparam pma_cfg_t PMA_CONFIG[SUBORDINATES] = '{
+    '{base  : BOOTADD,      mask  : 32'hFFF00000, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
+    '{base  : 32'h80000000, mask  : 32'hFFFFFFF8, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
+    '{base  : 32'h80001000, mask  : 32'hFFFFFFF0, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1}
+};
 
 logic[5:0] s_i_hparity[1], s_i_hparity_see[1];
 logic[6:0] s_i_hrchecksum[1], s_i_hwchecksum[1], s_i_hrchecksum_see[1], s_i_hwchecksum_see[1];
@@ -49,9 +56,9 @@ logic[1:0] s_d_htrans[1], s_d_htrans_see[1];
 logic[2:0] s_d_hsize[1],s_d_hburst[1],s_d_hsize_see[1],s_d_hburst_see[1];
 logic[3:0] s_d_hprot[1],s_d_hprot_see[1];
 
-logic[6:0] s_shrchecksum[3];
-logic[31:0] s_sbase[3], s_smask[3], s_shrdata[3];
-logic s_shready[3], s_shresp[3], s_shsel[3];
+logic[6:0] s_shrchecksum[SUBORDINATES];
+logic[31:0] s_ahb_sbase[SUBORDINATES], s_ahb_smask[SUBORDINATES], s_shrdata[SUBORDINATES];
+logic s_shready[SUBORDINATES], s_shresp[SUBORDINATES], s_shsel[SUBORDINATES];
 
 logic s_int_meip, s_int_mtip, s_hrdmax_rst;
 logic[31:0] r_timeout;
@@ -61,21 +68,18 @@ logic s_halt;
 string binfile;
 int fd,i;
 bit [7:0] r8;
-bit [31:0] value, addr, r_boot_add, r_clk_time;
+bit [31:0] value, addr, r_clk_time;
 
 logic r_ver_clk, r_ver_rstn, r_err_clk, s_clk_see[PROT_3REP], s_resetn_see[PROT_3REP], 
       s_clk_dut[PROT_3REP], s_resetn_dut[PROT_3REP], s_upset_clk[PROT_3REP], s_upset_resetn[PROT_3REP];
 
 initial begin
-    r_boot_add  = 32'h0;
     r_timeout   = 32'd150000;
     r_clk_time  = 32'd768;
     r_ver_clk   = 1'b1;
     r_err_clk   = 1'b1;
     r_ver_rstn  = 1'b0;
     addr        = 32'b0;
-    if ($value$plusargs ("BOOTADD=%h", r_boot_add))
-        $display ("Boot address: 0x%h", r_boot_add);
     if ($value$plusargs ("CLKPERIOD=%d", r_clk_time))
         $display ("Clock period: 0x%h", r_clk_time);
     if ($value$plusargs ("BIN=%s", binfile))
@@ -168,13 +172,13 @@ tracer m_tracer(
 
 assign s_int_meip = 1'b0;
 
-hardisc dut
+hardisc #(.PMA_REGIONS(SUBORDINATES),.PMA_CFG(PMA_CONFIG)) dut
 (
     .s_clk_i(s_clk_dut),
     .s_resetn_i(s_resetn_dut),
     .s_int_meip_i(s_int_meip),
     .s_int_mtip_i(s_int_mtip),
-    .s_boot_add_i(r_boot_add),
+    .s_boot_add_i(BOOTADD),
     
     .s_i_hrdata_i(s_i_hrdata_see[0]),
     .s_i_hready_i(s_i_hready_see),
@@ -211,9 +215,6 @@ hardisc dut
     .s_hrdmax_rst_o(s_hrdmax_rst)
 );
 
-assign s_sbase  = {r_boot_add, 32'h80000000, 32'h80001000};
-assign s_smask  = {32'hFFF00000, 32'hFFFFFFF8, 32'hFFFFFFF0};
-
 ahb_interconnect #(.SLAVES(32'h3)) data_interconnect
 (
     .s_clk_i(r_ver_clk),
@@ -222,8 +223,8 @@ ahb_interconnect #(.SLAVES(32'h3)) data_interconnect
     .s_mhaddr_i(s_d_haddr[0]),
     .s_mhtrans_i(s_d_htrans[0]),
 
-    .s_sbase_i(s_sbase),
-    .s_smask_i(s_smask),
+    .s_sbase_i(s_ahb_sbase),
+    .s_smask_i(s_ahb_smask),
 
     .s_shrdata_i(s_shrdata),
     .s_shready_i(s_shready),
@@ -424,6 +425,9 @@ generate
         assign s_resetn_dut[s]  = r_ver_rstn;
 `endif
     end
+    for(s=0;s<SUBORDINATES;s++)begin
+        assign s_ahb_sbase[s]   = PMA_CONFIG[s].base;
+        assign s_ahb_smask[s]   = PMA_CONFIG[s].mask;
+    end
 endgenerate
-
 endmodule

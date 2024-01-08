@@ -25,6 +25,7 @@ module pipeline_5_ma (
     input logic s_int_meip_i,                       //external interrupt
     input logic s_int_mtip_i,                       //timer interrupt
     input logic s_int_uce_i,                        //uncorrectable error in register-file
+    input logic s_int_fcer_i,                       //fetch correctable error
 `ifdef PROTECTED
     output logic[1:0] s_acm_settings_o,             //acm settings
     input logic s_exma_neq_i[PROT_3REP],            //discrepancy in result
@@ -124,7 +125,7 @@ module pipeline_5_ma (
     //Signals for the Predictor and Transfer of Control
     assign s_ma_toc_addr_o      = s_ma_toc_addr;
     assign s_bop_pop_o          = s_exma_ictrl_i[0][ICTRL_UNIT_BRU] & s_exma_payload_i[0][11];
-    assign s_ma_pred_clean_o    = s_exma_imiscon_i[0] == IMISCON_PRED;
+    assign s_ma_pred_clean_o    = s_exma_imiscon_i[0] == IMISCON_DSCR;
     assign s_ma_pred_btbu_o     = s_ma_pred_btbu[0];
     assign s_ma_pred_btrue_o    = s_ma_pred_btrue[0];
     assign s_ma_pred_bpu_o      = s_pred_bpu[0] & ~s_exception[0] & ~s_rstpp[0];
@@ -145,7 +146,7 @@ module pipeline_5_ma (
             assign s_ex_discrepancy[i] = 1'b0;
 `endif
             //Reset pipeline condition prior to MA stage
-            assign s_prior_rstpp[i] = (s_exma_imiscon_i[i] == IMISCON_DSCR) | (s_exma_imiscon_i[i] == IMISCON_PRED);
+            assign s_prior_rstpp[i] = (s_exma_imiscon_i[i] == IMISCON_DSCR);
             //Reset pipeline on first occurence of bus error (if enabled in mhrdctrl0)
             assign s_trans_rst[i]   = (s_ibus_rst_en[i] & (s_exma_imiscon_i[i] == IMISCON_FERR)) | 
                                       (s_dbus_rst_en[i] & s_lsu_hresp_i[i] & s_exma_ictrl_i[i][ICTRL_UNIT_LSU]);
@@ -269,6 +270,7 @@ module pipeline_5_ma (
         .s_int_msip_i(1'b0),
         .s_int_uce_i(s_int_uce_i),
         .s_int_lcer_i(s_int_lcer),
+        .s_int_fcer_i(s_int_fcer_i),
         .s_nmi_luce_i(s_nmi_luce),
         .s_hresp_i(s_lsu_hresp_i),
         .s_imiscon_i(s_exma_imiscon_i),

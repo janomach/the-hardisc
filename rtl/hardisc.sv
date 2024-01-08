@@ -17,8 +17,10 @@
 `include "settings.sv"
 import p_hardisc::*;
 
-module hardisc
-(
+module hardisc #(
+    parameter PMA_REGIONS = 1,
+    parameter pma_cfg_t PMA_CFG[PMA_REGIONS-1:0] = '{default:PMA_DEFAULT}
+)(
     input logic s_clk_i[PROT_3REP],         //clock signal
     input logic s_resetn_i[PROT_3REP],      //reset signal
 
@@ -76,13 +78,14 @@ module hardisc
                 s_toc_addr[PROT_3REP], s_rf_val[PROT_3REP], s_lsu_address[PROT_3REP], s_lsu_wdata[PROT_3REP], s_read_data[PROT_3REP], s_lsu_fixed_data[PROT_3REP];
     logic[20:0] s_idop_payload[PROT_2REP];
     logic[1:0] s_feid_pred[PROT_2REP];
+    logic s_idop_fixed[PROT_2REP];
     f_part s_idop_f[PROT_2REP], s_opex_f[PROT_2REP], s_exma_f[PROT_3REP];
     rf_add s_idop_rs1[PROT_2REP], s_idop_rs2[PROT_2REP], s_idop_rd[PROT_2REP], s_opex_rd[PROT_2REP], s_exma_rd[PROT_3REP], s_mawb_rd[PROT_3REP];
     ictrl s_idop_ictrl[PROT_2REP], s_exma_ictrl[PROT_3REP], s_mawb_ictrl[PROT_3REP], s_opex_ictrl[PROT_2REP];
     imiscon s_idop_imiscon[PROT_2REP], s_opex_imiscon[PROT_2REP], s_exma_imiscon[PROT_3REP];
     sctrl s_idop_sctrl[PROT_2REP];
     logic s_stall_ma[PROT_3REP],s_stall_ex[PROT_3REP],s_stall_op[PROT_3REP],s_stall_id[PROT_3REP],
-            s_pred_bpu, s_pred_jpu, s_pred_btrue, s_pred_btbu, s_pred_clean, s_lsu_busy[PROT_3REP], s_lsu_approve[PROT_3REP];
+            s_pred_bpu, s_pred_jpu, s_pred_btrue, s_pred_btbu, s_pred_clean, s_lsu_busy[PROT_3REP], s_lsu_approve[PROT_3REP], s_lsu_idempotent[PROT_3REP];
     logic[31:0] s_rst_point[PROT_3REP], s_lsu_ap_address, s_lsu_dp_data;
     logic[30:0] s_bop_tadd;
     logic s_bop_pred, s_bop_pop, s_int_uce, s_lsu_ap_approve, s_lsu_dp_ready[PROT_3REP], s_lsu_dp_hresp[PROT_3REP];
@@ -115,7 +118,7 @@ module hardisc
         end  
     endgenerate
 
-    pipeline_1_fe m_pipe_1_fe
+    pipeline_1_fe #(.PMA_REGIONS(PMA_REGIONS),.PMA_CFG(PMA_CFG)) m_pipe_1_fe
     (
         .s_clk_i(s_clk_i),
         .s_resetn_i(s_resetn_i),
@@ -172,7 +175,8 @@ module hardisc
         .s_idop_rs2_o(s_idop_rs2),
         .s_idop_sctrl_o(s_idop_sctrl),
         .s_idop_ictrl_o(s_idop_ictrl),
-        .s_idop_imiscon_o(s_idop_imiscon)
+        .s_idop_imiscon_o(s_idop_imiscon),
+        .s_idop_fixed_o(s_idop_fixed)
     );
     pipeline_3_op m_pipe_3_op
     (
@@ -204,6 +208,7 @@ module hardisc
         .s_idop_ictrl_i(s_idop_ictrl),
         .s_idop_sctrl_i(s_idop_sctrl),
         .s_idop_imiscon_i(s_idop_imiscon),
+        .s_idop_fixed_i(s_idop_fixed),
 
         .s_opex_op1_o(s_opex_op1),
         .s_opex_op2_o(s_opex_op2),
@@ -214,7 +219,7 @@ module hardisc
         .s_opex_fwd_o(s_opex_fwd),
         .s_opex_payload_o(s_opex_payload)
     );
-    pipeline_4_ex m_pipe_4_ex
+    pipeline_4_ex #(.PMA_REGIONS(PMA_REGIONS),.PMA_CFG(PMA_CFG)) m_pipe_4_ex
     (
         .s_clk_i(s_clk_i),
         .s_resetn_i(s_resetn_i),
@@ -237,6 +242,7 @@ module hardisc
         .s_rstpoint_i(s_rst_point),
 
         .s_lsu_approve_o(s_lsu_approve),
+        .s_lsu_idempotent_o(s_lsu_idempotent),
         .s_lsu_address_o(s_lsu_address),
         .s_lsu_wdata_o(s_lsu_wdata),
 
@@ -273,6 +279,7 @@ module hardisc
 
         .s_opex_f_i(s_opex_f),
         .s_ap_approve_i(s_lsu_approve),
+        .s_idempotent_i(s_lsu_idempotent),
         .s_ap_address_i(s_lsu_address),
         .s_wdata_i(s_lsu_wdata),
         .s_ap_busy_o(s_lsu_busy),
@@ -297,6 +304,7 @@ module hardisc
         .s_int_meip_i(s_int_meip_i),
         .s_int_mtip_i(s_int_mtip_i),
         .s_int_uce_i(s_int_uce),
+        .s_int_fcer_i(s_int_fcer),
 
         .s_lsu_ready_i(s_lsu_dp_ready),
         .s_lsu_hresp_i(s_lsu_dp_hresp),
@@ -366,9 +374,12 @@ module hardisc
     );
 
 `ifdef PROTECTED
-    assign s_int_uce = s_rf_uce[0] != 2'b0;
+    assign s_int_uce    = s_rf_uce[0] != 2'b0;
+    assign s_int_fcer   = (s_idop_fixed[0] & ((s_opex_ictrl[0] == 7'b0) & (s_exma_ictrl[0] == 7'b0))) | 
+                           s_idop_fixed[1] & ((s_opex_ictrl[1] == 7'b0) & (s_exma_ictrl[1] == 7'b0));
 `else
-    assign s_int_uce = 1'b0;
+    assign s_int_uce    = 1'b0;
+    assign s_int_fcer   = 1'b0;
 `endif
 
 endmodule
