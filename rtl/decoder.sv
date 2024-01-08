@@ -154,7 +154,7 @@ module decoder (
             CSR_MHARTID:     s_csr_add = MCSR_HARTID;
             CSR_MHRDCTRL0:   s_csr_add = MCSR_HRDCTRL0;
             CSR_MISA:        s_csr_add = MCSR_ISA;
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
             CSR_MADDRERR:    s_csr_add = MCSR_ADDRERR;
 `endif
             default:         s_csr_add = 5'b11111;

@@ -57,7 +57,7 @@ module lsu (
 );
     logic s_ap_active[PROT_3REP], s_whresp[PROT_3REP], s_rhresp[PROT_3REP];
     logic[31:0] s_wwdata[PROT_3REP], s_rwdata[PROT_3REP];
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     logic[31:0] s_haddr[PROT_2REP];
     logic[5:0] s_hparity[PROT_2REP];
     logic[2:0] s_hsize[PROT_2REP];
@@ -73,7 +73,7 @@ module lsu (
     seu_regs #(.LABEL("WDATA"),.N(PROT_3REP))m_wdata (.s_c_i(s_clk_i),.s_d_i(s_wwdata),.s_d_o(s_rwdata));
     //Bus-transfer error
     seu_regs #(.LABEL("HRESP"),.W(1),.N(PROT_3REP))m_hresp (.s_c_i(s_clk_i),.s_d_i(s_whresp),.s_d_o(s_rhresp));
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     //Finite state machine for the Read-Modify-Write sequence
     seu_regs #(.LABEL("FSM"),.W(2),.N(PROT_3REP))m_fsm (.s_c_i(s_clk_i),.s_d_i(s_wfsm),.s_d_o(s_rfsm));
     //Syndrome of the loaded value
@@ -115,7 +115,7 @@ module lsu (
 
     genvar i;
     generate
-`ifdef PROTECTED_WITH_IFP 
+`ifdef PROTECTED 
         for (i = 0; i<PROT_2REP ;i++ ) begin : interface_replicator
             assign s_hsize[i]        = (rmw_activate[i]) ? 3'b010 : (s_rfsm[i] == LSU_RMW_WRITE) ? {1'b0,s_exma_f_i[i][1:0]} : {1'b0,s_opex_f_i[i][1:0]};
             assign s_hwrite[i]       = (rmw_activate[i]) ? 1'b0 : (s_rfsm[i] == LSU_RMW_WRITE) ? 1'b1 : s_opex_f_i[i][3]; 
@@ -138,7 +138,7 @@ module lsu (
             end
             
             always_comb begin : lsu_wdata
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
                 if(~s_hready_i[i] | (s_rfsm[i] == LSU_RMW_READ)) begin
                     //The read-phase of RMW sequence prevents update of the wdata
                     s_wwdata[i] = s_rwdata[i];
@@ -161,7 +161,7 @@ module lsu (
                     end
                 end
             end
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
             //The RMW sequence begins if a non-word-wide store operation is requested
             assign rmw_activate[i]  = (s_rfsm[i] == LSU_RMW_IDLE) & s_opex_f_i[i%2][3] & (s_opex_f_i[i%2][1:0] != 2'b10) & s_idempotent_i[i];
             

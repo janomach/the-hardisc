@@ -78,7 +78,7 @@ module pipeline_2_id (
     seu_regs #(.LABEL("IDOP_ICTRL"),.W($size(ictrl)),.N(PROT_2REP)) m_idop_ictrl (.s_c_i(s_clk_prw),.s_d_i(s_widop_ictrl),.s_d_o(s_ridop_ictrl));
     //Instruction misconduct indicator
     seu_regs #(.LABEL("IDOP_IMISCON"),.W($size(imiscon)),.N(PROT_2REP)) m_idop_imiscon (.s_c_i(s_clk_prw),.s_d_i(s_widop_imiscon),.s_d_o(s_ridop_imiscon));
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     //Instruction was fixed (SEU corrected)
     seu_regs #(.LABEL("IDOP_FIXED"),.W(1),.N(PROT_2REP)) m_idop_fixed (.s_c_i(s_clk_prw),.s_d_i(s_widop_fixed),.s_d_o(s_ridop_fixed));
 `else
@@ -96,7 +96,7 @@ module pipeline_2_id (
     logic s_aligner_stall[PROT_2REP], s_align_error[PROT_2REP], 
           s_aligner_nop[PROT_2REP], s_aligner_pred[PROT_2REP], s_idop_empty[PROT_2REP];
     logic [2:0] s_fetch_error[PROT_2REP];
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     rf_add r_acm_add, r_acm_new_add;
     logic s_acm_add_update;
     logic s_seu_search_enabled;
@@ -182,17 +182,6 @@ module pipeline_2_id (
                     s_widop_imiscon[i]  = s_instr_miscon[i];
                 end
             end
-`ifdef PROTECTED_WITH_IFP
-            always_comb begin : pipe_2_fixed_writer
-                if(~s_resetn_i[i] | s_flush_id[i] | (s_aligner_nop[i] & ~s_stall_id[i]))begin
-                    s_widop_fixed[i]= 1'b0;
-                end else if(s_stall_id[i])begin
-                    s_widop_fixed[i]= s_ridop_fixed[i];
-                end else begin
-                    s_widop_fixed[i]= s_fetch_error[i] == FETCH_INCER;
-                end
-            end
-`endif
 
 `ifndef PROTECTED
             //Update values for IDOP read-address registers
@@ -231,6 +220,16 @@ module pipeline_2_id (
                 end else begin
                     s_widop_rs1[i]  = (s_id_free_rp[i][0] & s_seu_search_enabled) ? r_acm_add : s_rs1[i];
                     s_widop_rs2[i]  = (s_id_free_rp[i][1] & s_seu_search_enabled) ? r_acm_add : s_rs2[i];
+                end
+            end
+
+            always_comb begin : pipe_2_fixed_writer
+                if(~s_resetn_i[i] | s_flush_id[i] | (s_aligner_nop[i] & ~s_stall_id[i]))begin
+                    s_widop_fixed[i]= 1'b0;
+                end else if(s_stall_id[i])begin
+                    s_widop_fixed[i]= s_ridop_fixed[i];
+                end else begin
+                    s_widop_fixed[i]= s_fetch_error[i] == FETCH_INCER;
                 end
             end
 `endif

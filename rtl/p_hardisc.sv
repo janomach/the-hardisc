@@ -106,7 +106,7 @@ package p_hardisc;
                 //LEVEL_SUVISOR   = 2'b01,
                 LEVEL_MACHINE   = 2'b11; 
 
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     parameter MAX_MCSR    = 15;
 `else
     parameter MAX_MCSR    = 14;

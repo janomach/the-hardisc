@@ -104,18 +104,16 @@ module csr_executor (
     assign s_commit         = (s_ictrl_i != 7'b0) & ~s_stall_i & ~s_flush_i;
 
     //Interrupt and exception evaluation
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     assign s_nmi[0]         = s_nmi_luce_i;
     assign s_nmi[1]         = (s_imiscon_i == IMISCON_FUCE);
+    assign s_nmi[2]         = (s_imiscon_i == IMISCON_RUCE) & ~s_rstpp_i;
 `else
     assign s_nmi[0]         = 1'b0; //Load UCE cannot happen
     assign s_nmi[1]         = 1'b0; //Fetch UCE cannot happen
-`endif
-`ifdef PROTECTED
-    assign s_nmi[2]         = (s_imiscon_i == IMISCON_RUCE) & ~s_rstpp_i;
-`else
     assign s_nmi[2]         = 1'b0; //Register UCE cannot happen
 `endif
+
     assign s_interrupt      = |(s_mcsr_i[MCSR_IE] & s_mcsr_i[MCSR_IP]) & s_mcsr_i[MCSR_STATUS][3];
     assign s_exc_active     = s_exception & s_execute & ~s_interrupted_i;
     assign s_int_exc        = s_interrupted_i | (s_exception & s_execute);
@@ -155,7 +153,7 @@ module csr_executor (
             MCSR_HARTID:     s_mcsr_r_val = s_mcsr_i[MCSR_HARTID];
             MCSR_HRDCTRL0:   s_mcsr_r_val = s_mcsr_i[MCSR_HRDCTRL0];
             MCSR_ISA:        s_mcsr_r_val = s_mcsr_i[MCSR_ISA];
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
             MCSR_ADDRERR:    s_mcsr_r_val = s_mcsr_i[MCSR_ADDRERR];
 `endif
             default:         s_mcsr_r_val = 32'b0;
@@ -442,7 +440,7 @@ module csr_executor (
         end
     end
 
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     logic s_mcsr_addr_free;
     //CSR_ADDRERR is free to receive data if neither FCER nor LCER interrupt is pending
     assign s_mcsr_addr_free = (~s_mcsr_i[MCSR_IE][13] | (s_mcsr_i[MCSR_IE][13] & ~s_mcsr_i[MCSR_IP][13])) & 

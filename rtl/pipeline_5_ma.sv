@@ -87,7 +87,7 @@ module pipeline_5_ma (
     ld_info s_wmawb_ldi[PROT_3REP], s_rmawb_ldi[PROT_3REP];
     logic s_int_lcer[PROT_3REP], s_nmi_luce[PROT_3REP], s_wb_error[PROT_3REP], s_wb_reset[PROT_3REP], s_ex_discrepancy[PROT_3REP], 
             s_ibus_rst_en[PROT_3REP], s_dbus_rst_en[PROT_3REP], s_berr_rst[PROT_3REP], s_trans_rst[PROT_3REP];
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     logic[2:0] s_lsu_einfo[PROT_3REP];
     logic[1:0] s_wmawb_err[PROT_3REP], s_rmawb_err[PROT_3REP];
     logic[31:0] s_lsurdatac[PROT_3REP];
@@ -106,12 +106,10 @@ module pipeline_5_ma (
     seu_regs #(.LABEL("MAWB_ICTRL"),.W($size(ictrl)),.N(PROT_3REP)) m_mawb_ictrl (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_ictrl),.s_d_o(s_rmawb_ictrl));
     //Load instruction information
     seu_regs #(.LABEL("MAWB_LDINFO"),.W($size(ld_info)),.N(PROT_3REP)) m_exma_ldinfo (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_ldi),.s_d_o(s_rmawb_ldi));
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     //Checksum for loaded value
     seu_regs #(.LABEL("MAWB_ERR"),.N(PROT_3REP),.W(2))m_mawb_err (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_err),.s_d_o(s_rmawb_err));
-`endif
-
-`ifdef PROTECTED
+    
     //Triple-Modular-Redundancy
     tmr_comb #(.W($size(rf_add))) m_tmr_mawb_rd (.s_d_i(s_rmawb_rd),.s_d_o(s_mawb_rd));
     tmr_comb #(.W($size(ictrl))) m_tmr_mawb_ictrl (.s_d_i(s_rmawb_ictrl),.s_d_o(s_mawb_ictrl));
@@ -228,7 +226,7 @@ module pipeline_5_ma (
             assign s_mawb_val[i] = (s_rmawb_ictrl[i][ICTRL_UNIT_LSU]) ? s_lsurdata[i] : s_rmawb_val[i];
             //Decoding of the loaded data, that can be forwarded to the lower stages
             lsu_decoder m_lsu_decoder(.s_lsu_data_i(s_rmawb_val[i]),.s_ld_info_i(s_rmawb_ldi[i]),.s_data_o(s_lsurdata[i]));
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
             //Decoding of the loaded data after potential fixing - long combinational path, data are not forwarded to the lower stages
             lsu_decoder m_lsu_decoder_slow(.s_lsu_data_i(s_lsu_fixed_data_i[i]),.s_ld_info_i(s_rmawb_ldi[i]),.s_data_o(s_lsurdatac[i])); 
             //Check LSU error information only if the WB-stage contains a LOAD instruction          

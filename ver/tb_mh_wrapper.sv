@@ -18,7 +18,7 @@
 import p_hardisc::*;
 import edac::*;
 
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
 `define MEMORY_IFP 1
 `else
 `define MEMORY_IFP 0
@@ -93,7 +93,7 @@ initial begin
         while ($fread(r8,fd)) begin
             value = m_memory.ahb_dmem.r_memory[addr[31:2]] | (r8<<(addr[1:0]*8));
             m_memory.ahb_dmem.r_memory[addr[31:2]] = value;
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
             m_memory.ahb_dmem.r_cmemory[addr[31:2]] = edac_checksum(value);
 `endif
             addr = addr + 1;

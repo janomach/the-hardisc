@@ -93,7 +93,7 @@ module pipeline_1_fe #(
     assign s_haddr_o    = {s_rfe0_add[0][30:1],2'b0};
     assign s_htrans_o   = (s_rfe0_utd[0] & s_resetn_i[0] & !s_pma_violation[0]) ? 2'b10 : 2'b00;
 
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     assign s_hparity_o[3:0] = {^s_rfe0_add[PROT_2REP-1][30:23], ^s_rfe0_add[PROT_2REP-1][22:15], ^s_rfe0_add[PROT_2REP-1][14:7], ^s_rfe0_add[PROT_2REP-1][6:1]};
     assign s_hparity_o[4]   = 1'b1;                             //hsize, hwrite, hprot, hburst, hmastlock
     assign s_hparity_o[5]   = (s_rfe0_utd[PROT_2REP-1] & s_resetn_i[PROT_2REP-1]);  //htrans

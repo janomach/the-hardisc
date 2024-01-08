@@ -71,7 +71,7 @@ module csru (
                 s_mstatus[PROT_3REP],s_mscratch[PROT_3REP],s_minstret[PROT_3REP],s_minstreth[PROT_3REP],s_mcycle[PROT_3REP],s_mcycleh[PROT_3REP],
                 s_mtvec[PROT_3REP],s_mepc[PROT_3REP],s_mcause[PROT_3REP],s_mtval[PROT_3REP],s_mhrdctrl0[PROT_3REP], s_rstpoint[PROT_3REP];
     logic s_clk_prw[PROT_3REP], s_resetn_prw[PROT_3REP];
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     logic[31:0]s_wmaddrerr[PROT_3REP],s_rmaddrerr[PROT_3REP], s_maddrerr[PROT_3REP];
 `endif
 
@@ -89,7 +89,7 @@ module csru (
     seu_regs #(.LABEL("CSR_MHRDCTRL0"),.N(PROT_3REP))m_mhrdctrl0 (.s_c_i(s_clk_prw),.s_d_i(s_wmhrdctrl0),.s_d_o(s_rmhrdctrl0));
     seu_regs #(.LABEL("CSR_MIE"),.W(15),.N(PROT_3REP)) m_mie (.s_c_i(s_clk_prw),.s_d_i(s_wmie),.s_d_o(s_rmie));
     seu_regs #(.LABEL("CSR_MIP"),.W(15),.N(PROT_3REP)) m_mip (.s_c_i(s_clk_prw),.s_d_i(s_wmip),.s_d_o(s_rmip));
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     seu_regs #(.LABEL("CSR_MADDRERR"),.N(PROT_3REP))m_maddrerr (.s_c_i(s_clk_prw),.s_d_i(s_wmaddrerr),.s_d_o(s_rmaddrerr));
 `endif
     seu_regs #(.LABEL("RSTPOINT"),.N(PROT_3REP)) m_rstpoint (.s_c_i(s_clk_prw),.s_d_i(s_wrstpoint),.s_d_o(s_rrstpoint));
@@ -110,9 +110,7 @@ module csru (
     tmr_comb m_tmr_rstpoint (.s_d_i(s_rrstpoint),.s_d_o(s_rstpoint));
     tmr_comb #(.W(15)) m_tmr_mie (.s_d_i(s_rmie),.s_d_o(s_mie));
     tmr_comb #(.W(15)) m_tmr_mip (.s_d_i(s_rmip),.s_d_o(s_mip));
-`ifdef PROTECTED_WITH_IFP
     tmr_comb m_tmr_maddrerr (.s_d_i(s_rmaddrerr),.s_d_o(s_maddrerr));
-`endif
 `else
     assign s_mstatus    = s_rmstatus;
     assign s_minstret   = s_rminstret;
@@ -164,7 +162,7 @@ module csru (
             assign s_rmcsr[i][MCSR_HARTID]  = 32'b0;
             assign s_rmcsr[i][MCSR_ISA]     = 32'h40001104; // 32bit - IMC
 
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
             assign s_rmcsr[i][MCSR_ADDRERR] = s_maddrerr[i];
             assign s_wmaddrerr[i]           = s_wmcsr[i][MCSR_ADDRERR];
 `endif
