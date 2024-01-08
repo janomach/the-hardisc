@@ -97,7 +97,7 @@ package p_hardisc;
                 FETCH_BSERR     = 3'd1, //fetch bus error
                 //reserved
                 //reserved
-                FETCH_DISCR     = 3'd4, //fetch discrepancy
+                //reserved
                 FETCH_INCER     = 3'd5, //fetch interface correctable error
                 FETCH_INUCE     = 3'd6; //fetch interface uncorrectable error
     parameter [1:0]

@@ -62,9 +62,6 @@ module decoder (
                           ) ? {s_align_error_i | s_rvc, 6'b000000} : //The RVC means the Predictor will not increment address before invalidiation
                           (s_rvc) ? s_c_instr_ctrl : s_instr_ctrl;
     assign s_imiscon_o  = (s_align_error_i) ? IMISCON_PRED : //Restart due to wrong alignment, probably caused by the Predictor
-`ifdef PROTECTED
-                          (s_fetch_error_i == FETCH_DISCR) ? IMISCON_DSCR :
-`endif
                           (s_fetch_error_i == FETCH_BSERR) ? IMISCON_FERR :
 `ifdef PROTECTED_WITH_IFP
                           (s_fetch_error_i == FETCH_INUCE) ? IMISCON_FUCE :
