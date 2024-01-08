@@ -27,6 +27,10 @@ module pma #(
     output logic s_idempotent_o,    //memory is idempotent
     output logic s_violation_o      //attribute violation
 );
+    /*
+        Physical Memory Attribute (PMA) module checks whether the intended bus transfer 
+        violates the properties or capabilities of the targeted device.
+    */
     logic[PMA_REGIONS-1:0] s_address_hit, s_idempotent, s_ex_violation, s_ro_violation;
 
     assign s_violation_o    = !(|s_address_hit) | (|s_ex_violation) | (|s_ro_violation);

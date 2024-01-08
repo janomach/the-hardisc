@@ -10,7 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - Integration of Physical Memory Attribute (PMA) modules
 
 ### Changed
+ - Propagation of correctable errors at fetch interface from ID to MA stage
  - IMISCON and FETCH error definitions rearranged
+ - IMISCON_PRED was removed and merged with IMISCON_DSCR
 
 ### Removed
  - Possibility to configure protected core without interface protection
