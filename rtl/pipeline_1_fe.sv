@@ -17,7 +17,10 @@
 `include "settings.sv"
 import p_hardisc::*;
 
-module pipeline_1_fe (
+module pipeline_1_fe #(
+    parameter PMA_REGIONS = 1,
+    parameter pma_cfg_t PMA_CFG[PMA_REGIONS-1:0] = '{default:PMA_DEFAULT}
+)(
     input logic s_clk_i[PROT_3REP],                 //clock signal
     input logic s_resetn_i[PROT_3REP],              //reset signal
 
@@ -74,23 +77,23 @@ module pipeline_1_fe (
         2'b00: none
         2'b01: prediction of TOC from aligned part of the address
         2'b10: prediction of TOC from unaligned part of the address
-        2'b11: contains an address that should be copied into the FE0 */
+        2'b11: contains an address that should be copied into the FE0 (if not-up-to-date), PMA violation (if up-to-date)*/
     seu_regs #(.LABEL("FE1_INF"),.W(2),.N(PROT_2REP))   m_fe1_inf (.s_c_i(s_clk_prw),.s_d_i(s_wfe1_inf),.s_d_o(s_rfe1_inf));
 
     //Internal signals
-    logic s_ifb_push[PROT_2REP], s_ifb_pop[PROT_2REP], s_flush_fe[PROT_2REP],
-        s_toc_in_fe1[PROT_2REP],  s_ifb_available[PROT_2REP];
+    logic s_ifb_push[PROT_2REP], s_ifb_pop[PROT_2REP], s_flush_fe[PROT_2REP], s_toc_in_fe1[PROT_2REP],  s_ifb_available[PROT_2REP];
     logic[`OPTION_FIFO_SIZE-1:0] s_ifb_occupied[PROT_2REP];
     logic[IFB_WIDTH-1:0] s_ifb_last_entry[PROT_2REP];
     logic[31:0] s_f0_add_next[PROT_2REP];
     logic s_ras_toc_valid[PROT_2REP], s_ras_pred_free[PROT_2REP];
     logic[1:0] s_ras_toc[PROT_2REP];
+    logic s_pma_idempotent[PROT_2REP], s_pma_violation[PROT_2REP], s_wo_trreq_fe1[PROT_2REP];
     
     //Instruction bus interface signals
     assign s_haddr_o    = {s_rfe0_add[0][30:1],2'b0};
-    assign s_htrans_o   = (s_rfe0_utd[0] & s_resetn_i[0]) ? 2'b10 : 2'b00;
+    assign s_htrans_o   = (s_rfe0_utd[0] & s_resetn_i[0] & !s_pma_violation[0]) ? 2'b10 : 2'b00;
 
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     assign s_hparity_o[3:0] = {^s_rfe0_add[PROT_2REP-1][30:23], ^s_rfe0_add[PROT_2REP-1][22:15], ^s_rfe0_add[PROT_2REP-1][14:7], ^s_rfe0_add[PROT_2REP-1][6:1]};
     assign s_hparity_o[4]   = 1'b1;                             //hsize, hwrite, hprot, hburst, hmastlock
     assign s_hparity_o[5]   = (s_rfe0_utd[PROT_2REP-1] & s_resetn_i[PROT_2REP-1]);  //htrans
@@ -101,8 +104,8 @@ module pipeline_1_fe (
     //Prediction of the next fetch address
     logic[1:0] s_pred_taken, s_pred_toc, s_ras_pop;
     logic[31:0] s_pred_tadd;
-    logic s_bop_push, s_bop_pop, s_bop_hazard, s_ras_enable, s_pred_toc_valid, s_bop_full, s_bop_afull, s_bop_entry_ready;
-    logic[30:0] s_bop_rdata, s_bop_wdata, s_ras_pred_add;
+    logic s_bop_push, s_bop_hazard, s_ras_enable, s_pred_toc_valid, s_bop_full, s_bop_afull;
+    logic[30:0] s_bop_wdata, s_ras_pred_add;
 
     //Predictor for branches and jumps
     predictor m_predictor
@@ -148,14 +151,9 @@ module pipeline_1_fe (
     assign s_pred_toc_valid = s_pred_toc != 2'b0;
 
     //Update and control of the BOP
-    assign s_bop_pop        = s_bop_pop_i;
     assign s_bop_push       = (s_ifb_push[0] & (s_rfe1_inf[0] != 2'b0)) | s_ras_toc_valid[0];
     assign s_bop_wdata      = s_ras_toc_valid[0] ? s_ras_pred_add : s_rfe0_add[0];
-    assign s_bop_hazard     = ~s_bop_pop & (s_bop_full | (s_bop_afull & (s_rfe1_inf[0] != 2'b0)));
-
-    //Output of the BOP
-    assign s_bop_tadd_o     = s_bop_rdata;
-    assign s_bop_pred_o     = s_bop_entry_ready;
+    assign s_bop_hazard     = ~s_bop_pop_i & (s_bop_full | (s_bop_afull & (s_rfe1_inf[0] != 2'b0)));
 
     bop #(.LABEL("FE_BOP"),.SIZE(`OPTION_BOP_SIZE)) m_bop
     (
@@ -163,12 +161,12 @@ module pipeline_1_fe (
         .s_resetn_i(s_resetn_i[0]),
         .s_flush_i(s_flush_fe[0]),
         .s_push_i(s_bop_push),
-        .s_pop_i(s_bop_pop),
+        .s_pop_i(s_bop_pop_i),
         .s_data_i(s_bop_wdata),
-        .s_data_o(s_bop_rdata),
+        .s_data_o(s_bop_tadd_o),
         .s_full_o(s_bop_full),
         .s_afull_o(s_bop_afull),
-        .s_entry_ready_o(s_bop_entry_ready)
+        .s_entry_ready_o(s_bop_pred_o)
     );
 
     genvar i;
@@ -188,18 +186,8 @@ module pipeline_1_fe (
             assign s_ifb_push[i]        = s_hready_i[i] & s_rfe1_utd[i] & ~s_ras_toc_valid[i];
             assign s_ifb_wdata[i][31:0] = s_hrdata_i;
             assign s_ifb_wdata[i][32]   = s_rfe1_add[i][0];
-            assign s_ifb_wdata[i][35:33]= 
-`ifdef PROTECTED
-            /*  The bus-transfer address is determined by s_rfe0_add, and then propagates into the s_rfe1_add    
-                before the fetched data are pushed into both replicas of IFB. If the transfer address was
-                different in FE0, wrong data would be pushe into both IFBs. Such fault would not be detectable
-                in upper stages. To prevent such situation, both replicas of FE1 address are compared, and if
-                discrepancy exists, the information is saved to both IFBs. If this value is detected in the ID stage, 
-                the instruction is marked corrupted, and it's fetch will be restarted from MA-stage. */
-                    (s_rfe1_add[0] != s_rfe1_add[1]) ? FETCH_DISCR :
-`endif            
-                    s_hresp_i[i] ? FETCH_BSERR : FETCH_VALID ;
-            assign s_ifb_wdata[i][37:36]= s_rfe1_inf[i];
+            assign s_ifb_wdata[i][35:33]= s_wo_trreq_fe1[i] ? FETCH_PMAVN : s_hresp_i[i] ? FETCH_BSERR : FETCH_VALID ;
+            assign s_ifb_wdata[i][37:36]= s_wo_trreq_fe1[i] ? 2'b0 : s_rfe1_inf[i];
             //Output of the IFB
             assign s_feid_info_o[i]     = {s_ifb_rdata[i][35:32], ~s_ifb_valid[i]};
             assign s_feid_instr_o[i]    = s_ifb_rdata[i][31:0];
@@ -229,7 +217,17 @@ module pipeline_1_fe (
                                           (~s_ifb_occupied[i][`OPTION_FIFO_SIZE-2] & (~s_rfe1_utd[i] | ~s_rfe0_utd[i])) |
                                            ~s_ifb_occupied[i][`OPTION_FIFO_SIZE-3];
             //TOC address is saved in FE1
-            assign s_toc_in_fe1[i]      = (~s_rfe1_utd[i] & (s_rfe1_inf[i] == 2'b11));                             
+            assign s_toc_in_fe1[i]      = (~s_rfe1_utd[i] & (s_rfe1_inf[i] == 2'b11));
+            //FE1 contains up-to-date data, but without transfer request
+            assign s_wo_trreq_fe1[i]    = (s_rfe1_utd[i] & (s_rfe1_inf[i] == 2'b11));
+
+            pma #(.FETCH(1),.PMA_REGIONS(PMA_REGIONS),.PMA_CFG(PMA_CFG)) m_pma 
+            (
+                .s_address_i({s_rfe0_add[i][30:1],2'b0}),
+                .s_write_i(1'b0),
+                .s_idempotent_o(s_pma_idempotent[i]),
+                .s_violation_o(s_pma_violation[i])
+            );                             
 
             always_comb begin : fe1_update
                 if((s_flush_fe[i] | s_ras_toc_valid[i]) & ~s_hready_i[i] & s_rfe0_utd[i])begin
@@ -258,7 +256,7 @@ module pipeline_1_fe (
                         //FE1 is updated with data from FE0 and the Predictor
                         s_wfe1_add[i]   = s_rfe0_add[i];
                         s_wfe1_utd[i]   = s_rfe0_utd[i];
-                        s_wfe1_inf[i]   = s_pred_toc;
+                        s_wfe1_inf[i]   = s_pma_violation[i] ? 2'b11 : s_pred_toc;
                     end
                 end
             end

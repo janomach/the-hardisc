@@ -85,27 +85,28 @@ package p_hardisc;
                 ICTRL_UCE_VAL   = 8'h0B;
     parameter [2:0]
                 IMISCON_FREE    = 3'd0, //no misconduct
-                IMISCON_ILLE    = 3'd1, //illegal instruction
-                IMISCON_FERR    = 3'd2, //fetch bus error
-                IMISCON_PRED    = 3'd3, //not allowed prediction
-                IMISCON_DSCR    = 3'd4, //discrepancy in pipeline
-                IMISCON_RUCE    = 3'd5, //register uncorrectable error
-                IMISCON_FCER    = 3'd6, //fetch correctable error
-                IMISCON_FUCE    = 3'd7; //fetch uncorrectable error
+                IMISCON_FERR    = 3'd1, //fetch bus error
+                IMISCON_PMAV    = 3'd2, //pma violation
+                //reserved
+                IMISCON_FUCE    = 3'd4, //fetch uncorrectable error
+                IMISCON_ILLE    = 3'd5, //illegal instruction
+                IMISCON_DSCR    = 3'd6, //discrepancy in pipeline
+                IMISCON_RUCE    = 3'd7; //register uncorrectable error 
     parameter [2:0]
                 FETCH_VALID     = 3'd0, //no fetch error
                 FETCH_BSERR     = 3'd1, //fetch bus error
+                FETCH_PMAVN     = 3'd2, //fetch address PMA violation
+                //reserved
+                FETCH_INUCE     = 3'd4, //fetch interface uncorrectable error
                 //reserved
                 //reserved
-                FETCH_DISCR     = 3'd4, //fetch discrepancy
-                FETCH_INCER     = 3'd5, //fetch interface correctable error
-                FETCH_INUCE     = 3'd6; //fetch interface uncorrectable error
+                FETCH_INCER     = 3'd7; //fetch interface correctable error
     parameter [1:0]
                 //LEVEL_USER      = 2'b00,
                 //LEVEL_SUVISOR   = 2'b01,
                 LEVEL_MACHINE   = 2'b11; 
 
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     parameter MAX_MCSR    = 15;
 `else
     parameter MAX_MCSR    = 14;
@@ -231,4 +232,17 @@ package p_hardisc;
     typedef logic[2:0]imiscon;
     typedef logic[1:0]rp_info;
     typedef logic[4:0]ld_info;
+
+    // Physical Memory Attribute configuration
+    typedef struct packed {
+        logic[31:0] base;
+        logic[31:0] mask;
+        logic read_only;
+        logic executable;
+        logic idempotent;
+    } pma_cfg_t;
+
+    // Default attribution when PMA is configured
+    parameter pma_cfg_t PMA_DEFAULT = '{base  : 32'b0, mask  : 32'b0, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1};
+
 endpackage

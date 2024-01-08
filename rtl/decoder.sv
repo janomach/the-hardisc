@@ -55,23 +55,12 @@ module decoder (
     assign s_rs2_o      = (s_rvc) ? s_c_rs2 : s_rs2;
     assign s_f_o        = (s_rvc) ? s_c_f : s_i_f;
     assign s_sctrl_o    = (s_rvc) ? s_c_src_ctrl : s_src_ctrl;
-    assign s_ictrl_o    = ((s_imiscon_o != IMISCON_FREE)
-`ifdef PROTECTED_WITH_IFP
-                         & (s_imiscon_o != IMISCON_FCER)
-`endif
-                          ) ? {s_align_error_i | s_rvc, 6'b000000} : //The RVC means the Predictor will not increment address before invalidiation
+    assign s_ictrl_o    = (s_imiscon_o != IMISCON_FREE) ? 
+                          {s_align_error_i | s_rvc, 6'b000000} : //The RVC means the Predictor will not increment address before invalidiation
                           (s_rvc) ? s_c_instr_ctrl : s_instr_ctrl;
-    assign s_imiscon_o  = (s_align_error_i) ? IMISCON_PRED : //Restart due to wrong alignment, probably caused by the Predictor
-`ifdef PROTECTED
-                          (s_fetch_error_i == FETCH_DISCR) ? IMISCON_DSCR :
-`endif
-                          (s_fetch_error_i == FETCH_BSERR) ? IMISCON_FERR :
-`ifdef PROTECTED_WITH_IFP
-                          (s_fetch_error_i == FETCH_INUCE) ? IMISCON_FUCE :
-                          ((s_fetch_error_i == FETCH_INCER) & (s_dec_imiscon == IMISCON_FREE)) ? IMISCON_FCER :
-`endif 
-                          s_dec_imiscon;
-    assign s_dec_imiscon = (s_rvc) ? s_c_instr_miscon : s_instr_miscon;
+    assign s_imiscon_o  = ((s_fetch_error_i != FETCH_VALID) & (s_fetch_error_i != FETCH_INCER)) ? s_fetch_error_i : s_dec_imiscon;
+    assign s_dec_imiscon = (s_align_error_i) ? IMISCON_DSCR : //Restart due to wrong alignment, probably caused by the Predictor
+                           (s_rvc) ? s_c_instr_miscon : s_instr_miscon;
 
     //Payload information - leveraged by upper stages
     assign s_payload_o[20]  = s_prediction_i;
@@ -165,7 +154,7 @@ module decoder (
             CSR_MHARTID:     s_csr_add = MCSR_HARTID;
             CSR_MHRDCTRL0:   s_csr_add = MCSR_HRDCTRL0;
             CSR_MISA:        s_csr_add = MCSR_ISA;
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
             CSR_MADDRERR:    s_csr_add = MCSR_ADDRERR;
 `endif
             default:         s_csr_add = 5'b11111;
@@ -193,6 +182,6 @@ module decoder (
     assign s_instr_ctrl[ICTRL_RVC]      = 1'b0;
     //Prediction is not allowed from other instructions than branch/jump
     assign s_pred_not_allowed           = s_prediction_i & (~s_instr_ctrl[ICTRL_UNIT_BRU] | s_fence);
-    assign s_instr_miscon               = s_illegal ? IMISCON_ILLE : s_pred_not_allowed ? IMISCON_PRED : IMISCON_FREE;
+    assign s_instr_miscon               = s_illegal ? IMISCON_ILLE : s_pred_not_allowed ? IMISCON_DSCR : IMISCON_FREE;
 
 endmodule

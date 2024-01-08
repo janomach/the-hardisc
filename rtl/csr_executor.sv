@@ -29,6 +29,7 @@ module csr_executor (
     input logic s_int_msip_i,               //software interrupt
     input logic s_int_uce_i,                //uncorrectable error in register-file
     input logic s_int_lcer_i,               //correctable error on load interface
+    input logic s_int_fcer_i,               //fetch correctable error
     input logic s_nmi_luce_i,               //uncorrectable error on load interface
 
     input logic s_hresp_i,                  //registered hresp signal
@@ -56,10 +57,10 @@ module csr_executor (
 );
     logic[31:0] s_mcsr_r_val, s_read_val, s_csr_w_val,s_int_vectored, s_exc_trap, s_int_trap;
     logic s_machine_csr, s_write_machine, s_csr_op, s_csr_fun, s_uadd_00, s_uadd_10, s_mret, s_exc_active, s_int_exc, 
-            s_mtval_zero, s_interrupt, s_int_pending, s_commit, s_int_fcer, s_exception, s_execute;
+            s_mtval_zero, s_interrupt, s_int_pending, s_commit, s_exception, s_execute;
     logic[63:0] s_mcycle_counter, s_minstret_counter;
     logic[4:0] s_int_code, s_csr_add;
-    logic s_max_reached, s_transfer_misaligned;
+    logic s_max_reached, s_transfer_misaligned, s_pma_violation;
     exception s_exceptions;
     logic[4:0] s_exc_code;
     logic[2:0] s_nmi; 
@@ -71,13 +72,14 @@ module csr_executor (
     assign s_csr_r_val_o    = s_read_val;
     assign s_mret_o         = s_mret;
 
-    //Gathering exception information     
+    //Gathering exception information
+    assign s_pma_violation              = s_imiscon_i == IMISCON_PMAV;    
     assign s_transfer_misaligned        = ((|s_val_i[1:0] & s_function_i[1]) | (s_val_i[0] & s_function_i[0]));
     assign s_exceptions[EXC_LSADD_MISS] = s_ictrl_i[ICTRL_UNIT_LSU] & s_transfer_misaligned;
     assign s_exceptions[EXC_ECALL_M]    = s_ictrl_i[ICTRL_UNIT_CSR] & s_csr_fun & (s_payload_i[10:9] == CSR_FUN_ECALL);
     assign s_exceptions[EXC_EBREAK_M]   = s_ictrl_i[ICTRL_UNIT_CSR] & s_csr_fun & (s_payload_i[10:9] == CSR_FUN_EBREAK);
-    assign s_exceptions[EXC_LSACCESS]   = s_ictrl_i[ICTRL_UNIT_LSU] & s_hresp_i;
-    assign s_exceptions[EXC_IACCESS]    = s_imiscon_i == IMISCON_FERR;
+    assign s_exceptions[EXC_LSACCESS]   = s_ictrl_i[ICTRL_UNIT_LSU] & (s_hresp_i | s_pma_violation);
+    assign s_exceptions[EXC_IACCESS]    = (s_imiscon_i == IMISCON_FERR) | (s_pma_violation & ~s_ictrl_i[ICTRL_UNIT_LSU]);
     assign s_exceptions[EXC_ILLEGALI]   = s_imiscon_i == IMISCON_ILLE;
     assign s_exception                  = |s_exceptions;
 
@@ -102,20 +104,16 @@ module csr_executor (
     assign s_commit         = (s_ictrl_i != 7'b0) & ~s_stall_i & ~s_flush_i;
 
     //Interrupt and exception evaluation
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     assign s_nmi[0]         = s_nmi_luce_i;
     assign s_nmi[1]         = (s_imiscon_i == IMISCON_FUCE);
-    assign s_int_fcer       = (s_imiscon_i == IMISCON_FCER);
+    assign s_nmi[2]         = (s_imiscon_i == IMISCON_RUCE) & ~s_rstpp_i;
 `else
     assign s_nmi[0]         = 1'b0; //Load UCE cannot happen
     assign s_nmi[1]         = 1'b0; //Fetch UCE cannot happen
-    assign s_int_fcer       = 1'b0; //Fetch CE cannot happen
-`endif
-`ifdef PROTECTED
-    assign s_nmi[2]         = (s_imiscon_i == IMISCON_RUCE) & ~s_rstpp_i;
-`else
     assign s_nmi[2]         = 1'b0; //Register UCE cannot happen
 `endif
+
     assign s_interrupt      = |(s_mcsr_i[MCSR_IE] & s_mcsr_i[MCSR_IP]) & s_mcsr_i[MCSR_STATUS][3];
     assign s_exc_active     = s_exception & s_execute & ~s_interrupted_i;
     assign s_int_exc        = s_interrupted_i | (s_exception & s_execute);
@@ -155,7 +153,7 @@ module csr_executor (
             MCSR_HARTID:     s_mcsr_r_val = s_mcsr_i[MCSR_HARTID];
             MCSR_HRDCTRL0:   s_mcsr_r_val = s_mcsr_i[MCSR_HRDCTRL0];
             MCSR_ISA:        s_mcsr_r_val = s_mcsr_i[MCSR_ISA];
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
             MCSR_ADDRERR:    s_mcsr_r_val = s_mcsr_i[MCSR_ADDRERR];
 `endif
             default:         s_mcsr_r_val = 32'b0;
@@ -321,7 +319,7 @@ module csr_executor (
             s_mcsr_o[MCSR_IP][2:0]    = 3'b0;
         end else begin
             s_mcsr_o[MCSR_IP][14]     = (s_int_lcer_i & s_mcsr_i[MCSR_IE][14]) | s_mcsr_i[MCSR_IP][14];
-            s_mcsr_o[MCSR_IP][13]     = (s_int_fcer   & s_mcsr_i[MCSR_IE][13]) | s_mcsr_i[MCSR_IP][13];
+            s_mcsr_o[MCSR_IP][13]     = (s_int_fcer_i & s_mcsr_i[MCSR_IE][13]) | s_mcsr_i[MCSR_IP][13];
             s_mcsr_o[MCSR_IP][12]     = s_int_uce_i  | s_mcsr_i[MCSR_IP][12];
             s_mcsr_o[MCSR_IP][11]     = s_int_meip_i;
             s_mcsr_o[MCSR_IP][10:8]   = 3'b0;
@@ -442,7 +440,7 @@ module csr_executor (
         end
     end
 
-`ifdef PROTECTED_WITH_IFP
+`ifdef PROTECTED
     logic s_mcsr_addr_free;
     //CSR_ADDRERR is free to receive data if neither FCER nor LCER interrupt is pending
     assign s_mcsr_addr_free = (~s_mcsr_i[MCSR_IE][13] | (s_mcsr_i[MCSR_IE][13] & ~s_mcsr_i[MCSR_IP][13])) & 
@@ -450,7 +448,7 @@ module csr_executor (
 
     //If both, FCER and LCER, interrupt sources are enabled, the FCER has higher priority
     always_comb begin
-        if(s_mcsr_addr_free & s_int_fcer & s_mcsr_i[MCSR_IE][13])begin
+        if(s_mcsr_addr_free & s_int_fcer_i & s_mcsr_i[MCSR_IE][13])begin
             //Save address of instruction with correctable error
             s_mcsr_o[MCSR_ADDRERR] = {s_rstpoint_i[31:2],2'b0};
         end else if(s_mcsr_addr_free & s_mcsr_i[MCSR_IE][14] & s_ictrl_i[ICTRL_UNIT_LSU])begin

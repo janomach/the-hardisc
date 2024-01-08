@@ -17,7 +17,10 @@
 `include "settings.sv"
 import p_hardisc::*;
 
-module pipeline_4_ex (
+module pipeline_4_ex #(
+    parameter PMA_REGIONS = 1,
+    parameter pma_cfg_t PMA_CFG[PMA_REGIONS-1:0] = '{default:PMA_DEFAULT}
+) (
     input logic s_clk_i[PROT_3REP],                 //clock signal
     input logic s_resetn_i[PROT_3REP],              //reset signal
 
@@ -40,6 +43,7 @@ module pipeline_4_ex (
 
     output logic[31:0] s_lsu_wdata_o[PROT_3REP],    //LSU write data
     output logic[31:0] s_lsu_address_o[PROT_3REP],  //LSU address phase address
+    output logic s_lsu_idempotent_o[PROT_3REP],     //LSU idempotent access
     output logic s_lsu_approve_o[PROT_3REP],        //LSU address phase approval
 
 `ifdef PROTECTED
@@ -65,7 +69,7 @@ module pipeline_4_ex (
     imiscon s_wexma_imiscon[PROT_3REP], s_rexma_imiscon[PROT_3REP], s_exma_imiscon[PROT_3REP];
     logic s_wexma_tstrd[PROT_3REP], s_rexma_tstrd[PROT_3REP], s_exma_tstrd[PROT_3REP];
     logic s_stall_ex[PROT_3REP], s_flush_ex[PROT_3REP], s_prevent_ex[PROT_3REP], s_lsu[PROT_3REP], s_lsu_misa[PROT_3REP], 
-          s_ex_fin[PROT_2REP], s_bubble[PROT_3REP];
+          s_ex_fin[PROT_2REP], s_bubble[PROT_3REP], s_pma_violation[PROT_3REP];
 `ifdef PROTECTED
     logic s_opex_neq[PROT_2REP], s_rstpipe[PROT_3REP];
 `endif
@@ -180,10 +184,18 @@ module pipeline_4_ex (
             assign s_operand1[i]= (s_opex_fwd_i[i%2][0]) ? s_exma_val[i] : (s_opex_fwd_i[i%2][2]) ? s_mawb_val_i[i] : s_opex_op1_i[i%2];
             assign s_operand2[i]= (s_opex_fwd_i[i%2][1]) ? s_exma_val[i] : (s_opex_fwd_i[i%2][3]) ? s_mawb_val_i[i] : s_opex_op2_i[i%2];
 
+            pma #(.PMA_REGIONS(PMA_REGIONS),.PMA_CFG(PMA_CFG)) m_pma 
+            (
+                .s_address_i(s_operand1[i]),
+                .s_write_i(s_opex_f_i[i%2][3]),
+                .s_idempotent_o(s_lsu_idempotent_o[i]),
+                .s_violation_o(s_pma_violation[i])
+            );  
+
             //Misalignment detection for the Load and Store instructions
             assign s_lsu_misa[i]= ((|s_operand1[i%2][1:0] & s_opex_f_i[i%2][1]) | (s_operand1[i%2][0] & s_opex_f_i[i%2][0]));
             //Data bus transfer activation
-            assign s_lsu[i]     = s_opex_ictrl_i[i%2][ICTRL_UNIT_LSU] & ~s_lsu_misa[i] & ~s_prevent_ex[i]
+            assign s_lsu[i]     = s_opex_ictrl_i[i%2][ICTRL_UNIT_LSU] & ~s_lsu_misa[i] & ~s_prevent_ex[i] & ~s_pma_violation[i]
 `ifdef PROTECTED            
                                 & ~s_rstpipe[i]
 `endif
@@ -211,9 +223,9 @@ module pipeline_4_ex (
                     s_wexma_ictrl[i]    = s_opex_ictrl_i[i%2];
                     s_wexma_imiscon[i]  = 
 `ifdef PROTECTED
-                                          s_rstpipe[i] ? IMISCON_DSCR : 
+                                          s_rstpipe[i] ? IMISCON_DSCR :                                          
 `endif
-                                          s_opex_imiscon_i[i%2];
+                                          (s_pma_violation[i] & s_opex_ictrl_i[i%2][ICTRL_UNIT_LSU]) ? IMISCON_PMAV : s_opex_imiscon_i[i%2];
                     //Select EX stage result
                     s_wexma_val[i]      = (s_opex_ictrl_i[i%2][ICTRL_UNIT_ALU] | 
                                            s_opex_ictrl_i[i%2][ICTRL_UNIT_BRU] | 

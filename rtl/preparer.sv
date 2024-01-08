@@ -36,6 +36,7 @@ module preparer (
     input rf_add s_idop_rs2_i,          //source register 2 address
     input sctrl s_idop_sctrl_i,         //source control indicator
     input ictrl s_idop_ictrl_i,         //instruction control indicator
+    input logic s_idop_fixed_i,         //fix indicator
 
 `ifdef PROTECTED 
     input logic[1:0] s_rf_uce_i,        //uncorrectable error in the register-file
@@ -58,7 +59,7 @@ module preparer (
     logic s_rs1_cmpr_exma, s_rs2_cmpr_exma, s_rs1_cmpr_mawb, s_rs2_cmpr_mawb,
             s_rs1_need_exma, s_rs2_need_exma, s_rs1_need_mawb, s_rs2_need_mawb,
             s_rs1_cmpr_opex, s_rs2_cmpr_opex, s_rs1_need_opex, s_rs2_need_opex,
-            s_lsu_hazard, s_csr_hazard, s_data_hazard, s_bubble, 
+            s_lsu_hazard, s_csr_hazard, s_data_hazard, s_bubble, s_fix_hazard,
             s_link_hazard, s_pc_hazard, s_direct_addr, s_result_in_ma;
 `ifdef PROTECTED 
     logic s_uce, s_ce;
@@ -99,8 +100,10 @@ module preparer (
     assign s_csr_hazard     = (s_rs1_need_opex | s_rs2_need_opex) & s_opex_ictrl_i[ICTRL_UNIT_CSR];
     //Link hazard, the Jump instructions produce an return/link address in the MA stage
     assign s_link_hazard    = (s_rs1_need_opex | s_rs2_need_opex) & s_opex_ictrl_i[ICTRL_UNIT_BRU];
+    //Fix hazard - prevent propagation until EX and MA stages are empty
+    assign s_fix_hazard     = s_idop_fixed_i & ((s_opex_ictrl_i != 7'b0) | (s_exma_ictrl_i != 7'b0));
     //Each fulfilled hazard condition leads to bubble (NOP) in the EX stage
-    assign s_bubble         = s_lsu_hazard | s_csr_hazard | s_data_hazard | s_link_hazard;
+    assign s_bubble         = s_lsu_hazard | s_csr_hazard | s_data_hazard | s_link_hazard | s_fix_hazard;
 
     //Forwarding logic from upper pipeline registers
     assign s_operand1_fw    = (~s_rs1_need_exma & ~s_rs1_need_mawb & ~s_idop_sctrl_i[SCTRL_ZERO1]) ? s_idop_p1_i :

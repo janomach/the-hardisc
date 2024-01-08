@@ -23,7 +23,6 @@ SEE_GROUP           := 0
 LAT                 := 0
 LOGGING             := 0
 HOW                 := gui
-BOOT_ADD            := 10000000
 SIM_TIMEOUT         := 900000000
 TIME_STAMP          :=`date +%H%M%S`
 TEST_DIR            := ${HARDISC_DIR}/example/hello_world
@@ -45,7 +44,7 @@ hardiscCompile:
 	vsim -c -do "project open $(HARDISC_SIM)/the-hardisc.mpf; project calculateorder; project compileall; exit"
 	
 hardiscSim:
-	vsim -${HOW} ${HARDISC_SIM}/work.tb_mh_wrapper +BOOTADD=${BOOT_ADD} +TIMEOUT=${SIM_TIMEOUT} +BIN=${BINARY} +LOGGING=${LOGGING} +SEE_PROB=${SEE_PROB} +SEE_GROUP=${SEE_GROUP} +LAT=${LAT} -sv_seed ${SV_SEED} +LFILE=$(HARDISC_DIR)/hardisc_${TIME_STAMP}.log -do "do ${HARDISC_DIR}/scripts/basic_waves_mh.do; run 100ms"
+	vsim -${HOW} ${HARDISC_SIM}/work.tb_mh_wrapper +TIMEOUT=${SIM_TIMEOUT} +BIN=${BINARY} +LOGGING=${LOGGING} +SEE_PROB=${SEE_PROB} +SEE_GROUP=${SEE_GROUP} +LAT=${LAT} -sv_seed ${SV_SEED} +LFILE=$(HARDISC_DIR)/hardisc_${TIME_STAMP}.log -do "do ${HARDISC_DIR}/scripts/basic_waves_mh.do; run 100ms"
 
 compileTest:
 	riscv32-unknown-elf-gcc -o ${TEST_DIR}/test.o ${TEST_DIR}/test.c ${SYSCALLS} -T ${LD_SCRIPT} ${VECTORS} ${STARTUP} ${CFLAGS} -I ${RISCV}/include -L ${RISCV}/lib -lc -lm -lgcc
