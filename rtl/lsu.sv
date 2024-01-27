@@ -57,12 +57,13 @@ module lsu (
 );
     logic s_ap_active[PROT_3REP], s_whresp[PROT_3REP], s_rhresp[PROT_3REP];
     logic[31:0] s_wwdata[PROT_3REP], s_rwdata[PROT_3REP];
-`ifdef PROTECTED
-    logic[31:0] s_haddr[PROT_2REP];
-    logic[5:0] s_hparity[PROT_2REP];
     logic[2:0] s_hsize[PROT_2REP];
     logic[1:0] s_htrans[PROT_2REP];
+    logic[31:0] s_haddr[PROT_2REP];
     logic s_hwrite[PROT_2REP];
+`ifdef PROTECTED
+    logic s_error[PROT_3REP], s_rchecksynd[PROT_3REP], s_wchecksynd[PROT_3REP]; 
+    logic[5:0] s_hparity[PROT_2REP];
     logic rmw_activate[PROT_3REP], s_ce[PROT_3REP], s_uce[PROT_3REP];
     logic[31:0] s_data_merged[PROT_3REP], s_data_fixed[PROT_3REP], s_wdata[1];
     logic[6:0] s_achecksum[PROT_3REP], s_wlsyndrome[PROT_3REP], s_rlsyndrome[PROT_3REP], s_checksum[PROT_3REP], s_wchecksum[1];
@@ -76,37 +77,32 @@ module lsu (
 `ifdef PROTECTED
     //Finite state machine for the Read-Modify-Write sequence
     seu_regs #(.LABEL("FSM"),.W(2),.N(PROT_3REP))m_fsm (.s_c_i(s_clk_i),.s_d_i(s_wfsm),.s_d_o(s_rfsm));
+    //Indicator to check the syndrome of loaded data
+    seu_regs #(.LABEL("CHECKSYND"),.W(1),.N(PROT_3REP))m_checksynd (.s_c_i(s_clk_i),.s_d_i(s_wchecksynd),.s_d_o(s_rchecksynd));
     //Syndrome of the loaded value
-    seu_regs #(.LABEL("LSYNDROME"),.N(PROT_3REP),.W(7))m_lsyndrome(.s_c_i(s_clk_i),.s_d_i(s_wlsyndrome),.s_d_o(s_rlsyndrome));
+    seu_regs #(.LABEL("LSYNDROME"),.N(PROT_3REP),.W(7))m_lsyndrome(.s_c_i(s_clk_i),.s_d_i(s_wlsyndrome),.s_d_o(s_rlsyndrome)); 
     //Majority voting prevents save of corrupted data
     tmr_comb #(.OUT_REPS(1)) m_tmr_sval (.s_d_i(s_rwdata),.s_d_o(s_wdata));
     //Majority voting prevents save of corrupted checksum 
     tmr_comb #(.OUT_REPS(1),.W(7)) m_tmr_schecksum (.s_d_i(s_checksum),.s_d_o(s_wchecksum));
-    
-    //Data bus interface signals
-    /*  At the beggining of the RMW sequence is always a load from from aligned address, 
-        the original transfer is performed in the write phase */
-    //AHB Control signals are determined by pipeline 0
-    assign s_hsize_o        = s_hsize[0];
-    assign s_hwrite_o       = s_hwrite[0]; 
-    assign s_haddr_o        = s_haddr[0];
-    assign s_htrans_o       = s_htrans[0];
-    assign s_hwdcheck_o     = s_wchecksum[0];
-    assign s_hwdata_o       = s_wdata[0];
 
     //Parity protection signal is determined by pipeline 1
     assign s_hparity_o[3:0] = {^s_haddr[PROT_2REP-1][31:24], ^s_haddr[PROT_2REP-1][23:16], ^s_haddr[PROT_2REP-1][15:8], ^s_haddr[PROT_2REP-1][7:0]};
     assign s_hparity_o[4]   = (^s_hsize[PROT_2REP-1]) ^ s_hwrite[PROT_2REP-1];    //hsize, hwrite, hprot, hburst, hmastlock
     assign s_hparity_o[5]   = (^s_htrans[PROT_2REP-1]);                           //htrans
+    assign s_hwdcheck_o     = s_wchecksum[0];
+    assign s_hwdata_o       = s_wdata[0];
 `else
-    assign s_hsize_o        = {1'b0,s_opex_f_i[0][1:0]};
-    assign s_hwrite_o       = s_opex_f_i[0][3];
-    assign s_haddr_o        = s_ap_address_i[0];
-    assign s_htrans_o       = {s_ap_active[0],1'b0};
+    assign s_hparity_o      = 6'b0;
     assign s_hwdcheck_o     = 7'b0;
     assign s_hwdata_o       = s_rwdata[0];
-    assign s_hparity_o      = 6'b0;
 `endif
+
+    //Data bus interface signals - AHB Control signals are determined by pipeline 0
+    assign s_hsize_o        = s_hsize[0];
+    assign s_hwrite_o       = s_hwrite[0]; 
+    assign s_haddr_o        = s_haddr[0];
+    assign s_htrans_o       = s_htrans[0];
 
     //Output data for MA stage
     assign s_dp_ready_o     = s_hready_i;
@@ -115,15 +111,22 @@ module lsu (
 
     genvar i;
     generate
-`ifdef PROTECTED 
         for (i = 0; i<PROT_2REP ;i++ ) begin : interface_replicator
+`ifdef PROTECTED
+            /*  At the beggining of the RMW sequence is always a load from from aligned address, 
+                the original transfer is performed in the write phase */
             assign s_hsize[i]        = (rmw_activate[i]) ? 3'b010 : (s_rfsm[i] == LSU_RMW_WRITE) ? {1'b0,s_exma_f_i[i][1:0]} : {1'b0,s_opex_f_i[i][1:0]};
             assign s_hwrite[i]       = (rmw_activate[i]) ? 1'b0 : (s_rfsm[i] == LSU_RMW_WRITE) ? 1'b1 : s_opex_f_i[i][3]; 
             assign s_haddr[i][1:0]   = (rmw_activate[i]) ? 2'b00 : (s_rfsm[i] == LSU_RMW_WRITE) ? s_dp_address_i[i][1:0] : s_ap_address_i[i][1:0];
             assign s_haddr[i][31:2]  = (s_rfsm[i] == LSU_RMW_WRITE) ? s_dp_address_i[i][31:2] : s_ap_address_i[i][31:2];
             assign s_htrans[i]       = (s_rfsm[i] == LSU_RMW_WRITE) ? 2'b10 : {s_ap_active[i],1'b0};
-        end
+`else
+            assign s_hsize[i]        = {1'b0,s_opex_f_i[0][1:0]};
+            assign s_hwrite[i]       = s_opex_f_i[0][3]; 
+            assign s_haddr[i]        = s_ap_address_i[0];
+            assign s_htrans[i]       = {s_ap_active[0],1'b0};
 `endif
+        end
         for (i = 0; i<PROT_3REP ;i++ ) begin : lsu_replicator
             //LSU activation
             assign s_ap_active[i]   = s_ap_approve_i[i] & ~s_flush_i[i];
@@ -165,8 +168,9 @@ module lsu (
             //The RMW sequence begins if a non-word-wide store operation is requested
             assign rmw_activate[i]  = (s_rfsm[i] == LSU_RMW_IDLE) & s_opex_f_i[i%2][3] & (s_opex_f_i[i%2][1:0] != 2'b10) & s_idempotent_i[i];
             
-            always_comb begin : lsu_control
-                if(~s_resetn_i[i])begin
+            //The RMW sequence finite stat emachine control
+            always_comb begin : rmw_control
+                if(~s_resetn_i[i] | s_rhresp[i])begin
                     s_wfsm[i]   = LSU_RMW_IDLE;
                 end else if(~s_hready_i[i]) begin
                     s_wfsm[i]   = s_rfsm[i];
@@ -179,17 +183,38 @@ module lsu (
                 end
             end
 
+            //Data syndrome analysis control
+            always_comb begin : checksynd_control
+                if(~s_resetn_i[i])begin
+                    s_wchecksynd[i] = 1'b0;
+                end else if(s_hready_i[i] && (s_htrans[i%2] != 2'b0) && !s_hwrite[i%2]) begin
+                    //check syndrome after each load transfer
+                    s_wchecksynd[i] = 1'b1;
+                end else if(s_hready_i[i] && (s_rfsm[i] == LSU_RMW_IDLE)) begin
+                    s_wchecksynd[i] = 1'b0;
+                end else begin
+                    //preserve the syndrome checking until the RMW finishes
+                    s_wchecksynd[i] = s_rchecksynd[i];
+                end
+            end
+
             //Create checksum for data to be stored
             secded_encode m_wdata_encode (.s_data_i(s_rwdata[i]),.s_checksum_o(s_checksum[i]));
 
             //Calculate syndrome directly from the incoming data and checksum
             secded_encode m_encode   (.s_data_i(s_hrdata_i),.s_checksum_o(s_achecksum[i]));
+
             //Save syndrome for the analysis in the next clock cycle
             always_comb begin : lsu_checksum
-                if(~s_resetn_i[i] | ~s_hready_i[i])begin
+                if(!s_resetn_i[i] || !s_rchecksynd[i])begin
                     s_wlsyndrome[i]  = 7'b0;
-                end else begin
+                end else if(s_hready_i[i] && (((s_rfsm[i] == LSU_RMW_IDLE) && !s_exma_f_i[i][3]) || (s_rfsm[i] == LSU_RMW_READ))) begin
+                    //save syndrome in the data phase of a load transfer
                     s_wlsyndrome[i]  = s_achecksum[i] ^ s_hrdcheck_i;
+                end else begin
+                    /* EDAC errors detected during the RMW sequence do not affect the sequence 
+                       but are preserved to be reported once the RMW finishes. */
+                    s_wlsyndrome[i]  = s_rlsyndrome[i];
                 end
             end
             
@@ -206,9 +231,10 @@ module lsu (
 
             //Provides fixed data and information about detected errors into the MA stage
             assign s_fixed_data_o[i]= s_data_fixed[i];
-            assign s_einfo_o[i]     = {s_uce[i], s_ce[i], s_rlsyndrome[i] != 7'b0};
+            assign s_error[i]       = s_rlsyndrome[i] != 7'b0;
+            assign s_einfo_o[i]     = {s_uce[i], s_ce[i], s_error[i]};
             //The LSU cannot accept a new transfer during RMW sequence
-            assign s_ap_busy_o[i]   = s_rfsm[i] != LSU_RMW_IDLE;
+            assign s_ap_busy_o[i]   = (s_rfsm[i] != LSU_RMW_IDLE) && !s_rhresp[i];
 `else
             assign s_fixed_data_o[i]= 32'b0;
             assign s_einfo_o[i]     = 3'b0;

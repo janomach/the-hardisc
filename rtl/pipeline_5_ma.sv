@@ -229,8 +229,8 @@ module pipeline_5_ma (
 `ifdef PROTECTED
             //Decoding of the loaded data after potential fixing - long combinational path, data are not forwarded to the lower stages
             lsu_decoder m_lsu_decoder_slow(.s_lsu_data_i(s_lsu_fixed_data_i[i]),.s_ld_info_i(s_rmawb_ldi[i]),.s_data_o(s_lsurdatac[i])); 
-            //Check LSU error information only if the WB-stage contains a LOAD instruction          
-            assign s_lsu_einfo[i]= (s_rmawb_ictrl[i][ICTRL_UNIT_LSU] & s_rmawb_ictrl[i][ICTRL_REG_DEST]) ? s_lsu_einfo_i[i] : 3'b0;
+            //Check LSU error information in WB stage        
+            assign s_lsu_einfo[i]= s_rmawb_ictrl[i][ICTRL_UNIT_LSU] ? s_lsu_einfo_i[i] : 3'b0;
             //Save error information for further processing
             assign s_wmawb_err[i]= s_flush_ma[i] ? 2'b0 : ({s_lsu_einfo[i][2],s_lsu_einfo[i][0]} | s_rmawb_err[i]); 
             //Any error in the WB stage prevents start of the new LSU transfer in the EX stage
