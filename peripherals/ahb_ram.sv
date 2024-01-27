@@ -110,7 +110,7 @@ generate
             end else if(r_delay != 2'b0)begin
                 r_delay   <= r_delay - 2'b1;
                 randomval <= randomval;
-            end else if(s_hsel_i & s_transfer)begin
+            end else if(s_hsel_i & s_transfer & s_hready_o)begin
                 r_delay   <= s_parity_error ? 2'b0 : randomval[1:0];
                 randomval <= $urandom(seed+randomval);
             end else begin
