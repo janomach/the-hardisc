@@ -51,7 +51,7 @@ module jump_predictor #(
 
     seu_regs #(.LABEL("JP_VLD"),.GROUP(SEEGR_PREDICTOR),.W(ENTRIES),.N(1),.NC(1))m_r_jumpv (.s_c_i({s_clk_i}),.s_d_i(s_wjp_valid),.s_d_o(s_rjp_valid));
 
-    seu_regs_file #(.LABEL("JTB"),.GROUP(SEEGR_PREDICTOR),.W(ENTRY_WIDTH),.N(ENTRIES),.RP(1)) m_btb 
+    seu_regs_file #(.LABEL("JTB"),.GROUP(SEEGR_PREDICTOR),.W(ENTRY_WIDTH),.N(ENTRIES),.RP(1)) m_jtb 
     (
         .s_clk_i(s_clk_i),
         .s_we_i(s_jump_update_i),

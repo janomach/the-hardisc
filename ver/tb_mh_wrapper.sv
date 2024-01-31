@@ -215,7 +215,7 @@ hardisc #(.PMA_REGIONS(SUBORDINATES),.PMA_CFG(PMA_CONFIG)) dut
     .s_hrdmax_rst_o(s_hrdmax_rst)
 );
 
-ahb_interconnect #(.SLAVES(32'h3)) data_interconnect
+ahb_interconnect #(.SLAVES(SUBORDINATES)) data_interconnect
 (
     .s_clk_i(r_ver_clk),
     .s_resetn_i(r_ver_rstn),
