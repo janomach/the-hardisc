@@ -75,7 +75,7 @@ module hardisc #(
     logic[19:0] s_exma_offset;
     logic[11:0] s_exma_payload[PROT_3REP];
     logic[31:0] s_exma_val[PROT_3REP], s_mawb_val[PROT_3REP], s_idop_p1, s_idop_p2, s_opex_op1[PROT_2REP], s_opex_op2[PROT_2REP], 
-                s_toc_addr[PROT_3REP], s_rf_val[PROT_3REP], s_lsu_address[PROT_3REP], s_lsu_wdata[PROT_3REP], s_read_data[PROT_3REP], s_lsu_fixed_data[PROT_3REP];
+                s_toc_addr[PROT_3REP], s_rf_val[PROT_3REP], s_lsu_wdata[PROT_3REP], s_read_data[PROT_3REP], s_lsu_fixed_data[PROT_3REP];
     logic[20:0] s_idop_payload[PROT_2REP];
     logic[1:0] s_feid_pred[PROT_2REP];
     logic s_idop_fixed[PROT_2REP];
@@ -243,7 +243,6 @@ module hardisc #(
 
         .s_lsu_approve_o(s_lsu_approve),
         .s_lsu_idempotent_o(s_lsu_idempotent),
-        .s_lsu_address_o(s_lsu_address),
         .s_lsu_wdata_o(s_lsu_wdata),
 
 `ifdef PROTECTED
@@ -280,7 +279,7 @@ module hardisc #(
         .s_opex_f_i(s_opex_f),
         .s_ap_approve_i(s_lsu_approve),
         .s_idempotent_i(s_lsu_idempotent),
-        .s_ap_address_i(s_lsu_address),
+        .s_ap_address_i(s_opex_op1),
         .s_wdata_i(s_lsu_wdata),
         .s_ap_busy_o(s_lsu_busy),
 

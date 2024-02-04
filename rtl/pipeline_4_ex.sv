@@ -42,7 +42,6 @@ module pipeline_4_ex #(
     input logic[3:0]s_opex_fwd_i[PROT_2REP],        //forwarding information
 
     output logic[31:0] s_lsu_wdata_o[PROT_3REP],    //LSU write data
-    output logic[31:0] s_lsu_address_o[PROT_3REP],  //LSU address phase address
     output logic s_lsu_idempotent_o[PROT_3REP],     //LSU idempotent access
     output logic s_lsu_approve_o[PROT_3REP],        //LSU address phase approval
 
@@ -119,7 +118,6 @@ module pipeline_4_ex #(
 `endif
 
     //LSU control
-    assign s_lsu_address_o  = s_operand1;
     assign s_lsu_wdata_o    = s_operand2;
     //Save offset for predictor
     assign s_wexma_offset[0]= s_opex_payload_i[0][19:0];
@@ -186,14 +184,14 @@ module pipeline_4_ex #(
 
             pma #(.PMA_REGIONS(PMA_REGIONS),.PMA_CFG(PMA_CFG)) m_pma 
             (
-                .s_address_i(s_operand1[i]),
+                .s_address_i(s_opex_op1_i[i%2]),
                 .s_write_i(s_opex_f_i[i%2][3]),
                 .s_idempotent_o(s_lsu_idempotent_o[i]),
                 .s_violation_o(s_pma_violation[i])
             );  
 
             //Misalignment detection for the Load and Store instructions
-            assign s_lsu_misa[i]= ((|s_operand1[i%2][1:0] & s_opex_f_i[i%2][1]) | (s_operand1[i%2][0] & s_opex_f_i[i%2][0]));
+            assign s_lsu_misa[i]= ((|s_opex_op1_i[i%2][1:0] & s_opex_f_i[i%2][1]) | (s_opex_op1_i[i%2][0] & s_opex_f_i[i%2][0]));
             //Data bus transfer activation
             assign s_lsu[i]     = s_opex_ictrl_i[i%2][ICTRL_UNIT_LSU] & ~s_lsu_misa[i] & ~s_prevent_ex[i] & ~s_pma_violation[i]
 `ifdef PROTECTED            

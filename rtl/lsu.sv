@@ -39,7 +39,7 @@ module lsu (
     input f_part s_opex_f_i[PROT_2REP],         //instruction function from EX stage
     input logic s_ap_approve_i[PROT_3REP],      //address phase approval  
     input logic s_idempotent_i[PROT_3REP],      //idempotent access
-    input logic[31:0] s_ap_address_i[PROT_3REP],//address phase address 
+    input logic[31:0] s_ap_address_i[PROT_2REP],//address phase address 
     input logic[31:0] s_wdata_i[PROT_3REP],     //data to write
     output logic s_ap_busy_o[PROT_3REP],        //busy indicator - cannot start new address phase   
 
@@ -155,11 +155,11 @@ module lsu (
                 end else begin
                     s_wwdata[i] = s_wdata_i[i];
                     //Align data according to the target address 
-                    if(s_ap_address_i[i][1:0] == 2'b01)begin
+                    if(s_ap_address_i[i%2][1:0] == 2'b01)begin
                         s_wwdata[i][15:8] = s_wdata_i[i][7:0];
-                    end else if(s_ap_address_i[i][1:0] == 2'b10)begin
+                    end else if(s_ap_address_i[i%2][1:0] == 2'b10)begin
                         s_wwdata[i][31:16] = s_wdata_i[i][15:0];
-                    end else if(s_ap_address_i[i][1:0] == 2'b11)begin
+                    end else if(s_ap_address_i[i%2][1:0] == 2'b11)begin
                         s_wwdata[i][31:24] = s_wdata_i[i][7:0];
                     end
                 end
