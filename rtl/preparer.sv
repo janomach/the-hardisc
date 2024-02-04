@@ -26,7 +26,6 @@ module preparer (
     input ictrl s_exma_ictrl_i,         //MA-stage instruction control indicator
     input rf_add s_opex_rd_i,           //EX-stage destination register address
     input ictrl s_opex_ictrl_i,         //EX-stage instruction control indicator
-    input f_part s_opex_f_i,            //EX-stage instruction function
 
     input logic[31:0] s_idop_p1_i,      //value read from RS1 address of register file
     input logic[31:0] s_idop_p2_i,      //value read from RS2 address of register file
@@ -54,13 +53,11 @@ module preparer (
     logic[20:0] s_tau_val;
     logic[3:0]  s_forward;
     rf_add s_rs1, s_rs2;
-    logic[31:0] s_operand1_fw, s_operand2_fw, s_operand1, s_operand2, s_address, 
-                s_p1_val, s_p2_val, s_pc;
+    logic[31:0] s_operand1_fw, s_operand2_fw, s_operand1, s_operand2, s_address, s_p1_val, s_p2_val, s_pc;
     logic s_rs1_cmpr_exma, s_rs2_cmpr_exma, s_rs1_cmpr_mawb, s_rs2_cmpr_mawb,
             s_rs1_need_exma, s_rs2_need_exma, s_rs1_need_mawb, s_rs2_need_mawb,
             s_rs1_cmpr_opex, s_rs2_cmpr_opex, s_rs1_need_opex, s_rs2_need_opex,
-            s_lsu_hazard, s_csr_hazard, s_data_hazard, s_bubble, s_fix_hazard,
-            s_link_hazard, s_pc_hazard, s_direct_addr, s_result_in_ma;
+            s_lsu_hazard, s_data_hazard, s_bubble, s_fix_hazard, s_pc_hazard, s_no_res_in_ex, s_result_in_ma;
 `ifdef PROTECTED 
     logic s_uce, s_ce;
     logic[1:0] s_nfwd;
@@ -81,7 +78,7 @@ module preparer (
     assign s_rs2_cmpr_exma  = (s_exma_rd_i == s_rs2);
     assign s_rs1_cmpr_mawb  = (s_mawb_rd_i == s_rs1);
     assign s_rs2_cmpr_mawb  = (s_mawb_rd_i == s_rs2);
-    assign s_direct_addr    = (s_idop_payload_i[11:0] == 12'b0);
+    assign s_no_res_in_ex   = s_opex_ictrl_i[ICTRL_UNIT_LSU] | s_opex_ictrl_i[ICTRL_UNIT_BRU] | s_opex_ictrl_i[ICTRL_UNIT_CSR];
     assign s_result_in_ma   = s_exma_ictrl_i[ICTRL_UNIT_LSU] | s_exma_ictrl_i[ICTRL_UNIT_BRU] | s_exma_ictrl_i[ICTRL_UNIT_CSR];
 
     //Register read-after-write conditions between OP and upper stages
@@ -93,17 +90,13 @@ module preparer (
     assign s_rs2_need_mawb  = (s_rs2_cmpr_mawb & s_idop_sctrl_i[SCTRL_RFRP2] & s_mawb_ictrl_i[ICTRL_REG_DEST]);
 
     //LSU bus-address hazard, the address must be computed in the OP stage
-    assign s_lsu_hazard     = (s_idop_ictrl_i[ICTRL_UNIT_LSU]) & ~s_direct_addr & (s_rs1_need_opex | (s_rs1_need_exma & s_result_in_ma));
-    //LSU hazard, data are loaded brom the bus in the MA stage
-    assign s_data_hazard    = (s_rs1_need_opex | s_rs2_need_opex) & s_opex_ictrl_i[ICTRL_UNIT_LSU] & ~s_opex_f_i[3];                            
-    //CSR hazard, CSRs are read in the MA stage
-    assign s_csr_hazard     = (s_rs1_need_opex | s_rs2_need_opex) & s_opex_ictrl_i[ICTRL_UNIT_CSR];
-    //Link hazard, the Jump instructions produce an return/link address in the MA stage
-    assign s_link_hazard    = (s_rs1_need_opex | s_rs2_need_opex) & s_opex_ictrl_i[ICTRL_UNIT_BRU];
+    assign s_lsu_hazard     = (s_rs1_need_opex | (s_rs1_need_exma & s_result_in_ma)) & s_idop_ictrl_i[ICTRL_UNIT_LSU];
+    //Data hazard, forwardable result is produced in the MA stage
+    assign s_data_hazard    = (s_rs1_need_opex | s_rs2_need_opex) & s_no_res_in_ex;                           
     //Fix hazard - prevent propagation until EX and MA stages are empty
     assign s_fix_hazard     = s_idop_fixed_i & ((s_opex_ictrl_i != 7'b0) | (s_exma_ictrl_i != 7'b0));
     //Each fulfilled hazard condition leads to bubble (NOP) in the EX stage
-    assign s_bubble         = s_lsu_hazard | s_csr_hazard | s_data_hazard | s_link_hazard | s_fix_hazard;
+    assign s_bubble         = s_lsu_hazard | s_data_hazard | s_fix_hazard;
 
     //Forwarding logic from upper pipeline registers
     assign s_operand1_fw    = (~s_rs1_need_exma & ~s_rs1_need_mawb & ~s_idop_sctrl_i[SCTRL_ZERO1]) ? s_idop_p1_i :
@@ -115,8 +108,8 @@ module preparer (
     assign s_forward[0]     = s_rs1_need_opex;
     //Forward result from the MA stage to the second operand in the EX stage
     assign s_forward[1]     = s_rs2_need_opex;
-    //Forward result from the WB stage to the first operand in the EX stage, disable if bus-address must be computed in the OP stage
-    assign s_forward[2]     = s_rs1_need_exma & (~s_idop_ictrl_i[ICTRL_UNIT_LSU] | s_direct_addr);
+    //Forward result from the WB stage to the first operand in the EX stage, disable for load-store operations
+    assign s_forward[2]     = s_rs1_need_exma & ~s_idop_ictrl_i[ICTRL_UNIT_LSU];
     //Forward result from the WB stage to the second operand in the EX stage
     assign s_forward[3]     = s_rs2_need_exma;
     

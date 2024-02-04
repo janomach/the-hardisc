@@ -134,7 +134,6 @@ module pipeline_3_op (
                 .s_exma_ictrl_i(s_exma_ictrl_i[i]),
                 .s_opex_rd_i(s_ropex_rd[i]),
                 .s_opex_ictrl_i(s_ropex_ictrl[i]),
-                .s_opex_f_i(s_ropex_f[i]),
 
                 .s_idop_p1_i(s_idop_p1_i),
                 .s_idop_p2_i(s_idop_p2_i),
