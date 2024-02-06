@@ -112,20 +112,30 @@ module lsu (
     genvar i;
     generate
         for (i = 0; i<PROT_2REP ;i++ ) begin : interface_replicator
+            always_comb begin : request_control
+                s_hsize[i]  = {1'b0,s_opex_f_i[i][1:0]};
+                s_hwrite[i] = s_opex_f_i[i][3]; 
+                s_haddr[i]  = s_ap_address_i[i];
+                s_htrans[i] = {s_ap_active[i],1'b0};
 `ifdef PROTECTED
-            /*  At the beggining of the RMW sequence is always a load from from aligned address, 
-                the original transfer is performed in the write phase */
-            assign s_hsize[i]        = (rmw_activate[i]) ? 3'b010 : (s_rfsm[i] == LSU_RMW_WRITE) ? {1'b0,s_exma_f_i[i][1:0]} : {1'b0,s_opex_f_i[i][1:0]};
-            assign s_hwrite[i]       = (rmw_activate[i]) ? 1'b0 : (s_rfsm[i] == LSU_RMW_WRITE) ? 1'b1 : s_opex_f_i[i][3]; 
-            assign s_haddr[i][1:0]   = (rmw_activate[i]) ? 2'b00 : (s_rfsm[i] == LSU_RMW_WRITE) ? s_dp_address_i[i][1:0] : s_ap_address_i[i][1:0];
-            assign s_haddr[i][31:2]  = (s_rfsm[i] == LSU_RMW_WRITE) ? s_dp_address_i[i][31:2] : s_ap_address_i[i][31:2];
-            assign s_htrans[i]       = (s_rfsm[i] == LSU_RMW_WRITE) ? 2'b10 : {s_ap_active[i],1'b0};
-`else
-            assign s_hsize[i]        = {1'b0,s_opex_f_i[0][1:0]};
-            assign s_hwrite[i]       = s_opex_f_i[0][3]; 
-            assign s_haddr[i]        = s_ap_address_i[0];
-            assign s_htrans[i]       = {s_ap_active[0],1'b0};
+                if(rmw_activate[i])begin
+                    //at the beggining of the RMW sequence is always a load from from aligned address 
+                    s_hsize[i][1:0] = 2'b10;
+                    s_hwrite[i]     = 1'b0;
+                    s_haddr[i][1:0] = 2'b00;
+                end else if(s_rfsm[i] == LSU_RMW_WRITE)begin
+                    //the original transfer is performed in the write phase
+                    s_hsize[i][1:0] = s_exma_f_i[i][1:0];
+                    s_hwrite[i]     = 1'b1;
+                    s_haddr[i]      = s_dp_address_i[i];
+                    s_htrans[i]     = 2'b10;
+                end else if(!s_opex_f_i[i][3])begin
+                    //narrower read requests are transformed to reading the whole word so the core can check the checksum
+                    s_hsize[i][1:0] = 2'b10;
+                    s_haddr[i][1:0] = 2'b00;
+                end
 `endif
+            end
         end
         for (i = 0; i<PROT_3REP ;i++ ) begin : lsu_replicator
             //LSU activation
