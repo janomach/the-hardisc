@@ -19,6 +19,7 @@ import p_hardisc::*;
 
 module pma #(
     parameter FETCH = 0,
+    parameter PMA_ALIGN = 10,
     parameter PMA_REGIONS = 1,
     parameter pma_cfg_t PMA_CFG[PMA_REGIONS-1:0] = '{default:PMA_DEFAULT}
 )(
@@ -39,7 +40,7 @@ module pma #(
     genvar i;
     generate
         for (i = 0; i < PMA_REGIONS; i++ ) begin            
-            assign s_address_hit[i] = (s_address_i & PMA_CFG[i].mask) == PMA_CFG[i].base;
+            assign s_address_hit[i] = (s_address_i[31:PMA_ALIGN] & PMA_CFG[i].mask[31:PMA_ALIGN]) == PMA_CFG[i].base[31:PMA_ALIGN];
             assign s_idempotent[i]  = PMA_CFG[i].idempotent;
             if(FETCH) begin
                 assign s_ex_violation[i]    = s_address_hit[i] & !PMA_CFG[i].executable;

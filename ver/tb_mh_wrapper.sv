@@ -34,8 +34,8 @@ localparam MEM_MSB  = $clog2(MEM_SIZE) - 32'h1;
 localparam BOOTADD  = 32'h10000000;
 localparam pma_cfg_t PMA_CONFIG[SUBORDINATES] = '{
     '{base  : BOOTADD,      mask  : 32'hFFF00000, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
-    '{base  : 32'h80000000, mask  : 32'hFFFFFFF8, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
-    '{base  : 32'h80001000, mask  : 32'hFFFFFFF0, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1}
+    '{base  : 32'h80000000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
+    '{base  : 32'h80001000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1}
 };
 
 logic[5:0] s_i_hparity[1], s_i_hparity_see[1];
