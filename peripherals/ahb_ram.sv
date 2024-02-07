@@ -58,7 +58,7 @@ module ahb_ram#(
     logic r_write, r_trans, r_hresp;
     logic[31:0] r_memory[MEM_SIZE[31:2]] = '{default:0};
     logic[31:0] r_data, r_wtor_data;
-    logic s_wea[4];
+    logic s_byte[4];
     logic s_we, r_wtor, s_cclock, s_parity_error;
     logic s_wrong_comb, s_transfer;
 
@@ -177,27 +177,30 @@ endgenerate
 
     //Forward data if a write is followed by the read from the same address
     assign s_read_data          = (r_wtor & (r_address[MSB:2] == r_paddress[MSB:2])) ? r_wtor_data : r_data;
-    assign s_write_data[7:0]    = s_wea[0] ? s_hwdata_i[7:0] : s_read_data[7:0];
-    assign s_write_data[15:8]   = s_wea[1] ? s_hwdata_i[15:8] : s_read_data[15:8];
-    assign s_write_data[23:16]  = s_wea[2] ? s_hwdata_i[23:16] : s_read_data[23:16];
-    assign s_write_data[31:24]  = s_wea[3] ? s_hwdata_i[31:24] : s_read_data[31:24];
+    assign s_write_data[7:0]    = (s_we && s_byte[0]) ? s_hwdata_i[7:0] : s_read_data[7:0];
+    assign s_write_data[15:8]   = (s_we && s_byte[1]) ? s_hwdata_i[15:8] : s_read_data[15:8];
+    assign s_write_data[23:16]  = (s_we && s_byte[2]) ? s_hwdata_i[23:16] : s_read_data[23:16];
+    assign s_write_data[31:24]  = (s_we && s_byte[3]) ? s_hwdata_i[31:24] : s_read_data[31:24];
+
+    //Selected bytes
+    assign s_byte[0]    = (r_address[1:0] == 2'd0);
+    assign s_byte[1]    = ((r_address[1:0] == 2'd0) && (r_size != 2'd0)) || (r_address[1:0] == 2'd1);
+    assign s_byte[2]    = ((r_address[1:0] == 2'd0) && (r_size == 2'd2)) || (r_address[1:0] == 2'd2);
+    assign s_byte[3]    = ((r_address[1:0] == 2'd0) && (r_size == 2'd2)) || ((r_address[1:0] == 2'd2) && (r_size == 2'd1)) || (r_address[1:0] == 2'd3);
 
     //Response
-    assign s_hrdata_o   = s_read_data;
+    assign s_hrdata_o[7:0]      = s_byte[0] ? s_read_data[7:0]   : 8'dx;
+    assign s_hrdata_o[15:8]     = s_byte[1] ? s_read_data[15:8]  : 8'dx;
+    assign s_hrdata_o[23:16]    = s_byte[2] ? s_read_data[23:16] : 8'dx;
+    assign s_hrdata_o[31:24]    = s_byte[3] ? s_read_data[31:24] : 8'dx;
     assign s_hready_o   = !(r_hresp & r_trans) & (r_delay == 2'b00);
     assign s_hresp_o    = r_hresp;
-
-    //Select which bytes to overwrite
-    assign s_wea[0] = s_we & (r_address[1:0] == 2'd0);
-    assign s_wea[1] = s_we & (((r_address[1:0] == 2'd0) & (r_size != 2'd0)) || (r_address[1:0] == 2'd1));
-    assign s_wea[2] = s_we & (((r_address[1:0] == 2'd0) & (r_size == 2'd2)) || (r_address[1:0] == 2'd2));
-    assign s_wea[3] = s_we & (((r_address[1:0] == 2'd0) & (r_size == 2'd2)) || ((r_address[1:0] == 2'd2) & (r_size == 2'd1)) || (r_address[1:0] == 2'd3));
 
     generate
     genvar i;
         for (i = 0; i < 4; i = i+1) begin: byte_write
             always @(posedge s_clk_i)
-                if (s_wea[i])
+                if (s_we && s_byte[i])
                     r_memory[r_address[MSB:2]][(i+1)*8-1:i*8] <= s_hwdata_i[(i+1)*8-1:i*8];
         end
         if (IFP == 1) begin
