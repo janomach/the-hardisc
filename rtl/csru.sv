@@ -55,48 +55,55 @@ module csru (
     output logic s_exception_o[PROT_3REP],          //exception
     output logic s_ibus_rst_en_o[PROT_3REP],        //enables the repetition of transfer that resulted in a instruction bus error
     output logic s_dbus_rst_en_o[PROT_3REP],        //enables the repetition of transfer that resulted in a data bus error
+    output logic s_initialize_o[PROT_3REP],         //core has been reseted, jump to the reset point
     output logic s_pred_disable_o,                  //disable any predictions
     output logic s_hrdmax_rst_o                     //max consecutive pipeline restarts reached
 );
+    logic[31:0] s_mcsr_r_val[PROT_3REP], s_read_val[PROT_3REP], s_csr_w_val[PROT_3REP], s_int_vectored[PROT_3REP], s_exc_trap[PROT_3REP], s_int_trap[PROT_3REP];
+    logic s_machine_csr[PROT_3REP], s_write_machine[PROT_3REP], s_csr_op[PROT_3REP], s_csr_fun[PROT_3REP], s_uadd_00[PROT_3REP], s_uadd_01[PROT_3REP], s_uadd_10[PROT_3REP], s_mret[PROT_3REP], s_exc_active[PROT_3REP], s_int_exc[PROT_3REP], 
+          s_mtval_zero[PROT_3REP], s_interrupt[PROT_3REP], s_int_pending[PROT_3REP], s_commit[PROT_3REP], s_exception[PROT_3REP], s_execute[PROT_3REP], s_max_reached[PROT_3REP], s_transfer_misaligned[PROT_3REP], 
+          s_pma_violation[PROT_3REP], s_csr_refresh[PROT_3REP];
+    logic[63:0] s_mcycle_counter[PROT_3REP], s_minstret_counter[PROT_3REP];
+    logic[4:0] s_int_code[PROT_3REP], s_csr_add[PROT_3REP], s_exc_code[PROT_3REP];
+    logic[2:0] s_nmi[PROT_3REP];
+    exception s_exceptions[PROT_3REP];
 
-    logic[31:0]s_rmcsr[PROT_3REP][0:MAX_MCSR];
-    logic[31:0]s_wmcsr[PROT_3REP][0:MAX_MCSR];
-    logic[31:0] s_csr_r_val[PROT_3REP], s_exc_trap[PROT_3REP], s_int_trap[PROT_3REP];
-    logic s_int_pending[PROT_3REP], s_exception[PROT_3REP], s_mret[PROT_3REP];
+    logic[7:0] s_wmstatus[PROT_3REP], s_rmstatus[PROT_3REP], s_mstatus[PROT_3REP];
     logic[14:0]s_wmie[PROT_3REP], s_rmie[PROT_3REP], s_wmip[PROT_3REP], s_rmip[PROT_3REP],s_mie[PROT_3REP], s_mip[PROT_3REP];
-    logic[31:0]s_wmstatus[PROT_3REP],s_wmscratch[PROT_3REP],s_wminstret[PROT_3REP],s_wminstreth[PROT_3REP],s_wmcycle[PROT_3REP],s_wmcycleh[PROT_3REP],
-                s_wmtvec[PROT_3REP],s_wmepc[PROT_3REP],s_wmcause[PROT_3REP],s_wmtval[PROT_3REP],s_wmhrdctrl0[PROT_3REP], s_wrstpoint[PROT_3REP];
-    logic[31:0]s_rmstatus[PROT_3REP],s_rmscratch[PROT_3REP],s_rminstret[PROT_3REP],s_rminstreth[PROT_3REP],s_rmcycle[PROT_3REP],s_rmcycleh[PROT_3REP],
+    logic[31:0]s_wmscratch[PROT_3REP],s_wminstret[PROT_3REP],s_wminstreth[PROT_3REP],s_wmcycle[PROT_3REP],s_wmcycleh[PROT_3REP],
+                s_wmtvec[PROT_3REP],s_wmepc[PROT_3REP],s_wmcause[PROT_3REP],s_wmtval[PROT_3REP],s_wmhrdctrl0[PROT_3REP], s_wrstpoint[PROT_3REP],
+                s_rmscratch[PROT_3REP],s_rminstret[PROT_3REP],s_rminstreth[PROT_3REP],s_rmcycle[PROT_3REP],s_rmcycleh[PROT_3REP],
                 s_rmtvec[PROT_3REP],s_rmepc[PROT_3REP],s_rmcause[PROT_3REP],s_rmtval[PROT_3REP],s_rmhrdctrl0[PROT_3REP], s_rrstpoint[PROT_3REP], 
-                s_mstatus[PROT_3REP],s_mscratch[PROT_3REP],s_minstret[PROT_3REP],s_minstreth[PROT_3REP],s_mcycle[PROT_3REP],s_mcycleh[PROT_3REP],
+                s_mscratch[PROT_3REP],s_minstret[PROT_3REP],s_minstreth[PROT_3REP],s_mcycle[PROT_3REP],s_mcycleh[PROT_3REP],
                 s_mtvec[PROT_3REP],s_mepc[PROT_3REP],s_mcause[PROT_3REP],s_mtval[PROT_3REP],s_mhrdctrl0[PROT_3REP], s_rstpoint[PROT_3REP];
-    logic s_clk_prw[PROT_3REP], s_resetn_prw[PROT_3REP];
+    logic s_rstpoint_we[PROT_3REP], s_mstatus_we[PROT_3REP], s_minstret_we[PROT_3REP], s_minstreth_we[PROT_3REP], s_mcycle_we[PROT_3REP], s_mcycleh_we[PROT_3REP],
+          s_mscratch_we[PROT_3REP], s_mtvec_we[PROT_3REP], s_mepc_we[PROT_3REP], s_mcause_we[PROT_3REP], s_mtval_we[PROT_3REP], s_mie_we[PROT_3REP], s_mip_we[PROT_3REP], s_mhrdctrl0_we[PROT_3REP];
 `ifdef PROTECTED
+    logic s_mcsr_addr_free[PROT_3REP], s_maddrerr_we[PROT_3REP];
     logic[31:0]s_wmaddrerr[PROT_3REP],s_rmaddrerr[PROT_3REP], s_maddrerr[PROT_3REP];
 `endif
 
+    //Reset point
+    seu_ff_we_rsts #(.LABEL("RSTPOINT"),.N(PROT_3REP)) m_rstpoint (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_rstpoint_we),.s_rs_i(s_boot_add_i),.s_d_i(s_wrstpoint),.s_q_o(s_rrstpoint));
     //CSR registers
-    seu_regs #(.LABEL("CSR_MSTATUS"),.N(PROT_3REP))m_mstatus (.s_c_i(s_clk_prw),.s_d_i(s_wmstatus),.s_d_o(s_rmstatus));
-    seu_regs #(.LABEL("CSR_MINSTRET"),.N(PROT_3REP))m_minstret (.s_c_i(s_clk_prw),.s_d_i(s_wminstret),.s_d_o(s_rminstret));
-    seu_regs #(.LABEL("CSR_MINSTRETH"),.N(PROT_3REP))m_minstreth (.s_c_i(s_clk_prw),.s_d_i(s_wminstreth),.s_d_o(s_rminstreth));
-    seu_regs #(.LABEL("CSR_MCYCLE"),.N(PROT_3REP))m_mcycle (.s_c_i(s_clk_prw),.s_d_i(s_wmcycle),.s_d_o(s_rmcycle));
-    seu_regs #(.LABEL("CSR_MCYCLEH"),.N(PROT_3REP))m_mcycleh (.s_c_i(s_clk_prw),.s_d_i(s_wmcycleh),.s_d_o(s_rmcycleh));
-    seu_regs #(.LABEL("CSR_MSCRATCH"),.N(PROT_3REP))m_mscratch (.s_c_i(s_clk_prw),.s_d_i(s_wmscratch),.s_d_o(s_rmscratch));
-    seu_regs #(.LABEL("CSR_MTVEC"),.N(PROT_3REP))m_mtvec (.s_c_i(s_clk_prw),.s_d_i(s_wmtvec),.s_d_o(s_rmtvec));
-    seu_regs #(.LABEL("CSR_MEPC"),.N(PROT_3REP))m_mepc (.s_c_i(s_clk_prw),.s_d_i(s_wmepc),.s_d_o(s_rmepc));
-    seu_regs #(.LABEL("CSR_MCAUSE"),.N(PROT_3REP))m_mcause (.s_c_i(s_clk_prw),.s_d_i(s_wmcause),.s_d_o(s_rmcause));
-    seu_regs #(.LABEL("CSR_MTVAL"),.N(PROT_3REP))m_mtval (.s_c_i(s_clk_prw),.s_d_i(s_wmtval),.s_d_o(s_rmtval));
-    seu_regs #(.LABEL("CSR_MHRDCTRL0"),.N(PROT_3REP))m_mhrdctrl0 (.s_c_i(s_clk_prw),.s_d_i(s_wmhrdctrl0),.s_d_o(s_rmhrdctrl0));
-    seu_regs #(.LABEL("CSR_MIE"),.W(15),.N(PROT_3REP)) m_mie (.s_c_i(s_clk_prw),.s_d_i(s_wmie),.s_d_o(s_rmie));
-    seu_regs #(.LABEL("CSR_MIP"),.W(15),.N(PROT_3REP)) m_mip (.s_c_i(s_clk_prw),.s_d_i(s_wmip),.s_d_o(s_rmip));
+    seu_ff_we_rst #(.LABEL("CSR_MSTATUS"),.W(8),.N(PROT_3REP)) m_mstatus (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mstatus_we),.s_d_i(s_wmstatus),.s_q_o(s_rmstatus));
+    seu_ff_we_rst #(.LABEL("CSR_MINSTRET"),.N(PROT_3REP)) m_minstret (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_minstret_we),.s_d_i(s_wminstret),.s_q_o(s_rminstret));
+    seu_ff_we_rst #(.LABEL("CSR_MINSTRETH"),.N(PROT_3REP)) m_minstreth (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_minstreth_we),.s_d_i(s_wminstreth),.s_q_o(s_rminstreth));
+    seu_ff_we_rst #(.LABEL("CSR_MCYCLE"),.N(PROT_3REP)) m_mcycle (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mcycle_we),.s_d_i(s_wmcycle),.s_q_o(s_rmcycle));
+    seu_ff_we_rst #(.LABEL("CSR_MCYCLEH"),.N(PROT_3REP)) m_mcycleh (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mcycleh_we),.s_d_i(s_wmcycleh),.s_q_o(s_rmcycleh));
+    seu_ff_we_rst #(.LABEL("CSR_MSCRATCH"),.N(PROT_3REP)) m_mscratch (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mscratch_we),.s_d_i(s_wmscratch),.s_q_o(s_rmscratch));
+    seu_ff_we_rst #(.LABEL("CSR_MTVEC"),.N(PROT_3REP)) m_mtvec (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mtvec_we),.s_d_i(s_wmtvec),.s_q_o(s_rmtvec));
+    seu_ff_we_rst #(.LABEL("CSR_MEPC"),.N(PROT_3REP)) m_mepc (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mepc_we),.s_d_i(s_wmepc),.s_q_o(s_rmepc));
+    seu_ff_we_rst #(.LABEL("CSR_MCAUSE"),.N(PROT_3REP)) m_mcause (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mcause_we),.s_d_i(s_wmcause),.s_q_o(s_rmcause));
+    seu_ff_we_rst #(.LABEL("CSR_MTVAL"),.N(PROT_3REP)) m_mtval (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mtval_we),.s_d_i(s_wmtval),.s_q_o(s_rmtval));
+    seu_ff_we_rst #(.LABEL("CSR_MIE"),.W(15),.N(PROT_3REP)) m_mie (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mie_we),.s_d_i(s_wmie),.s_q_o(s_rmie));
+    seu_ff_we_rst #(.LABEL("CSR_MIP"),.W(15),.N(PROT_3REP)) m_mip (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mip_we),.s_d_i(s_wmip),.s_q_o(s_rmip));
+    seu_ff_we_rst #(.LABEL("CSR_MHRDCTRL0"),.N(PROT_3REP),.RSTVAL(32'h1293)) m_mhrdctrl0 (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mhrdctrl0_we),.s_d_i(s_wmhrdctrl0),.s_q_o(s_rmhrdctrl0));
 `ifdef PROTECTED
-    seu_regs #(.LABEL("CSR_MADDRERR"),.N(PROT_3REP))m_maddrerr (.s_c_i(s_clk_prw),.s_d_i(s_wmaddrerr),.s_d_o(s_rmaddrerr));
-`endif
-    seu_regs #(.LABEL("RSTPOINT"),.N(PROT_3REP)) m_rstpoint (.s_c_i(s_clk_prw),.s_d_i(s_wrstpoint),.s_d_o(s_rrstpoint));
+    seu_ff_we_rst #(.LABEL("CSR_MADDRERR"),.N(PROT_3REP)) m_maddrerr (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_maddrerr_we),.s_d_i(s_wmaddrerr),.s_q_o(s_rmaddrerr));
 
-`ifdef PROTECTED
     //Triple-Modular-Redundancy
-    tmr_comb m_tmr_mstatus (.s_d_i(s_rmstatus),.s_d_o(s_mstatus));
+    tmr_comb #(.W(8))m_tmr_mstatus (.s_d_i(s_rmstatus),.s_d_o(s_mstatus));
     tmr_comb m_tmr_minstret (.s_d_i(s_rminstret),.s_d_o(s_minstret));
     tmr_comb m_tmr_minstreth (.s_d_i(s_rminstreth),.s_d_o(s_minstreth));
     tmr_comb m_tmr_mcycle (.s_d_i(s_rmcycle),.s_d_o(s_mcycle));
@@ -133,7 +140,7 @@ module csru (
     assign s_acm_settings_o = s_mhrdctrl0[0][5:4];
     assign s_int_pending_o  = s_int_pending; 
     assign s_exception_o    = s_exception;
-    assign s_csr_r_o        = s_csr_r_val;  
+    assign s_csr_r_o        = s_read_val;  
     assign s_treturn_o      = s_mret;
     assign s_mepc_o         = s_mepc;
     assign s_exc_trap_o     = s_exc_trap;
@@ -143,78 +150,373 @@ module csru (
     genvar i;
     generate
         for (i = 0; i<PROT_3REP ;i++ ) begin : csr_replicator
-            assign s_clk_prw[i]    = s_clk_i[i];
-            assign s_resetn_prw[i] = s_resetn_i[i];
+            assign s_initialize_o[i]    = !s_mhrdctrl0[i][31];
+            assign s_ibus_rst_en_o[i]   = s_mhrdctrl0[i][7] & ~s_mhrdctrl0[i][21];
+            assign s_dbus_rst_en_o[i]   = s_mhrdctrl0[i][7] & ~s_mhrdctrl0[i][22];            
 
-            assign s_rmcsr[i][MCSR_STATUS]  = s_mstatus[i];
-            assign s_rmcsr[i][MCSR_INSTRET] = s_minstret[i];
-            assign s_rmcsr[i][MCSR_INSTRETH]= s_minstreth[i];
-            assign s_rmcsr[i][MCSR_CYCLE]   = s_mcycle[i];
-            assign s_rmcsr[i][MCSR_CYCLEH]  = s_mcycleh[i];
-            assign s_rmcsr[i][MCSR_SCRATCH] = s_mscratch[i];
-            assign s_rmcsr[i][MCSR_IE]      = {17'h0,s_mie[i]};
-            assign s_rmcsr[i][MCSR_TVEC]    = s_mtvec[i];
-            assign s_rmcsr[i][MCSR_EPC]     = s_mepc[i];
-            assign s_rmcsr[i][MCSR_CAUSE]   = s_mcause[i];
-            assign s_rmcsr[i][MCSR_TVAL]    = s_mtval[i]; 
-            assign s_rmcsr[i][MCSR_IP]      = {17'h0,s_mip[i]}; 
-            assign s_rmcsr[i][MCSR_HRDCTRL0]= s_mhrdctrl0[i]; 
-            assign s_rmcsr[i][MCSR_HARTID]  = 32'b0;
-            assign s_rmcsr[i][MCSR_ISA]     = 32'h40001104; // 32bit - IMC
+            //Gathering exception information
+            assign s_pma_violation[i]              = s_imiscon_i[i] == IMISCON_PMAV;    
+            assign s_transfer_misaligned[i]        = ((|s_val_i[i][1:0] & s_function_i[i][1]) | (s_val_i[i][0] & s_function_i[i][0]));
+            assign s_exceptions[i][EXC_LSADD_MISS] = s_ictrl_i[i][ICTRL_UNIT_LSU] & s_transfer_misaligned[i];
+            assign s_exceptions[i][EXC_ECALL_M]    = s_ictrl_i[i][ICTRL_UNIT_CSR] & s_csr_fun[i] & (s_payload_i[i][10:9] == CSR_FUN_ECALL);
+            assign s_exceptions[i][EXC_EBREAK_M]   = s_ictrl_i[i][ICTRL_UNIT_CSR] & s_csr_fun[i] & (s_payload_i[i][10:9] == CSR_FUN_EBREAK);
+            assign s_exceptions[i][EXC_LSACCESS]   = s_ictrl_i[i][ICTRL_UNIT_LSU] & (s_hresp_i[i] | s_pma_violation[i]);
+            assign s_exceptions[i][EXC_IACCESS]    = (s_imiscon_i[i] == IMISCON_FERR) | (s_pma_violation[i] & ~s_ictrl_i[i][ICTRL_UNIT_LSU]);
+            assign s_exceptions[i][EXC_ILLEGALI]   = s_imiscon_i[i] == IMISCON_ILLE;
+            assign s_exception[i]                  = |s_exceptions[i];
 
+            //Prioritization of exceptions and assignment of exception codes
+            assign s_exc_code[i]   = (s_exceptions[i][EXC_IACCESS]) ? EXC_IACCES_VAL :
+                                     (s_exceptions[i][EXC_ILLEGALI]) ? EXC_ILLEGALI_VAL :
+                                     (s_exceptions[i][EXC_ECALL_M]) ? EXC_ECALL_M_VAL :
+                                     (s_exceptions[i][EXC_EBREAK_M]) ? EXC_EBREAK_M_VAL :
+                                     (s_exceptions[i][EXC_LSADD_MISS]) ? (s_function_i[i][3] ? EXC_SADD_MISS_VAL : EXC_LADD_MISS_VAL) :
+                                     /*s_exceptions[EXC_LSACCESS]->*/ (s_function_i[i][3] ? EXC_SACCESS_VAL : EXC_LACCESS_VAL);
+
+            //CSR instruction processing
+            assign s_csr_add[i]        = s_payload_i[i][4:0];
+            assign s_machine_csr[i]    = s_payload_i[i][6:5] == 2'b11;
+            assign s_uadd_00[i]        = s_payload_i[i][8:7] == 2'b00;
+            assign s_uadd_01[i]        = s_payload_i[i][8:7] == 2'b01;
+            assign s_uadd_10[i]        = s_payload_i[i][8:7] == 2'b10;
+            assign s_csr_fun[i]        = (s_function_i[i][2:0] == 3'b0) & s_ictrl_i[i][ICTRL_UNIT_CSR];
+            assign s_csr_op[i]         = |s_function_i[i][1:0] & s_ictrl_i[i][ICTRL_UNIT_CSR] & ~s_flush_i[i];
+            assign s_write_machine[i]  = s_csr_op[i] & s_machine_csr[i];
+            assign s_mret[i]           = s_uadd_00[i] & s_machine_csr[i] & s_csr_fun[i] & (s_payload_i[i][10:9] == CSR_FUN_RET) & ~s_flush_i[i];
+            assign s_execute[i]        = ((s_ictrl_i[i] != 7'b0) | s_exceptions[i][EXC_IACCESS] | s_exceptions[i][EXC_ILLEGALI]) & ~s_rstpp_i[i];
+            assign s_commit[i]         = (s_ictrl_i[i] != 7'b0) & ~s_stall_i[i] & ~s_flush_i[i];
+
+            //Interrupt and exception evaluation
 `ifdef PROTECTED
-            assign s_rmcsr[i][MCSR_ADDRERR] = s_maddrerr[i];
-            assign s_wmaddrerr[i]           = s_wmcsr[i][MCSR_ADDRERR];
+            assign s_nmi[i][0]         = s_nmi_luce_i[i];
+            assign s_nmi[i][1]         = (s_imiscon_i[i] == IMISCON_FUCE);
+            assign s_nmi[i][2]         = (s_imiscon_i[i] == IMISCON_RUCE) & ~s_rstpp_i[i];
+`else
+            assign s_nmi[i][0]         = 1'b0; //Load UCE cannot happen
+            assign s_nmi[i][1]         = 1'b0; //Fetch UCE cannot happen
+            assign s_nmi[i][2]         = 1'b0; //Register UCE cannot happen
 `endif
-            assign s_wmstatus[i]            = s_wmcsr[i][MCSR_STATUS];
-            assign s_wminstret[i]           = s_wmcsr[i][MCSR_INSTRET];
-            assign s_wminstreth[i]          = s_wmcsr[i][MCSR_INSTRETH];
-            assign s_wmcycle[i]             = s_wmcsr[i][MCSR_CYCLE];
-            assign s_wmcycleh[i]            = s_wmcsr[i][MCSR_CYCLEH];
-            assign s_wmscratch[i]           = s_wmcsr[i][MCSR_SCRATCH];
-            assign s_wmie[i]                = s_wmcsr[i][MCSR_IE][14:0];
-            assign s_wmtvec[i]              = s_wmcsr[i][MCSR_TVEC];
-            assign s_wmepc[i]               = s_wmcsr[i][MCSR_EPC];
-            assign s_wmcause[i]             = s_wmcsr[i][MCSR_CAUSE];
-            assign s_wmtval[i]              = s_wmcsr[i][MCSR_TVAL]; 
-            assign s_wmip[i]                = s_wmcsr[i][MCSR_IP][14:0]; 
-            assign s_wmhrdctrl0[i]          = s_wmcsr[i][MCSR_HRDCTRL0];
 
-            assign s_ibus_rst_en_o[i]       = s_mhrdctrl0[i][7] & ~s_mhrdctrl0[i][21];
-            assign s_dbus_rst_en_o[i]       = s_mhrdctrl0[i][7] & ~s_mhrdctrl0[i][22];
+            assign s_interrupt[i]      = |(s_mie[i] & s_mip[i]) & s_mstatus[i][3];
+            assign s_exc_active[i]     = s_exception[i] & s_execute[i] & ~s_interrupted_i[i];
+            assign s_int_exc[i]        = s_interrupted_i[i] | (s_exception[i] & s_execute[i]);
+            assign s_int_pending[i]    = s_interrupt[i] | (|s_nmi[i]);
+            assign s_mtval_zero[i]     = (s_exc_code[i] != EXC_MISALIGI_VAL) & (s_exc_code[i] != EXC_LADD_MISS_VAL) & (s_exc_code[i] != EXC_SADD_MISS_VAL) & s_exc_active[i];
+            assign s_int_code[i]       = (s_nmi[i][0]) ? INT_LUCE_VAL : 
+                                         (s_nmi[i][1]) ? INT_FUCE_VAL : 
+                                         (s_nmi[i][2]) ? INT_RUCE_VAL :
+                                         (s_mie[i][11] & s_mip[i][11]) ? INT_MEI_VAL : 
+                                         (s_mie[i][3]  & s_mip[i][3])  ? INT_MSI_VAL : 
+                                         (s_mie[i][7]  & s_mip[i][7])  ? INT_MTI_VAL : 
+                                         (s_mie[i][14] & s_mip[i][14]) ? INT_LCER_VAL : 
+                                         (s_mie[i][13] & s_mip[i][13]) ? INT_FCER_VAL : INT_UCE_VAL;
+            assign s_exc_trap[i]       = {s_mtvec[i][31:2],2'b0};
+            assign s_int_trap[i]       = (s_mtvec[i][0]) ? s_int_vectored[i] : s_exc_trap[i];
 
-            csr_executor m_csr_executor(
-                .s_resetn_i(s_resetn_i[i]),
-                .s_boot_add_i(s_boot_add_i),
-                .s_stall_i(s_stall_i[i]),
-                .s_flush_i(s_flush_i[i]),
-                .s_int_meip_i(s_int_meip_i),
-                .s_int_mtip_i(s_int_mtip_i),
-                .s_int_msip_i(s_int_msip_i),
-                .s_int_uce_i(s_int_uce_i),
-                .s_int_lcer_i(s_int_lcer_i[i]),
-                .s_int_fcer_i(s_int_fcer_i),
-                .s_nmi_luce_i(s_nmi_luce_i[i]),
-                .s_hresp_i(s_hresp_i[i]),
-                .s_imiscon_i(s_imiscon_i[i]),
-                .s_rstpp_i(s_rstpp_i[i]),
-                .s_interrupted_i(s_interrupted_i[i]),
-                .s_newrst_point_i(s_newrst_point_i[i]),
-                .s_ictrl_i(s_ictrl_i[i]),
-                .s_function_i(s_function_i[i]),
-                .s_payload_i(s_payload_i[i]),
-                .s_mcsr_i(s_rmcsr[i]),
-                .s_val_i(s_val_i[i]),
-                .s_rstpoint_i(s_rstpoint[i]),
-                .s_rstpoint_o(s_wrstpoint[i]),
-                .s_int_trap_o(s_int_trap[i]),
-                .s_exc_trap_o(s_exc_trap[i]),
-                .s_int_pending_o(s_int_pending[i]),
-                .s_exception_o(s_exception[i]),
-                .s_mret_o(s_mret[i]),
-                .s_csr_r_val_o(s_csr_r_val[i]),
-                .s_mcsr_o(s_wmcsr[i])
-            );           
+            fast_adder m_int_vector(.s_base_val_i(s_exc_trap[i]),.s_add_val_i({9'b0,s_int_code[i],2'b0} ),.s_val_o(s_int_vectored[i]));
+
+            //Machine counters
+            fast_adder #(.WIDTH(64)) m_mcycle_cntr(.s_base_val_i({s_mcycleh[i],s_mcycle[i]}),.s_add_val_i(32'd1),.s_val_o(s_mcycle_counter[i]));
+            fast_adder #(.WIDTH(64)) m_mistret_cntr(.s_base_val_i({s_minstreth[i],s_minstret[i]}),.s_add_val_i(32'd1),.s_val_o(s_minstret_counter[i]));
+
+            //Read of CSR registers
+            always_comb begin : machine_csr_read_value
+                case (s_csr_add[i])
+                    MCSR_STATUS:     s_mcsr_r_val[i] = {24'b11000,s_rmstatus[i]};
+                    MCSR_IE:         s_mcsr_r_val[i] = {17'b0,s_rmie[i]};
+                    MCSR_TVEC:       s_mcsr_r_val[i] = s_rmtvec[i];
+                    MCSR_EPC:        s_mcsr_r_val[i] = s_rmepc[i];
+                    MCSR_CAUSE:      s_mcsr_r_val[i] = s_rmcause[i];
+                    MCSR_TVAL:       s_mcsr_r_val[i] = s_rmtval[i];
+                    MCSR_IP:         s_mcsr_r_val[i] = {17'b0,s_rmip[i]};
+                    MCSR_CYCLE:      s_mcsr_r_val[i] = s_rmcycle[i];
+                    MCSR_CYCLEH:     s_mcsr_r_val[i] = s_rmcycleh[i];
+                    MCSR_INSTRET:    s_mcsr_r_val[i] = s_rminstret[i];
+                    MCSR_INSTRETH:   s_mcsr_r_val[i] = s_rminstreth[i];
+                    MCSR_SCRATCH:    s_mcsr_r_val[i] = s_rmscratch[i];
+                    MCSR_HARTID:     s_mcsr_r_val[i] = 32'b0;
+                    MCSR_HRDCTRL0:   s_mcsr_r_val[i] = s_rmhrdctrl0[i];
+                    MCSR_ISA:        s_mcsr_r_val[i] = 32'h40001104; // 32bit - IMC
+`ifdef PROTECTED
+                    MCSR_ADDRERR:    s_mcsr_r_val[i] = s_rmaddrerr[i];
+`endif
+                    default:         s_mcsr_r_val[i] = 32'b0;
+                endcase   
+            end   
+
+            //Only M-mode is present
+            assign s_read_val[i]  = s_mcsr_r_val[i];
+
+            //Select new value for selected CSR register
+            always_comb begin : csr_modify_value
+                case (s_function_i[i][1:0])
+                    CSR_RW:     s_csr_w_val[i] = s_val_i[i];
+                    CSR_RS:     s_csr_w_val[i] = s_val_i[i] | s_read_val[i];
+                    CSR_RC:     s_csr_w_val[i] = ~s_val_i[i] & s_read_val[i];
+                    default:    s_csr_w_val[i] = s_read_val[i];
+                endcase
+            end
+                                                                     
+        assign s_csr_refresh[i] = 
+`ifdef PROTECTED
+                                  (s_mhrdctrl0[i][13:12] == 2'b00) ? 1'b1 :               //every cycle
+                                  (s_mhrdctrl0[i][13:12] == 2'b01) ? !(|s_mcycle[i][7:0]) :  //every 2^8 cycles
+                                  (s_mhrdctrl0[i][13:12] == 2'b10) ? !(|s_mcycle[i][15:0]) : //every 2^16 cycles
+`endif                                  
+                                  1'b0; //never
+
+            /*  Parallel update of individual CSR registers */
+
+            assign s_mstatus_we[i] = s_write_machine[i] || s_int_exc[i] || s_mret[i] || s_csr_refresh[i];
+            always_comb begin : mstatus_writer
+                s_wmstatus[i][7]    = s_mstatus[i][7];
+                s_wmstatus[i][6:4]  = 3'b0;
+                s_wmstatus[i][3]    = s_mstatus[i][3];
+                s_wmstatus[i][2:0]  = 3'b0;
+                if(s_int_exc[i])begin
+                    s_wmstatus[i][7]    = s_mstatus[i][3];
+                    s_wmstatus[i][3]    = 1'b0;
+                end else if(s_mret[i])begin
+                    s_wmstatus[i][7]    = 1'b1;
+                    s_wmstatus[i][3]    = s_mstatus[i][7];
+                end else if (s_write_machine[i] & (s_csr_add[i] == MCSR_STATUS) & s_uadd_00[i]) begin
+                    s_wmstatus[i][7]    = s_csr_w_val[i][7];   //MPIE
+                    s_wmstatus[i][3]    = s_csr_w_val[i][3];   //MIE
+                end
+            end
+
+            assign s_mscratch_we[i] = s_write_machine[i] || s_csr_refresh[i];
+            always_comb begin : mscratch_writer
+                s_wmscratch[i]  = s_mscratch[i];
+                if (s_write_machine[i] & (s_csr_add[i] == MCSR_SCRATCH) & s_uadd_00[i]) begin
+                    s_wmscratch[i]  = s_csr_w_val[i];
+                end
+            end
+
+            assign s_mcycle_we[i] = 1'b1;
+            always_comb begin : mcycle_writer
+                s_wmcycle[i]    = s_mcycle_counter[i][31:0];
+                if (s_write_machine[i] & (s_csr_add[i] == MCSR_CYCLE) & s_uadd_10[i]) begin
+                    s_wmcycle[i]  = s_csr_w_val[i];
+                end
+            end
+
+            assign s_mcycleh_we[i] = 1'b1;
+            always_comb begin : mcycleh_writer
+                s_wmcycleh[i]   = s_mcycle_counter[i][63:32];
+                if (s_write_machine[i] & (s_csr_add[i] == MCSR_CYCLEH) & s_uadd_10[i]) begin
+                    s_wmcycleh[i]   = s_csr_w_val[i];
+                end
+            end
+
+            assign s_minstret_we[i] = s_write_machine[i] || s_commit[i] || s_csr_refresh[i];
+            always_comb begin : minstret_writer
+                s_wminstret[i]    = s_minstret[i];
+                if (s_write_machine[i] & (s_csr_add[i] == MCSR_INSTRET) & s_uadd_10[i]) begin
+                    s_wminstret[i]    = s_csr_w_val[i];
+                end else if(s_commit[i]) begin
+                    s_wminstret[i]    = s_minstret_counter[i][31:0];
+                end
+            end
+
+            assign s_minstreth_we[i] = s_write_machine[i] || s_commit[i] || s_csr_refresh[i];
+            always_comb begin : minstreth_writer
+                s_wminstreth[i]    = s_minstreth[i];
+                if (s_write_machine[i] & (s_csr_add[i] == MCSR_INSTRETH) & s_uadd_10[i]) begin
+                    s_wminstreth[i]   = s_csr_w_val[i];
+                end else if(s_commit[i]) begin
+                    s_wminstreth[i]    = s_minstret_counter[i][63:32];
+                end
+            end
+
+            assign s_mtvec_we[i] = s_write_machine[i] || s_csr_refresh[i];
+            always_comb begin : mtvec_writer
+                s_wmtvec[i] = s_mtvec[i];
+                if (s_write_machine[i] & (s_csr_add[i] == MCSR_TVEC) & s_uadd_00[i]) begin
+                    s_wmtvec[i][31:2]   = s_csr_w_val[i][31:2];
+                    s_wmtvec[i][1]      = 1'b0;
+                    s_wmtvec[i][0]      = s_csr_w_val[i][0];
+                end
+            end
+
+            assign s_mepc_we[i] = s_write_machine[i] || s_int_exc[i] || s_csr_refresh[i];
+            always_comb begin : mepc_writer
+                s_wmepc[i]   = s_mepc[i];
+                if(s_int_exc[i]) begin
+                    s_wmepc[i]   = s_rstpoint[i];
+                end else if (s_write_machine[i] & (s_csr_add[i] == MCSR_EPC) & s_uadd_00[i]) begin
+                    s_wmepc[i]   = s_csr_w_val[i];
+                end
+            end
+
+            assign s_mcause_we[i] = s_write_machine[i] || s_int_exc[i] || s_csr_refresh[i];    
+            always_comb begin : mcause_writer
+                s_wmcause[i][31]    = s_mcause[i][31];
+                s_wmcause[i][30:5]  = s_mcause[i][30:5];
+                s_wmcause[i][4:0]   = s_mcause[i][4:0];
+                if(s_int_exc[i]) begin
+                    s_wmcause[i][31]    = s_interrupted_i[i];
+                    s_wmcause[i][30:5]  = 26'b0;
+                    s_wmcause[i][4:0]   = (s_interrupted_i[i]) ? s_int_code[i] : s_exc_code[i];
+                end else if (s_write_machine[i] & (s_csr_add[i] == MCSR_CAUSE) & s_uadd_00[i]) begin
+                    s_wmcause[i][31]    = s_csr_w_val[i][31];
+                    s_wmcause[i][30:5]  = s_csr_w_val[i][30:5];
+                    s_wmcause[i][4:0]   = s_csr_w_val[i][4:0];
+                end
+            end
+
+            assign s_mtval_we[i] = s_write_machine[i] || s_exc_active[i] || s_csr_refresh[i]; 
+            always_comb begin : mtval_writer
+                s_wmtval[i] = s_mtval[i];
+                if(s_exc_active[i]) begin
+                    s_wmtval[i]   = s_val_i[i];
+                end else if (s_write_machine[i] & (s_csr_add[i] == MCSR_TVAL) & s_uadd_00[i]) begin
+                    s_wmtval[i]   = s_csr_w_val[i];
+                end
+            end  
+
+            assign s_mip_we[i] = 1'b1;
+            always_comb begin : mip_writer
+`ifdef PROTECTED
+                s_wmip[i][14]     = (s_int_lcer_i[i] & s_mie[i][14]) | s_mip[i][14];
+                s_wmip[i][13]     = (s_int_fcer_i & s_mie[i][13]) | s_mip[i][13];
+                s_wmip[i][12]     = s_int_uce_i  | s_mip[i][12];
+                if (s_write_machine[i] & (s_csr_add[i] == MCSR_IP) & s_uadd_00[i]) begin
+                    s_wmip[i][14:12]  = s_csr_w_val[i][14:12];
+                end
+`else
+                s_wmip[i][14:12]  = 3'b0;
+`endif
+                s_wmip[i][11]     = s_int_meip_i;
+                s_wmip[i][10:8]   = 3'b0;
+                s_wmip[i][7]      = s_int_mtip_i;
+                s_wmip[i][6:4]    = 3'b0;
+                s_wmip[i][3]      = s_int_msip_i;
+                s_wmip[i][2:0]    = 3'b0;
+            end  
+
+            assign s_mie_we[i] = s_write_machine[i] || s_csr_refresh[i];
+            always_comb begin : mie_writer
+                s_wmie[i][14:11]= s_mie[i][14:11];
+                s_wmie[i][10:8] =  3'b0;
+                s_wmie[i][7]    = s_mie[i][7];
+                s_wmie[i][6:4]  =  3'b0;
+                s_wmie[i][3]    = s_mie[i][3];
+                s_wmie[i][2:0]  =  3'b0;
+                if (s_write_machine[i] & (s_csr_add[i] == MCSR_IE) & s_uadd_00[i]) begin
+                    s_wmie[i][14:11]= s_csr_w_val[i][14:11];
+                    s_wmie[i][7]    = s_csr_w_val[i][7];
+                    s_wmie[i][3]    = s_csr_w_val[i][3];
+                end
+            end
+
+            //Signalize reaching of maximum number of consecutive restarts
+            assign s_max_reached[i] = s_mhrdctrl0[i][19:16] == s_mhrdctrl0[i][11:8];
+
+            /*  HRDCTRL0
+                31: core active (1) - not writtable
+                30-23: reserved
+                22: data bus error detected
+                21: instruction bus error detected
+                20: the restart counter not counting
+                19-16: the restart counter - reserved
+                15-14: reserved
+                13-12: CSR refresh rate
+                11-08: maximum number of consecutive restarts
+                07: enable automatic pipeline restart after the first bus error
+                06: reserved
+                05-04: acm settings
+                03: enable predictor
+                02: max consecutive restarts not reached
+                01: after the max number of consecutive restarts, try to disable the predictor at first
+                00: enable monitoring of consecutive restarts          
+            */
+            assign s_mhrdctrl0_we[i] = 1'b1;
+            always_comb begin : mrhdctrl0_writer
+                s_wmhrdctrl0[i][31]     = 1'b1;
+                s_wmhrdctrl0[i][30:23]  = 8'b0;
+                if (s_write_machine[i] & (s_csr_add[i] == MCSR_HRDCTRL0) & s_uadd_01[i]) begin
+                    s_wmhrdctrl0[i][22]     = s_csr_w_val[i][22];
+                    s_wmhrdctrl0[i][21]     = s_csr_w_val[i][21];                
+                    s_wmhrdctrl0[i][20:16]  = s_csr_w_val[i][20:16];
+                    s_wmhrdctrl0[i][15:14]  = 2'b0;                 //reserved
+                    s_wmhrdctrl0[i][13:12]  = s_csr_w_val[i][13:12];
+                    s_wmhrdctrl0[i][11:8]   = s_csr_w_val[i][11:8];
+                    s_wmhrdctrl0[i][7]      = s_csr_w_val[i][7];
+                    s_wmhrdctrl0[i][6]      = 1'b0;                 //reserved
+                    s_wmhrdctrl0[i][5:0]    = s_csr_w_val[i][5:0];
+                end else begin
+                    if(s_rstpp_i[i] & s_mhrdctrl0[i][7] & (s_exceptions[i][EXC_LSACCESS] | s_exceptions[i][EXC_IACCESS]))begin
+                        //save bus-error indicator
+                        s_wmhrdctrl0[i][22] = s_exceptions[i][EXC_LSACCESS];
+                        s_wmhrdctrl0[i][21] = s_exceptions[i][EXC_IACCESS];
+                    end else if(s_execute[i] & s_mhrdctrl0[i][7])begin
+                        //clear bus-error indicator
+                        s_wmhrdctrl0[i][22:21] = 2'b0;
+                    end else begin
+                        s_wmhrdctrl0[i][22:21] = s_mhrdctrl0[i][22:21];
+                    end
+                    if(s_execute[i])begin
+                        //stop counting
+                        s_wmhrdctrl0[i][20] = 1'b0;
+                    end else if(s_rstpp_i[i])begin
+                        //start/countinue counting
+                        s_wmhrdctrl0[i][20] = 1'b1;
+                    end else begin
+                        s_wmhrdctrl0[i][20] = s_mhrdctrl0[i][20];
+                    end
+                    if(s_execute[i] | (s_mhrdctrl0[i][20] & s_mhrdctrl0[i][1] & ~s_mhrdctrl0[i][3] & s_max_reached[i]))begin
+                        //reset counter on valid instruction, or at a try to disable the predictor
+                        s_wmhrdctrl0[i][19:16] = 4'b0;
+                    end else if(s_mhrdctrl0[i][20] & (s_mhrdctrl0[i][19:16] != s_mhrdctrl0[i][11:8]) & s_rstpp_i[i])begin
+                        //continue counting until the maximum number of restarts is reached
+                        s_wmhrdctrl0[i][19:16] = s_mhrdctrl0[i][19:16] + 4'b1;
+                    end else begin
+                        s_wmhrdctrl0[i][19:16] = s_mhrdctrl0[i][19:16];
+                    end
+                    if(s_mhrdctrl0[i][20] & s_mhrdctrl0[i][1] & s_max_reached[i])begin
+                        //try to disable the predictor at first
+                        s_wmhrdctrl0[i][3] = 1'b1;
+                    end else begin
+                        s_wmhrdctrl0[i][3] = s_mhrdctrl0[i][3];
+                    end
+                    if(s_execute[i])begin
+                        //signalize normal operation / recovery
+                        s_wmhrdctrl0[i][2] = 1'b0;
+                    end else if(s_mhrdctrl0[i][20] & s_mhrdctrl0[i][0] & (s_mhrdctrl0[i][3] | ~s_mhrdctrl0[i][1]) & s_max_reached[i])begin
+                        //signalize lock-up / unrecoverable error
+                        s_wmhrdctrl0[i][2] = 1'b1;
+                    end else begin
+                        s_wmhrdctrl0[i][2] = s_mhrdctrl0[i][2];
+                    end
+                    s_wmhrdctrl0[i][1:0]    = s_mhrdctrl0[i][1:0];
+                    s_wmhrdctrl0[i][15:4]   = s_mhrdctrl0[i][15:4];
+                    s_wmhrdctrl0[i][22]     = s_mhrdctrl0[i][22];
+                end                
+            end
+
+            //Reset point
+            assign s_rstpoint_we[i] = (s_execute[i] & ~s_stall_i[i]) | s_interrupted_i[i];
+            assign s_wrstpoint[i]   = s_newrst_point_i[i];
+
+`ifdef PROTECTED            
+            //CSR_ADDRERR is free to receive data if neither FCER nor LCER interrupt is pending
+            assign s_mcsr_addr_free[i] = (~s_mie[i][13] | (s_mie[i][13] & ~s_mip[i][13])) & (~s_mie[i][14] | (s_mie[i][14] & ~s_mip[i][14]));
+
+            //If both, FCER and LCER, interrupt sources are enabled, the FCER has higher priority
+            assign s_maddrerr_we[i] = ((s_int_fcer_i & s_mie[i][13]) | (s_mie[i][14] & s_ictrl_i[i][ICTRL_UNIT_LSU])) || s_csr_refresh[i];
+            always_comb begin
+                s_wmaddrerr[i] = s_maddrerr[i];
+                if(s_mcsr_addr_free[i] & s_int_fcer_i & s_mie[i][13])begin
+                    //Save address of instruction with correctable error
+                    s_wmaddrerr[i] = {s_rstpoint[i][31:2],2'b0};
+                end else if(s_mcsr_addr_free[i] & s_mie[i][14] & s_ictrl_i[i][ICTRL_UNIT_LSU])begin
+                    //Save address of LSU transfer
+                    s_wmaddrerr[i] = {s_val_i[i][31:2],2'b0};
+                end
+            end
+`endif
+
         end       
     endgenerate
 endmodule

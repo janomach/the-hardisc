@@ -97,3 +97,30 @@ module fast_increment (
     assign s_val_o[31:16]    = (s_adder[0][4] & s_adder[1][4] & s_adder[2][4] & s_adder[3][4]) ? s_p[1] : s_base_val_i[31:16];
 
 endmodule
+
+module fast_shift #(
+    parameter W = 32,
+    parameter A = 2,
+    parameter D = 1,
+    parameter MS = W
+)(
+    input logic[$clog2(MS)-1:0] s_b_i,
+    input logic[W-1:0] s_d_i,
+    output logic[W-1:0] s_d_o
+);
+    localparam N = MS/A;
+    logic[W-1:0] s_shifted[N]; 
+
+    genvar i;
+
+    generate
+        for ( i=0 ; i<N ; i++ ) begin
+            if(D == 0)
+                assign s_shifted[i] = {{(i*2){1'b0}},s_d_i[(i)*2 +: W-(i)*2]};
+            else
+                assign s_shifted[i] = {s_d_i[0 +: W-(i)*2],{(i*2){1'b0}}};
+        end
+    endgenerate 
+
+    assign s_d_o = s_shifted[s_b_i[A-1 +: $clog2(N)]];
+endmodule

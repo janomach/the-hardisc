@@ -224,6 +224,7 @@ module hardisc #(
         .s_clk_i(s_clk_i),
         .s_resetn_i(s_resetn_i),
 
+        .s_d_hready_i(s_d_hready_i),
         .s_stall_i(s_stall),
         .s_flush_i(s_flush),
         .s_hold_i(s_hold),

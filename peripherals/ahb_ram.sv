@@ -240,10 +240,10 @@ endgenerate
         if(~s_resetn_i | (r_hresp & r_trans))begin
             r_trans <= 1'd0;
             r_write <= 1'd0;
-            r_address <= {1'b0,{MSB{1'b0}}};
-            r_paddress <= {1'b0,{MSB{1'b0}}};
-            r_wtor_data <= 32'b0;
-            r_size <= 2'd0;
+            r_address <= '0;
+            r_paddress <= '0;
+            r_wtor_data <= '0;
+            r_size <= 2'd2;
             r_wtor <= 1'b0;
             r_hresp <= (~s_resetn_i) ? 1'b0 : (r_hresp & r_trans);
         end else if(s_hsel_i & s_transfer)begin
@@ -258,10 +258,10 @@ endgenerate
         end else begin
             r_trans <= 1'd0;
             r_write <= 1'd0;
-            r_address <= r_address;
-            r_paddress <= r_address;
-            r_wtor_data <= r_wtor_data;
-            r_size <= 2'd0;
+            r_address <= '0;
+            r_paddress <= '0;
+            r_wtor_data <= '0;
+            r_size <= 2'd2;
             r_wtor <= 1'b0;
             r_hresp <= 1'b0;
         end

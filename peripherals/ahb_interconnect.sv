@@ -82,7 +82,7 @@ module ahb_interconnect #(
             r_selected  <= r_selected;
             r_active    <= r_active;
         end else begin
-            r_selected  <= s_selected[0];
+            r_selected  <= (s_mhtrans_i == 2'd2) ? s_selected[0] : '0;
             r_active    <= (s_mhtrans_i == 2'd2);
         end
     end

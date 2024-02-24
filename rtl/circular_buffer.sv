@@ -19,10 +19,10 @@ module circular_buffer #(
     parameter WIDTH = 32,
     parameter GROUP = 1,
     parameter LABEL = "CBUF"
-)
-(
+)(
     input logic s_clk_i,                //clock signal
     input logic s_resetn_i,             //reset signal
+    input logic s_flush_i,              //flush signal
     input logic s_push_i,               //push data into the buffer
     input logic s_pop_i,                //pop data out of the buffer
     input logic[WIDTH-1:0] s_data_i,    //data to be pushed
@@ -31,34 +31,43 @@ module circular_buffer #(
     output logic[WIDTH-1:0] s_data_o    //data to be poped out
 );
     localparam PTRW = $clog2(SIZE);
-    localparam bit[PTRW:0] CZERO = (PTRW+1)'(0);
     localparam bit[PTRW:0] CONE = (PTRW+1)'(1);
-    localparam bit[PTRW-1:0] PZERO = (PTRW)'(0);
     localparam bit[PTRW-1:0] PONE = (PTRW)'(1);
 
-    logic[WIDTH-1:0] s_wbuffer[SIZE], s_rbuffer[SIZE];
+    logic[WIDTH-1:0] s_data[1];
     logic[PTRW-1:0] s_wlast[1], s_rlast[1];
     logic[PTRW:0] s_wcount[1], s_rcount[1];
-
-    //Buffer to hold data
-    seu_regs #(.LABEL(LABEL),.GROUP(GROUP),.W(WIDTH),.N(SIZE),.NC(1)) m_seu_cbuf(.s_c_i({s_clk_i}),.s_d_i(s_wbuffer),.s_d_o(s_rbuffer));
-    //Count of entries in the buffer
-    seu_regs #(.LABEL({LABEL,"_COUNT"}),.GROUP(GROUP),.W(PTRW+1),.N(1),.NC(1)) m_seu_count(.s_c_i({s_clk_i}),.s_d_i(s_wcount),.s_d_o(s_rcount));
-    //Pointer for last pushed data
-    seu_regs #(.LABEL({LABEL,"_LAST"}),.GROUP(GROUP),.W(PTRW),.N(1),.NC(1)) m_seu_last(.s_c_i({s_clk_i}),.s_d_i(s_wlast),.s_d_o(s_rlast));
-
     logic[PTRW-1:0] s_wpos;
     logic s_empty;
+
+    //Buffer to hold data
+    seu_ff_file #(.LABEL(LABEL),.GROUP(GROUP),.W(WIDTH),.N(SIZE),.RP(1)) m_seu_cbuf 
+    (
+        .s_c_i(s_clk_i),
+        .s_we_i(s_push_i),
+        .s_wa_i(s_wpos),
+        .s_d_i(s_data_i),
+        .s_ra_i(s_rlast),
+        .s_q_o(s_data)
+    );
+
+    //Count of entries in the buffer
+    seu_ff_rst #(.LABEL({LABEL,"_COUNT"}),.GROUP(GROUP),.W(PTRW+1),.N(1)) m_seu_count(.s_c_i({s_clk_i}),.s_r_i({s_resetn_i}),.s_d_i(s_wcount),.s_q_o(s_rcount));
+    //Pointer for last pushed data
+    seu_ff_rst #(.LABEL({LABEL,"_LAST"}),.GROUP(GROUP),.W(PTRW),.N(1)) m_seu_last(.s_c_i({s_clk_i}),.s_r_i({s_resetn_i}),.s_d_i(s_wlast),.s_q_o(s_rlast));
     
-    assign s_empty      = s_rcount[0] == CZERO;
+    assign s_empty      = s_rcount[0] == '0;
     assign s_empty_o    = s_empty;
-    assign s_data_o     = s_rbuffer[s_rlast[0]]; 
+    assign s_data_o     = s_data[0];
+
+    //Write buffer address
+    assign s_wpos = (s_pop_i & s_push_i) ? s_rlast[0] : (s_rlast[0] + PONE);
 
     //Control struture
     always_comb begin : control
-        if(~s_resetn_i)begin
-            s_wlast[0] = PZERO;
-            s_wcount[0] = CZERO;
+        if(s_flush_i)begin
+            s_wlast[0] = '0;
+            s_wcount[0] = '0;
         end else begin
             if(s_push_i & ~s_pop_i)begin
                 s_wcount[0] = s_rcount[0][PTRW] ? s_rcount[0] : (s_rcount[0] + CONE);
@@ -72,15 +81,5 @@ module circular_buffer #(
             end
         end
     end
-
-    //Write buffer structure
-    assign s_wpos = (s_pop_i & s_push_i) ? s_rlast[0] : (s_rlast[0] + PONE);
-
-    genvar i;
-    generate
-        for(i=0;i<SIZE;i++)begin
-            assign s_wbuffer[i] = (s_push_i & (i[PTRW-1:0] == s_wpos)) ? s_data_i : s_rbuffer[i];
-        end
-    endgenerate
 
 endmodule

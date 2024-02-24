@@ -55,32 +55,33 @@ module lsu (
     output logic[31:0] s_fixed_data_o[PROT_3REP],   //fixed data
     output logic[2:0] s_einfo_o[PROT_3REP]          //data error info
 );
-    logic s_ap_active[PROT_3REP], s_whresp[PROT_3REP], s_rhresp[PROT_3REP];
+    logic s_ap_active[PROT_3REP], s_whresp[PROT_3REP], s_rhresp[PROT_3REP], s_data_we[PROT_3REP];
     logic[31:0] s_wwdata[PROT_3REP], s_rwdata[PROT_3REP];
     logic[2:0] s_hsize[PROT_2REP];
     logic[1:0] s_htrans[PROT_2REP];
     logic[31:0] s_haddr[PROT_2REP];
     logic s_hwrite[PROT_2REP];
 `ifdef PROTECTED
-    logic s_error[PROT_3REP], s_rchecksynd[PROT_3REP], s_wchecksynd[PROT_3REP]; 
-    logic[5:0] s_hparity[PROT_2REP];
+    logic s_error[PROT_3REP], s_rchecksynd[PROT_3REP], s_wchecksynd[PROT_3REP], s_syndrome_we[PROT_3REP]; 
     logic rmw_activate[PROT_3REP], s_ce[PROT_3REP], s_uce[PROT_3REP];
     logic[31:0] s_data_merged[PROT_3REP], s_data_fixed[PROT_3REP], s_wdata[1];
     logic[6:0] s_achecksum[PROT_3REP], s_wlsyndrome[PROT_3REP], s_rlsyndrome[PROT_3REP], s_checksum[PROT_3REP], s_wchecksum[1];
-    logic[1:0] s_wfsm[PROT_3REP], s_rfsm[PROT_3REP];
+    logic[1:0] s_wfsm[PROT_3REP], s_rfsm[PROT_3REP], s_fsm[PROT_3REP];
 `endif
 
     //Data for write
-    seu_regs #(.LABEL("WDATA"),.N(PROT_3REP))m_wdata (.s_c_i(s_clk_i),.s_d_i(s_wwdata),.s_d_o(s_rwdata));
+    seu_ff_we_rst #(.LABEL("WDATA"),.N(PROT_3REP))m_wdata (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_data_we),.s_d_i(s_wwdata),.s_q_o(s_rwdata));
     //Bus-transfer error
-    seu_regs #(.LABEL("HRESP"),.W(1),.N(PROT_3REP))m_hresp (.s_c_i(s_clk_i),.s_d_i(s_whresp),.s_d_o(s_rhresp));
+    seu_ff_rst #(.LABEL("HRESP"),.W(1),.N(PROT_3REP))m_hresp (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_d_i(s_whresp),.s_q_o(s_rhresp));
 `ifdef PROTECTED
     //Finite state machine for the Read-Modify-Write sequence
-    seu_regs #(.LABEL("FSM"),.W(2),.N(PROT_3REP))m_fsm (.s_c_i(s_clk_i),.s_d_i(s_wfsm),.s_d_o(s_rfsm));
+    seu_ff_rst #(.LABEL("FSM"),.W(2),.N(PROT_3REP))m_fsm (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_d_i(s_wfsm),.s_q_o(s_rfsm));
     //Indicator to check the syndrome of loaded data
-    seu_regs #(.LABEL("CHECKSYND"),.W(1),.N(PROT_3REP))m_checksynd (.s_c_i(s_clk_i),.s_d_i(s_wchecksynd),.s_d_o(s_rchecksynd));
+    seu_ff_rst #(.LABEL("CHECKSYND"),.W(1),.N(PROT_3REP))m_checksynd (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_d_i(s_wchecksynd),.s_q_o(s_rchecksynd));
     //Syndrome of the loaded value
-    seu_regs #(.LABEL("LSYNDROME"),.N(PROT_3REP),.W(7))m_lsyndrome(.s_c_i(s_clk_i),.s_d_i(s_wlsyndrome),.s_d_o(s_rlsyndrome)); 
+    seu_ff_we_rst #(.LABEL("LSYNDROME"),.N(PROT_3REP),.W(7))m_lsyndrome(.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_syndrome_we),.s_d_i(s_wlsyndrome),.s_q_o(s_rlsyndrome)); 
+    //Majority voting for state of internal FSM - WARNING: potential single point of failure
+    tmr_comb #(.W(2)) m_tmr_fsm (.s_d_i(s_rfsm),.s_d_o(s_fsm));
     //Majority voting prevents save of corrupted data
     tmr_comb #(.OUT_REPS(1)) m_tmr_sval (.s_d_i(s_rwdata),.s_d_o(s_wdata));
     //Majority voting prevents save of corrupted checksum 
@@ -123,7 +124,7 @@ module lsu (
                     s_hsize[i][1:0] = 2'b10;
                     s_hwrite[i]     = 1'b0;
                     s_haddr[i][1:0] = 2'b00;
-                end else if(s_rfsm[i] == LSU_RMW_WRITE)begin
+                end else if(s_fsm[i] == LSU_RMW_WRITE)begin
                     //the original transfer is performed in the write phase
                     s_hsize[i][1:0] = s_exma_f_i[i][1:0];
                     s_hwrite[i]     = 1'b1;
@@ -138,55 +139,51 @@ module lsu (
             end
         end
         for (i = 0; i<PROT_3REP ;i++ ) begin : lsu_replicator
-            //LSU activation
-            assign s_ap_active[i]   = s_ap_approve_i[i] & ~s_flush_i[i];
-
-            //Save bus responses
-            always_comb begin : hresp_writer
-                if(~s_resetn_i[i])begin
-                    s_whresp[i] = 1'b0;
-                end else begin
-                    s_whresp[i] = s_hresp_i[i] & ~s_hready_i[i];
-                end
-            end
-            
+            //Save data that will be send through the bus
             always_comb begin : lsu_wdata
+                s_wwdata[i] = s_wdata_i[i];
+                //Align data according to the target address 
+                if(s_ap_address_i[i%2][1:0] == 2'b01)begin
+                    s_wwdata[i][15:8] = s_wdata_i[i][7:0];
+                end else if(s_ap_address_i[i%2][1:0] == 2'b10)begin
+                    s_wwdata[i][31:16] = s_wdata_i[i][15:0];
+                end else if(s_ap_address_i[i%2][1:0] == 2'b11)begin
+                    s_wwdata[i][31:24] = s_wdata_i[i][7:0];
+                end
 `ifdef PROTECTED
-                if(~s_hready_i[i] | (s_rfsm[i] == LSU_RMW_READ)) begin
-                    //The read-phase of RMW sequence prevents update of the wdata
-                    s_wwdata[i] = s_rwdata[i];
-                end else if(s_rfsm[i] == LSU_RMW_WRITE) begin
+                if(s_fsm[i] == LSU_RMW_WRITE) begin
                     //Save merged data, that will be send in the following cycle
                     s_wwdata[i] = s_data_merged[i];
-`else
-                if(~s_hready_i[i]) begin
-                    s_wwdata[i] = s_rwdata[i];
-`endif
-                end else begin
-                    s_wwdata[i] = s_wdata_i[i];
-                    //Align data according to the target address 
-                    if(s_ap_address_i[i%2][1:0] == 2'b01)begin
-                        s_wwdata[i][15:8] = s_wdata_i[i][7:0];
-                    end else if(s_ap_address_i[i%2][1:0] == 2'b10)begin
-                        s_wwdata[i][31:16] = s_wdata_i[i][15:0];
-                    end else if(s_ap_address_i[i%2][1:0] == 2'b11)begin
-                        s_wwdata[i][31:24] = s_wdata_i[i][7:0];
-                    end
                 end
+`endif
             end
-`ifdef PROTECTED
+
+            //LSU activation
+            assign s_ap_active[i]   = s_ap_approve_i[i] & ~s_flush_i[i];
+`ifndef PROTECTED
+            //Save bus responses
+            assign s_whresp[i]      = ~s_hready_i[i] & s_hresp_i[i];        
+            assign s_data_we[i]     = s_hready_i[i] & s_ap_active[i] & s_opex_f_i[i%2][3];
+            assign s_fixed_data_o[i]= 32'b0;
+            assign s_einfo_o[i]     = 3'b0;
+            assign s_ap_busy_o[i]   = 1'b0;
+`else
+            //Save bus responses - ignored if it happens without an intended bus request
+            assign s_whresp[i]      = ~s_hready_i[i] & s_hresp_i[i] & (s_fsm[i] != LSU_RMW_WRITE);
+            assign s_data_we[i]     = s_hready_i[i] & ((s_ap_active[i] & s_opex_f_i[i%2][3]) | (s_fsm[i] == LSU_RMW_WRITE));
+
             //The RMW sequence begins if a non-word-wide store operation is requested
-            assign rmw_activate[i]  = (s_rfsm[i] == LSU_RMW_IDLE) & s_opex_f_i[i%2][3] & (s_opex_f_i[i%2][1:0] != 2'b10) & s_idempotent_i[i];
+            assign rmw_activate[i]  = (s_fsm[i] == LSU_RMW_IDLE) & s_opex_f_i[i%2][3] & (s_opex_f_i[i%2][1:0] != 2'b10) & s_idempotent_i[i];
             
             //The RMW sequence finite stat emachine control
             always_comb begin : rmw_control
-                if(~s_resetn_i[i] | s_rhresp[i])begin
+                if(s_rhresp[i])begin
                     s_wfsm[i]   = LSU_RMW_IDLE;
                 end else if(~s_hready_i[i]) begin
-                    s_wfsm[i]   = s_rfsm[i];
+                    s_wfsm[i]   = s_fsm[i];
                 end else if(rmw_activate[i] & s_ap_active[i]) begin
                     s_wfsm[i]   = LSU_RMW_READ;
-                end else if(s_rfsm[i] == LSU_RMW_READ) begin
+                end else if(s_fsm[i] == LSU_RMW_READ) begin
                     s_wfsm[i]   = LSU_RMW_WRITE;
                 end else begin
                     s_wfsm[i]   = LSU_RMW_IDLE;
@@ -195,12 +192,10 @@ module lsu (
 
             //Data syndrome analysis control
             always_comb begin : checksynd_control
-                if(~s_resetn_i[i])begin
-                    s_wchecksynd[i] = 1'b0;
-                end else if(s_hready_i[i] && (s_htrans[i%2] != 2'b0) && !s_hwrite[i%2]) begin
+                if(s_hready_i[i] && (s_htrans[i%2] != 2'b0) && !s_hwrite[i%2]) begin
                     //check syndrome after each load transfer
                     s_wchecksynd[i] = 1'b1;
-                end else if(s_hready_i[i] && (s_rfsm[i] == LSU_RMW_IDLE)) begin
+                end else if(s_hready_i[i] && (s_fsm[i] == LSU_RMW_IDLE)) begin
                     s_wchecksynd[i] = 1'b0;
                 end else begin
                     //preserve the syndrome checking until the RMW finishes
@@ -213,18 +208,19 @@ module lsu (
 
             //Calculate syndrome directly from the incoming data and checksum
             secded_encode m_encode   (.s_data_i(s_hrdata_i),.s_checksum_o(s_achecksum[i]));
+           
+            assign s_syndrome_we[i] = (s_hready_i[i] && (((s_fsm[i] == LSU_RMW_IDLE) && !s_exma_f_i[i][3]) || (s_fsm[i] == LSU_RMW_READ))) ||
+                                      (!s_rchecksynd[i] && (s_rlsyndrome[i] != 7'b0));
 
-            //Save syndrome for the analysis in the next clock cycle
+            /* Save syndrome for the analysis in the next clock cycle. EDAC errors detected during the RMW sequence 
+               do not affect the sequence but are preserved to be reported once the RMW finishes. */
             always_comb begin : lsu_checksum
-                if(!s_resetn_i[i] || !s_rchecksynd[i])begin
+                if(!s_rchecksynd[i] && (s_rlsyndrome[i] != 7'b0))begin
+                    //clear syndrome
                     s_wlsyndrome[i]  = 7'b0;
-                end else if(s_hready_i[i] && (((s_rfsm[i] == LSU_RMW_IDLE) && !s_exma_f_i[i][3]) || (s_rfsm[i] == LSU_RMW_READ))) begin
+                end else begin
                     //save syndrome in the data phase of a load transfer
                     s_wlsyndrome[i]  = s_achecksum[i] ^ s_hrdcheck_i;
-                end else begin
-                    /* EDAC errors detected during the RMW sequence do not affect the sequence 
-                       but are preserved to be reported once the RMW finishes. */
-                    s_wlsyndrome[i]  = s_rlsyndrome[i];
                 end
             end
             
@@ -244,11 +240,7 @@ module lsu (
             assign s_error[i]       = s_rlsyndrome[i] != 7'b0;
             assign s_einfo_o[i]     = {s_uce[i], s_ce[i], s_error[i]};
             //The LSU cannot accept a new transfer during RMW sequence
-            assign s_ap_busy_o[i]   = (s_rfsm[i] != LSU_RMW_IDLE) && !s_rhresp[i];
-`else
-            assign s_fixed_data_o[i]= 32'b0;
-            assign s_einfo_o[i]     = 3'b0;
-            assign s_ap_busy_o[i]   = 1'b0;
+            assign s_ap_busy_o[i]   = (s_fsm[i] != LSU_RMW_IDLE) && !s_rhresp[i];
 `endif
         end
     endgenerate

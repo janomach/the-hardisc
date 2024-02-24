@@ -54,6 +54,7 @@ module rf_controller
 `ifdef PROTECTED
 
     assign s_clk_rf     = s_clk_i[2];
+    assign s_resetn_rf  = s_resetn_i[2];
 
     acm m_acm
     (
@@ -91,14 +92,14 @@ module rf_controller
     assign s_rf_w_add   = s_mawb_add_i[0];
 `endif
 
-    seu_regs_file #(.LABEL("RFGPR"),.W(32),.N(32),.RP(2)) m_rfgpr 
+    seu_ff_file #(.LABEL("RFGPR"),.W(32),.N(32),.RP(2)) m_rfgpr 
     (
-        .s_clk_i(s_clk_rf),
+        .s_c_i(s_clk_rf),
         .s_we_i(s_rf_we),
-        .s_wadd_i(s_rf_w_add),
-        .s_val_i(s_rf_w_val),
-        .s_radd_i(s_rp_add),
-        .s_val_o(s_rp_val)
-    );
+        .s_wa_i(s_rf_w_add),
+        .s_d_i(s_rf_w_val),
+        .s_ra_i(s_rp_add),
+        .s_q_o(s_rp_val)
+    );    
 
 endmodule

@@ -66,19 +66,19 @@ module pipeline_1_fe #(
     logic s_clk_prw[PROT_2REP], s_resetn_prw[PROT_2REP], s_ifb_valid[PROT_2REP];
 
     //Fetch address saved in FE0
-    seu_regs #(.LABEL("FE0_ADD"),.W(31),.N(PROT_2REP))  m_fe0_add (.s_c_i(s_clk_prw),.s_d_i(s_wfe0_add),.s_d_o(s_rfe0_add));
+    seu_ff #(.LABEL("FE0_ADD"),.W(31),.N(PROT_2REP)) m_fe0_add (.s_c_i(s_clk_prw),.s_d_i(s_wfe0_add),.s_q_o(s_rfe0_add));
     //Address in FE0 is up-to-date, the fetched data will be needed
-    seu_regs #(.LABEL("FE0_UTD"),.W(1),.N(PROT_2REP))   m_fe0_utd (.s_c_i(s_clk_prw),.s_d_i(s_wfe0_utd),.s_d_o(s_rfe0_utd));
+    seu_ff_rst #(.LABEL("FE0_UTD"),.W(1),.N(PROT_2REP)) m_fe0_utd (.s_c_i(s_clk_prw),.s_r_i(s_resetn_prw),.s_d_i(s_wfe0_utd),.s_q_o(s_rfe0_utd));
     //Fetch address saved in FE1
-    seu_regs #(.LABEL("FE1_ADD"),.W(31),.N(PROT_2REP))  m_fe1_add (.s_c_i(s_clk_prw),.s_d_i(s_wfe1_add),.s_d_o(s_rfe1_add));
+    seu_ff #(.LABEL("FE1_ADD"),.W(31),.N(PROT_2REP)) m_fe1_add (.s_c_i(s_clk_prw),.s_d_i(s_wfe1_add),.s_q_o(s_rfe1_add));
     //Address in FE1 is up-to-date, the fetched data will be needed
-    seu_regs #(.LABEL("FE1_UTD"),.W(1),.N(PROT_2REP))   m_fe1_utd (.s_c_i(s_clk_prw),.s_d_i(s_wfe1_utd),.s_d_o(s_rfe1_utd));
-    /*  Additional informations about FE1:
+    seu_ff_rst #(.LABEL("FE1_UTD"),.W(1),.N(PROT_2REP)) m_fe1_utd (.s_c_i(s_clk_prw),.s_r_i(s_resetn_prw),.s_d_i(s_wfe1_utd),.s_q_o(s_rfe1_utd));
+    /*  Additional information about FE1:
         2'b00: none
         2'b01: prediction of TOC from aligned part of the address
         2'b10: prediction of TOC from unaligned part of the address
         2'b11: contains an address that should be copied into the FE0 (if not-up-to-date), PMA violation (if up-to-date)*/
-    seu_regs #(.LABEL("FE1_INF"),.W(2),.N(PROT_2REP))   m_fe1_inf (.s_c_i(s_clk_prw),.s_d_i(s_wfe1_inf),.s_d_o(s_rfe1_inf));
+    seu_ff_rst #(.LABEL("FE1_INF"),.W(2),.N(PROT_2REP)) m_fe1_inf (.s_c_i(s_clk_prw),.s_r_i(s_resetn_prw),.s_d_i(s_wfe1_inf),.s_q_o(s_rfe1_inf));
 
     //Internal signals
     logic s_ifb_push[PROT_2REP], s_ifb_pop[PROT_2REP], s_flush_fe[PROT_2REP], s_toc_in_fe1[PROT_2REP],  s_ifb_available[PROT_2REP];
@@ -91,12 +91,12 @@ module pipeline_1_fe #(
     
     //Instruction bus interface signals
     assign s_haddr_o    = {s_rfe0_add[0][30:1],2'b0};
-    assign s_htrans_o   = (s_rfe0_utd[0] & s_resetn_i[0] & !s_pma_violation[0]) ? 2'b10 : 2'b00;
+    assign s_htrans_o   = (s_rfe0_utd[0] && !s_pma_violation[0]) ? 2'b10 : 2'b00;
 
 `ifdef PROTECTED
     assign s_hparity_o[3:0] = {^s_rfe0_add[PROT_2REP-1][30:23], ^s_rfe0_add[PROT_2REP-1][22:15], ^s_rfe0_add[PROT_2REP-1][14:7], ^s_rfe0_add[PROT_2REP-1][6:1]};
     assign s_hparity_o[4]   = 1'b1;                             //hsize, hwrite, hprot, hburst, hmastlock
-    assign s_hparity_o[5]   = (s_rfe0_utd[PROT_2REP-1] & s_resetn_i[PROT_2REP-1]);  //htrans
+    assign s_hparity_o[5]   = (s_rfe0_utd[PROT_2REP-1] && !s_pma_violation[PROT_2REP-1]);  //htrans
 `else
     assign s_hparity_o      = 6'b0;
 `endif
@@ -233,7 +233,7 @@ module pipeline_1_fe #(
                 if((s_flush_fe[i] | s_ras_toc_valid[i]) & ~s_hready_i[i] & s_rfe0_utd[i])begin
                 /*  The core cannot change an address of the following request, if the hready signal 
                     from bus interface is held at 0 after leading request. This means the FE0 cannot
-                    be updated, so the TOC informations are saved in the FE1. */
+                    be updated, so the TOC information are saved in the FE1. */
                     if(s_flush_fe[i])begin
                         s_wfe1_add[i]   = s_toc_add_i[i][31:1];
                     end else begin
@@ -291,12 +291,12 @@ module pipeline_1_fe #(
                             s_wfe0_add[i] = {s_f0_add_next[i][29:0],1'b0};
                         end
                         //FE0 will be valid only if IFB has free space
-                        s_wfe0_utd[i]    = s_ifb_available[i];
+                        s_wfe0_utd[i] = s_ifb_available[i];
                     end else begin
                     /*  Preserve data until IFB has free space; this path is active 
                         only if IFB had no free space in previous clock cycles */
                         s_wfe0_add[i] = s_rfe0_add[i];
-                        s_wfe0_utd[i] = s_ifb_available[i] & s_resetn_i[0];
+                        s_wfe0_utd[i] = s_ifb_available[i];
                     end
                 end
             end

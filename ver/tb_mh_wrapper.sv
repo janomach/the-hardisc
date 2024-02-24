@@ -105,7 +105,7 @@ initial begin
     end
 
     r_clk_time = r_clk_time / 2;
-    #(r_clk_time * 20);  
+    #((r_clk_time * 20) + 1);  
     r_ver_rstn  = 1'b1;
     #(r_clk_time * 2 * r_timeout);
 
@@ -118,7 +118,7 @@ always #(r_clk_time) r_ver_clk = ~r_ver_clk;
 // WB PC extraction
 logic[31:0] s_wb_pc, r_last_rp;
 
-assign s_wb_pc = ((|dut.s_mawb_ictrl[0][3:0])) ? r_last_rp : 32'd0;
+assign s_wb_pc = ((|dut.s_mawb_ictrl[0][4:0])) ? r_last_rp : 32'd0;
 always_ff @(posedge r_ver_clk) r_last_rp <= dut.s_rst_point[0];
 /////////////////////
 

@@ -34,14 +34,14 @@ module muldiv (
         MUL: 
     */
     logic[64:0] s_wproduct[1], s_rproduct[1];
-    logic[5:0] s_wcounter[1], s_rcounter[1];
+    logic[5:0] s_wcounter[1], s_rcounter[1], s_mul_shift;
     logic s_rchngsign[1], s_wchngsign[1];
     logic[31:0] s_roperand[1], s_woperand[1];
 
-    seu_regs #(.LABEL("MD_RPROD"),.W(65),.N(1)) m_seu_rproduct(.s_c_i({s_clk_i}),.s_d_i(s_wproduct),.s_d_o(s_rproduct));
-    seu_regs #(.LABEL("MD_RCNTR"),.W(6),.N(1)) m_seu_rcounter(.s_c_i({s_clk_i}),.s_d_i(s_wcounter),.s_d_o(s_rcounter));
-    seu_regs #(.LABEL("MD_RCHS"),.W(1),.N(1)) m_seu_rchngsign(.s_c_i({s_clk_i}),.s_d_i(s_wchngsign),.s_d_o(s_rchngsign));
-    seu_regs #(.LABEL("MD_ROPER"),.W(32),.N(1)) m_seu_roperand(.s_c_i({s_clk_i}),.s_d_i(s_woperand),.s_d_o(s_roperand));
+    seu_ff_we #(.LABEL("MD_RPROD"),.W(65),.N(1)) m_seu_rproduct(.s_c_i({s_clk_i}),.s_we_i({s_compute_i}),.s_d_i(s_wproduct),.s_q_o(s_rproduct));
+    seu_ff_we_rst #(.LABEL("MD_RCNTR"),.W(6),.N(1),.RSTVAL(6'h3f)) m_seu_rcounter(.s_c_i({s_clk_i}),.s_r_i({s_resetn_i}),.s_we_i({s_compute_i}),.s_d_i(s_wcounter),.s_q_o(s_rcounter));
+    seu_ff_we #(.LABEL("MD_RCHS"),.W(1),.N(1)) m_seu_rchngsign(.s_c_i({s_clk_i}),.s_we_i({s_compute_i}),.s_d_i(s_wchngsign),.s_q_o(s_rchngsign));
+    seu_ff_we #(.LABEL("MD_ROPER"),.W(32),.N(1)) m_seu_roperand(.s_c_i({s_clk_i}),.s_we_i({s_compute_i}),.s_d_i(s_woperand),.s_q_o(s_roperand));
 
     logic s_lower_part;
     logic[1:0]s_change_sign;
@@ -49,7 +49,7 @@ module muldiv (
     logic[63:0] s_mul_result, s_div_result, s_result;
     logic[31:0] s_op1_rev, s_op2_rev, s_operand1, s_operand2;
     logic s_direct_result, s_op2_zero, s_op2_mone, s_op1_pzero, s_sovrflw, s_not_started, s_counter_zero, s_signed_op0, s_signed_op1;
-    logic[64:0] s_zero_result, s_sovrflw_res;
+    logic[64:0] s_zero_result, s_sovrflw_res, s_fastfwd_result;
     logic[63:0] s_result_rev;
     logic[32:0] s_adder;
     logic[31:0] s_remaining, s_rem_rev, s_quotient, s_multiplier;
@@ -119,10 +119,14 @@ module muldiv (
     assign s_mulop[0]       = {s_rproduct[0][64:32]};
     assign s_mulop[1]       = {1'b0,s_roperand[0] & {32{s_rproduct[0][0]}}};
     assign s_mulop[2]       = {s_roperand[0] & {32{s_rproduct[0][1]}},1'b0};
+    assign s_mul_shift      = 6'd32 - s_rcounter[0];
+
     adder3op #(.W(33))m_muladder (.s_op_i(s_mulop),.s_res_o(s_mulres));
 
+    fast_shift #(.W(32),.D(1))m_fs32_mul (.s_b_i(s_mul_shift[4:0]),.s_d_i(s_rproduct[0][31:0]),.s_d_o(s_multiplier));
+    fast_shift #(.W(65),.D(0),.MS(32))m_fs65_mul (.s_b_i(s_rcounter[0][4:0]),.s_d_i(s_rproduct[0]),.s_d_o(s_fastfwd_result));
+
     //Auxiliary signals
-    assign s_multiplier     = s_rproduct[0][31:0] << (6'b100000 - s_rcounter[0]);
     assign s_zero           = ~(|s_multiplier);
     assign s_initval        = s_operand2[0] ? {1'b0,s_operand1[31:0]} : 
                               s_operand2[1] ? {s_operand1[31:0],1'b0} : 33'b0;
@@ -141,7 +145,7 @@ module muldiv (
 `else
                 //Optimization: is the remaining multiplier zero? finish the computation
                 //Optimization: shift one step right, if next multipier bit is zero
-                s_wproduct[0]   = (s_zero) ? {s_rproduct[0][64:0] >> s_rcounter[0]} : 
+                s_wproduct[0]   = (s_zero) ? s_fastfwd_result : 
                                   (s_rproduct[0][3:2] == 2'b0 & s_rcounter[0] != 6'b10) ? {3'b0,s_mulres,s_rproduct[0][31:4]} : {1'b0,s_mulres,s_rproduct[0][31:2]}; 
 `endif   
             end
@@ -178,7 +182,7 @@ module muldiv (
 
     //Counter control and information to preserve during sequential division/multiplication
     always_comb begin : control
-        if(~s_resetn_i | s_flush_i)begin
+        if(s_flush_i)begin
             s_wcounter[0]   = 6'b111111;
             s_wchngsign[0]  = 1'b0;
         end else if(~s_not_started & ~s_counter_zero) begin

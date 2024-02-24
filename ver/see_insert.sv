@@ -69,7 +69,10 @@ module see_insert #(
                     for(j = 0; j < W; j++)begin : iterate_j
                         r_force[i][j] <= (s_filtered[i] >= (see_prob * j)) & (s_filtered[i] < (see_prob * (j+1)));
                         if(r_force[i][j] & (logging > 2))begin
-                            $write("SE%s in %s[%02d][%02d]\n",ELOG,LABEL,i,j);
+                            if(N == 1)
+                                $write("SE%s in %s[%02d]\n",ELOG,LABEL,j);
+                            else
+                                $write("SE%s in %s[%02d][%02d]\n",ELOG,LABEL,i,j);
                         end
                     end
                 end

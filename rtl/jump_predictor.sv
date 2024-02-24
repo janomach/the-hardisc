@@ -43,22 +43,22 @@ module jump_predictor #(
     logic[ENTRIES-1:0] s_rjp_valid[1], s_wjp_valid[1]; 
     logic[ENTRIES-1:0] s_valid_sel;
     logic[ENTRY_WIDTH-1:0] s_jtb_wdata, s_jtb_entry[1];
-    logic s_jumpp_valid, s_known_address, s_ualigcp;
+    logic s_jumpp_valid, s_known_address, s_ualigcp, s_valid_we[1];
     logic[TAG_WIDTH-1:0] s_jumpu_index, s_jumpp_index[1];
     logic[31:0] s_target_add;
     logic[30:0] s_tadd;
     logic[BASE_WIDTH-1:0] s_base_addu, s_base_addp;
 
-    seu_regs #(.LABEL("JP_VLD"),.GROUP(SEEGR_PREDICTOR),.W(ENTRIES),.N(1),.NC(1))m_r_jumpv (.s_c_i({s_clk_i}),.s_d_i(s_wjp_valid),.s_d_o(s_rjp_valid));
+    seu_ff_we_rst #(.LABEL("JP_VLD"),.GROUP(SEEGR_PREDICTOR),.W(ENTRIES),.N(1)) m_r_jumpv (.s_c_i({s_clk_i}),.s_r_i({s_resetn_i}),.s_we_i(s_valid_we),.s_d_i(s_wjp_valid),.s_q_o(s_rjp_valid));
 
-    seu_regs_file #(.LABEL("JTB"),.GROUP(SEEGR_PREDICTOR),.W(ENTRY_WIDTH),.N(ENTRIES),.RP(1)) m_jtb 
+    seu_ff_file #(.LABEL("JTB"),.GROUP(SEEGR_PREDICTOR),.W(ENTRY_WIDTH),.N(ENTRIES),.RP(1)) m_jtb 
     (
-        .s_clk_i(s_clk_i),
+        .s_c_i(s_clk_i),
         .s_we_i(s_jump_update_i),
-        .s_wadd_i(s_jumpu_index),
-        .s_val_i(s_jtb_wdata),
-        .s_radd_i(s_jumpp_index),
-        .s_val_o(s_jtb_entry)
+        .s_wa_i(s_jumpu_index),
+        .s_d_i(s_jtb_wdata),
+        .s_ra_i(s_jumpp_index),
+        .s_q_o(s_jtb_entry)
     );
 
     //Prediction
@@ -86,15 +86,12 @@ module jump_predictor #(
     assign s_jtb_wdata      = {s_base_addu,s_ualigc_i,s_jump_offset_i};
 
     //Update of validation bits for entries in JTB
+    assign s_valid_we[0] = s_invalidate_i || s_jump_update_i;
     always_comb begin : jump_update
-        if(~s_resetn_i) begin
-            s_wjp_valid[0] = {ENTRIES{1'b0}};
-        end else if(s_invalidate_i)begin
+        if(s_invalidate_i)begin
             s_wjp_valid[0] = ~(~s_rjp_valid[0] | s_valid_sel);
-        end else if(s_jump_update_i) begin
-            s_wjp_valid[0] = s_rjp_valid[0] | s_valid_sel;
         end else begin
-            s_wjp_valid[0] = s_rjp_valid[0];
+            s_wjp_valid[0] = s_rjp_valid[0] | s_valid_sel;
         end
     end
 
