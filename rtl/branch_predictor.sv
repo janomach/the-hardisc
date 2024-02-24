@@ -49,32 +49,33 @@ module branch_predictor
     logic[ENTRIES-1:0] s_valid_sel;
     logic[ENTRY_WIDTH-1:0] s_btb_wdata, s_btb_entry[1];
     logic[1:0] s_predu, s_update_pred, s_bht_val[2];
-    logic s_branchp_valid, s_known_address, s_btb_update, s_ualigcp, s_predp;
+    logic s_branchp_valid, s_known_address, s_btb_update, s_ualigcp, s_predp, s_valid_we[1];
     logic[TAG_WIDTH-1:0] s_branchu_index, s_branchp_index[1];
     logic[HTAG_WIDTH-1:0] s_bht_radd[2];
     logic[31:0] s_target_add;
     logic[15:0] s_branchp_off;
     logic[BASE_WIDTH-1:0] s_base_addu, s_base_addp;
 
-    seu_regs #(.LABEL("BP_VLD"),.GROUP(SEEGR_PREDICTOR),.W(ENTRIES),.N(1),.NC(1))m_r_branchv (.s_c_i({s_clk_i}),.s_d_i(s_wbp_valid),.s_d_o(s_rbp_valid));
+    seu_ff_we_rst #(.LABEL("BP_VLD"),.GROUP(SEEGR_PREDICTOR),.W(ENTRIES),.N(1)) m_r_branchv (.s_c_i({s_clk_i}),.s_r_i({s_resetn_i}),.s_we_i(s_valid_we),.s_d_i(s_wbp_valid),.s_q_o(s_rbp_valid));
 
-    seu_regs_file #(.LABEL("BTB"),.GROUP(SEEGR_PREDICTOR),.W(ENTRY_WIDTH),.N(ENTRIES),.RP(1)) m_btb 
+    seu_ff_file #(.LABEL("BTB"),.GROUP(SEEGR_PREDICTOR),.W(ENTRY_WIDTH),.N(ENTRIES),.RP(1)) m_btb 
     (
-        .s_clk_i(s_clk_i),
+        .s_c_i(s_clk_i),
         .s_we_i(s_btb_update),
-        .s_wadd_i(s_branchu_index),
-        .s_val_i(s_btb_wdata),
-        .s_radd_i(s_branchp_index),
-        .s_val_o(s_btb_entry)
+        .s_wa_i(s_branchu_index),
+        .s_d_i(s_btb_wdata),
+        .s_ra_i(s_branchp_index),
+        .s_q_o(s_btb_entry)
     );
-    seu_regs_file #(.LABEL("BHT"),.GROUP(SEEGR_PREDICTOR),.W(2),.N(HENTRIES),.RP(2)) m_bht 
+    
+    seu_ff_file #(.LABEL("BHT"),.GROUP(SEEGR_PREDICTOR),.W(2),.N(HENTRIES),.RP(2)) m_bht 
     (
-        .s_clk_i(s_clk_i),
+        .s_c_i(s_clk_i),
         .s_we_i(s_branch_update_i),
-        .s_wadd_i(s_bht_radd[1]),
-        .s_val_i(s_update_pred),
-        .s_radd_i(s_bht_radd),
-        .s_val_o(s_bht_val)
+        .s_wa_i(s_bht_radd[1]),
+        .s_d_i(s_update_pred),
+        .s_ra_i(s_bht_radd),
+        .s_q_o(s_bht_val)
     );
 
     //Prediction
@@ -120,15 +121,12 @@ module branch_predictor
     end
     
     //Update of validation bits for entries in BTB/BHT
+    assign s_valid_we[0] = s_invalidate_i || s_btb_update;
     always_comb begin : branch_update
-        if(~s_resetn_i) begin
-            s_wbp_valid[0] = {ENTRIES{1'b0}};
-        end else if(s_invalidate_i) begin
+        if(s_invalidate_i) begin
             s_wbp_valid[0] = ~(~s_rbp_valid[0] | s_valid_sel);
-        end else if(s_btb_update) begin
-            s_wbp_valid[0] = s_rbp_valid[0] | s_valid_sel;
         end else begin
-            s_wbp_valid[0] = s_rbp_valid[0];
+            s_wbp_valid[0] = s_rbp_valid[0] | s_valid_sel;
         end
     end
 

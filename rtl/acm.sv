@@ -54,11 +54,11 @@ module acm
     logic[1:0] s_fwd[2], s_valid_err[2];
     logic s_acm_neq[2], s_repair[2], s_fix_ce[3];
     logic s_clk_prw[2], s_resetn_prw[2];
-    logic s_wacm_rep[2],s_racm_rep[2];
+    logic s_wacm_rep[2],s_racm_rep[2], s_acm_we[2];
 
-    seu_regs #(.LABEL("ACM_REP"),.W(1),.N(2))   m_acm_rep (.s_c_i(s_clk_prw),.s_d_i(s_wacm_rep),.s_d_o(s_racm_rep));
-    seu_regs #(.LABEL("ACM_ADD"),.W(5),.N(2))   m_acm_add (.s_c_i(s_clk_prw),.s_d_i(s_wacm_add),.s_d_o(s_racm_add));
-    seu_regs #(.LABEL("ACM_VAL"),.N(2))         m_acm_val (.s_c_i(s_clk_prw),.s_d_i(s_wacm_val),.s_d_o(s_racm_val));
+    seu_ff_we_rst #(.LABEL("ACM_REP"),.W(1),.N(2))   m_acm_rep (.s_c_i(s_clk_prw),.s_r_i(s_resetn_prw),.s_we_i(s_acm_we),.s_d_i(s_wacm_rep),.s_q_o(s_racm_rep));
+    seu_ff_we #(.LABEL("ACM_ADD"),.W(5),.N(2))   m_acm_add (.s_c_i(s_clk_prw),.s_we_i(s_acm_we),.s_d_i(s_wacm_add),.s_q_o(s_racm_add));
+    seu_ff_we #(.LABEL("ACM_VAL"),.N(2))   m_acm_val (.s_c_i(s_clk_prw),.s_we_i(s_acm_we),.s_d_i(s_wacm_val),.s_q_o(s_racm_val));
 
     assign s_rp_add[0]  = s_r_p1_add_i[0];
     assign s_rp_add[1]  = s_r_p2_add_i[0];
@@ -107,22 +107,18 @@ module acm
             //prepare write to register file in the next clock cycle
             assign s_repair[i]      = (s_rs2_repair[i] | s_rs1_repair[i]);
 
+            assign s_acm_we[i]      = s_racm_rep[i] | s_repair[i];
             always_comb begin : acm_block_rs2
-                if(~s_resetn_i[i])begin
-                    s_wacm_rep[i]  = 1'b0;
-                    s_wacm_add[i]  = 5'b0;
-                    s_wacm_val[i]  = 32'b0;
-                end else if(s_racm_rep[i] & s_mawb_ictrl_i[i][ICTRL_REG_DEST])begin
+                //new repair request
+                s_wacm_rep[i]  = s_repair[i];
+                s_wacm_add[i]  = s_repair_add[i];
+                s_wacm_val[i]  = s_repair_val[i];
+                if(s_racm_rep[i] & s_mawb_ictrl_i[i][ICTRL_REG_DEST])begin
                     //delay repair by one clock cycle, if WB stage performs write
                     //invalidate repair request, if WB stage is writing to the  register waiting to repair
                     s_wacm_rep[i]  = (s_mawb_add_i[i] != s_racm_add[i]);
                     s_wacm_add[i]  = s_racm_add[i];
-                    s_wacm_val[i]  = s_racm_val[i]; 
-                end else begin
-                    //new repair request
-                    s_wacm_rep[i]  = s_repair[i];
-                    s_wacm_add[i]  = s_repair_add[i];
-                    s_wacm_val[i]  = s_repair_val[i];
+                    s_wacm_val[i]  = s_racm_val[i];
                 end
             end
         end
@@ -166,14 +162,14 @@ module acm
     tmr_comb #(.W(7),.OUT_REPS(1)) m_tmr_checksum (.s_d_i(s_w1_checksum),.s_d_o(s_w_checksum));
     tmr_comb #(.W(32),.OUT_REPS(1)) m_tmr_data (.s_d_i(s_file_w_val),.s_d_o(s_w_data));
 
-    seu_regs_file #(.LABEL("RFACM"),.W(7),.N(32),.RP(2)) m_rf_acm 
+    seu_ff_file #(.LABEL("RFACM"),.W(7),.N(32),.RP(2)) m_rf_acm 
     (
-        .s_clk_i(s_clk_i[2]),
+        .s_c_i(s_clk_i[2]),
         .s_we_i(s_write[0]),
-        .s_wadd_i(s_w_address[0]),
-        .s_val_i(s_w_checksum[0]),
-        .s_radd_i(s_rp_add),
-        .s_val_o(s_rp_checksum)
+        .s_wa_i(s_w_address[0]),
+        .s_d_i(s_w_checksum[0]),
+        .s_ra_i(s_rp_add),
+        .s_q_o(s_rp_checksum)
     );   
 
 endmodule

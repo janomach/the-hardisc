@@ -50,13 +50,13 @@ module ras
     logic s_wutd[1], s_rutd[1], s_wurvi[1], s_rurvi[1];
     
     //Indicates that first part of unaligned RVI is saved
-    seu_regs #(.LABEL("RAS_URVI"),.GROUP(SEEGR_PREDICTOR),.W(1),.N(1),.NC(1)) m_seu_urvi(.s_c_i({s_clk_i}),.s_d_i(s_wurvi),.s_d_o(s_rurvi));
+    seu_ff_rst #(.LABEL("RAS_URVI"),.GROUP(SEEGR_PREDICTOR),.W(1),.N(1)) m_seu_urvi(.s_c_i({s_clk_i}),.s_r_i({s_resetn_i}),.s_d_i(s_wurvi),.s_q_o(s_rurvi));
     //First part of unaligned RVI
-    seu_regs #(.LABEL("RAS_INSTR"),.GROUP(SEEGR_PREDICTOR),.W(16),.N(1),.NC(1)) m_seu_instr(.s_c_i({s_clk_i}),.s_d_i(s_winstr),.s_d_o(s_rinstr));
+    seu_ff #(.LABEL("RAS_INSTR"),.GROUP(SEEGR_PREDICTOR),.W(16),.N(1)) m_seu_instr(.s_c_i({s_clk_i}),.s_d_i(s_winstr),.s_q_o(s_rinstr));
     //Up-to-date indicator of saved address and incomming fetched data
-    seu_regs #(.LABEL("RAS_UTD"),.GROUP(SEEGR_PREDICTOR),.W(1),.N(1),.NC(1)) m_seu_utd(.s_c_i({s_clk_i}),.s_d_i(s_wutd),.s_d_o(s_rutd));
+    seu_ff_rst #(.LABEL("RAS_UTD"),.GROUP(SEEGR_PREDICTOR),.W(1),.N(1)) m_seu_utd(.s_c_i({s_clk_i}),.s_r_i({s_resetn_i}),.s_d_i(s_wutd),.s_q_o(s_rutd));
     //Saved address
-    seu_regs #(.LABEL("RAS_ADDRESS"),.GROUP(SEEGR_PREDICTOR),.W(30),.N(1),.NC(1)) m_seu_address(.s_c_i({s_clk_i}),.s_d_i(s_waddress),.s_d_o(s_raddress));
+    seu_ff #(.LABEL("RAS_ADDRESS"),.GROUP(SEEGR_PREDICTOR),.W(30),.N(1)) m_seu_address(.s_c_i({s_clk_i}),.s_d_i(s_waddress),.s_q_o(s_raddress));
 
     logic s_ipop, s_ipush, s_jal, s_jalr, s_rs1, s_rs5, s_rd1, s_rd5, s_rseqrd, s_pop, s_push, s_empty, s_cvalid[2], s_ivalid;
     logic[1:0] s_cpush, s_cpop, s_cjal, s_cjr, s_cjalr, s_poped[1], s_poped_see[1]; 
@@ -75,7 +75,7 @@ module ras
 
     //Fetch address and valid information for the next clock cycle
     always_comb begin
-        if(~s_resetn_i | s_flush_i)begin
+        if(s_flush_i)begin
             s_wutd[0]       = 1'b0; 
             s_waddress[0]   = 30'b0;
         end else begin
@@ -89,7 +89,7 @@ module ras
 
     //Check of incoming data and decision whether half of the instruction should be saved 
     always_comb begin
-        if(~s_resetn_i | s_flush_i)begin
+        if(s_flush_i)begin
             s_winstr[0] = 16'b0;
             s_wurvi[0]  = 1'b0;
         end else if(s_rutd[0]) begin
@@ -156,7 +156,8 @@ module ras
     circular_buffer #(.LABEL("RAS"),.GROUP(SEEGR_PREDICTOR),.SIZE(`OPTION_RAS_SIZE),.WIDTH(31)) buffer
     (
         .s_clk_i(s_clk_i),
-        .s_resetn_i(s_resetn_i & ~s_invalidate_i),
+        .s_resetn_i(s_resetn_i),
+        .s_flush_i(s_invalidate_i),
 
         .s_push_i(s_push),
         .s_pop_i(s_pop),

@@ -43,11 +43,12 @@ module bop #(
     logic[BOP_WIDTH-1:0] s_rbuffer[SIZE];
     logic[SIZE-1:0] s_woccupied[1];
     logic[SIZE-1:0] s_roccupied[1];
+    logic s_buffer_we[SIZE];
 
     //Buffer to hold data
-    seu_regs #(.LABEL(LABEL),.W(BOP_WIDTH),.N(SIZE),.GROUP(SEEGR_PREDICTOR),.NC(1)) m_seu_regs(.s_c_i({s_clk_i}),.s_d_i(s_wbuffer),.s_d_o(s_rbuffer));
+    seu_ff_array_we #(.LABEL(LABEL),.W(BOP_WIDTH),.N(SIZE),.GROUP(SEEGR_PREDICTOR)) m_seu_regs(.s_c_i({s_clk_i}),.s_we_i(s_buffer_we),.s_d_i(s_wbuffer),.s_q_o(s_rbuffer));
     //Entries occupancy information
-    seu_regs #(.LABEL({LABEL,"_OCPD"}),.W(SIZE),.N(1),.GROUP(SEEGR_PREDICTOR),.NC(1)) m_seu_occupied(.s_c_i({s_clk_i}),.s_d_i(s_woccupied),.s_d_o(s_roccupied));
+    seu_ff_rst #(.LABEL({LABEL,"_OCPD"}),.W(SIZE),.N(1),.GROUP(SEEGR_PREDICTOR)) m_seu_occupied(.s_c_i({s_clk_i}),.s_r_i({s_resetn_i}),.s_d_i(s_woccupied),.s_q_o(s_roccupied));
 
     assign s_data_o         = s_rbuffer[SIZE-1];
     assign s_full_o         = &s_roccupied[0];
@@ -65,13 +66,14 @@ module bop #(
     endgenerate
 
     //Control structure for movement of data between entries of the FIFO
+    assign s_buffer_we[0] = s_push_i;
     always_comb begin
         if(s_push_i)begin
             s_wbuffer[0] = s_data_i;
         end else begin
             s_wbuffer[0] = s_rbuffer[0]; 
         end
-        if(~s_resetn_i | s_flush_i)begin
+        if(s_flush_i)begin
             s_woccupied[0][0] = 1'b0;
         end else if(s_push_i)begin
             s_woccupied[0][0] = 1'b1;
@@ -85,13 +87,10 @@ module bop #(
     genvar i;
     generate
         for(i=1;i<SIZE-1;i++)begin : buffer_controler
+            assign s_buffer_we[i] = s_pop_i | (~s_roccupied[0][SIZE-1] | ~s_roccupied[0][i]);
             always_comb begin
-                if(s_pop_i | (~s_roccupied[0][SIZE-1] | ~s_roccupied[0][i]))begin
-                    s_wbuffer[i] = s_rbuffer[i-1]; 
-                end else begin
-                    s_wbuffer[i] = s_rbuffer[i]; 
-                end
-                if(~s_resetn_i | s_flush_i)begin
+                s_wbuffer[i] = s_rbuffer[i-1]; 
+                if(s_flush_i)begin
                     s_woccupied[0][i] = 1'b0;
                 end else if(s_pop_i | (~s_roccupied[0][SIZE-1] | ~s_roccupied[0][i]))begin
                     s_woccupied[0][i] = s_roccupied[0][i-1]; 
@@ -102,13 +101,10 @@ module bop #(
         end
     endgenerate
 
+    assign s_buffer_we[SIZE-1] = s_pop_i | ~s_roccupied[0][SIZE-1];
     always_comb begin
-        if(s_pop_i | ~s_roccupied[0][SIZE-1])begin
-            s_wbuffer[SIZE-1] = s_rbuffer[SIZE-2];
-        end else begin
-            s_wbuffer[SIZE-1] = s_rbuffer[SIZE-1]; 
-        end
-        if(~s_resetn_i | s_flush_i)begin
+        s_wbuffer[SIZE-1] = s_rbuffer[SIZE-2];
+        if(s_flush_i)begin
             s_woccupied[0][SIZE-1] = 1'b0;
         end else if(s_pop_i | ~s_roccupied[0][SIZE-1])begin
             s_woccupied[0][SIZE-1] = s_roccupied[0][SIZE-2];

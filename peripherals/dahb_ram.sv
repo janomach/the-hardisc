@@ -147,7 +147,7 @@ module dahb_ram#(
     );   
 
     //Save the transfer information from Master 0
-    always_ff @(posedge s_clk_i) begin
+    always_ff @(posedge s_clk_i or negedge s_resetn_i) begin
         if(~s_resetn_i)begin
             r_parity[0]     <= 6'b0;
             r_trans[0]      <= 2'd0;
@@ -176,7 +176,7 @@ module dahb_ram#(
     end
 
     //Save the transfer information from Master 1
-    always_ff @(posedge s_clk_i) begin
+    always_ff @(posedge s_clk_i or negedge s_resetn_i) begin
         if(~s_resetn_i)begin
             r_parity[1]     <= 6'b0;
             r_trans[1]      <= 2'd0;
@@ -205,7 +205,7 @@ module dahb_ram#(
     end
 
     //Save information, which master requested the last transfer
-    always @ (posedge(s_clk_i)) begin
+    always @ (posedge s_clk_i or negedge s_resetn_i) begin
         if(~s_resetn_i) begin
             r_selected  <= 1'd0;
         end else if(~s_hready)begin

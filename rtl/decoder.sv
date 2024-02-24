@@ -58,9 +58,9 @@ module decoder (
     assign s_ictrl_o    = (s_imiscon_o != IMISCON_FREE) ? 
                           {s_align_error_i | s_rvc, 6'b000000} : //The RVC means the Predictor will not increment address before invalidiation
                           (s_rvc) ? s_c_instr_ctrl : s_instr_ctrl;
-    assign s_imiscon_o  = ((s_fetch_error_i != FETCH_VALID) & (s_fetch_error_i != FETCH_INCER)) ? s_fetch_error_i : s_dec_imiscon;
-    assign s_dec_imiscon = (s_align_error_i) ? IMISCON_DSCR : //Restart due to wrong alignment, probably caused by the Predictor
-                           (s_rvc) ? s_c_instr_miscon : s_instr_miscon;
+    assign s_imiscon_o  = (s_align_error_i) ? IMISCON_DSCR : //Restart due to wrong alignment, probably caused by the Predictor
+                          ((s_fetch_error_i != FETCH_VALID) & (s_fetch_error_i != FETCH_INCER)) ? s_fetch_error_i : s_dec_imiscon;
+    assign s_dec_imiscon = (s_rvc) ? s_c_instr_miscon : s_instr_miscon;
 
     //Payload information - leveraged by upper stages
     assign s_payload_o[20]  = s_prediction_i;

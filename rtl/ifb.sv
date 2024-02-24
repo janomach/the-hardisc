@@ -50,20 +50,19 @@ module ifb #(
     logic[SIZE-1:0] s_woccupied[1];
     logic[SIZE-1:0] s_roccupied[1];
     logic[IFB_WIDTH-1:0] s_buffer0;
-    logic s_pop;
+    logic s_pop, s_buffer_we[SIZE];
 `ifdef PROTECTED
     logic[31:0] s_corrected_data;
     logic[6:0] s_wchecksum[1], s_rchecksum[1], s_achecksum, s_syndrome;
     logic s_ce, s_uce, s_fetch_check;
+
+    //Data checksum
+    seu_ff_we #(.LABEL({LABEL,"_CHECKSUM"}),.W(7),.N(1)) m_seu_checksum(.s_c_i({s_clk_i}),.s_we_i({s_push_i}),.s_d_i(s_wchecksum),.s_q_o(s_rchecksum));
 `endif
     //Buffer to hold data
-    seu_regs #(.LABEL(LABEL),.W(IFB_WIDTH),.N(SIZE),.NC(1)) m_seu_buffer(.s_c_i({s_clk_i}),.s_d_i(s_wbuffer),.s_d_o(s_rbuffer));
+    seu_ff_array_we #(.LABEL(LABEL),.W(IFB_WIDTH),.N(SIZE)) m_seu_buffer(.s_c_i({s_clk_i}),.s_we_i(s_buffer_we),.s_d_i(s_wbuffer),.s_q_o(s_rbuffer));
     //Entries occupancy information
-    seu_regs #(.LABEL({LABEL,"_OCPD"}),.W(SIZE),.N(1),.NC(1)) m_seu_occupied(.s_c_i({s_clk_i}),.s_d_i(s_woccupied),.s_d_o(s_roccupied));
-`ifdef PROTECTED
-    //Data checksum
-    seu_regs #(.LABEL({LABEL,"_CHECKSUM"}),.W(7),.N(1),.NC(1)) m_seu_checksum(.s_c_i({s_clk_i}),.s_d_i(s_wchecksum),.s_d_o(s_rchecksum));
-`endif
+    seu_ff_rst #(.LABEL({LABEL,"_OCPD"}),.W(SIZE),.N(1)) m_seu_occupied(.s_c_i({s_clk_i}),.s_r_i({s_resetn_i}),.s_d_i(s_woccupied),.s_q_o(s_roccupied));
 
     //Output the last entry
     assign s_last_entry_o   = s_rbuffer[0];
@@ -114,16 +113,15 @@ module ifb #(
     assign s_ubuffer[2]         = s_rbuffer[2];
     assign s_ubuffer[3]         = s_rbuffer[3];
 
+    assign s_buffer_we[0]   = 1'b1;
     //Control structure for movement of data between entries of the FIFO
     always_comb begin
-        if(~s_resetn_i)begin
-            s_wbuffer[0] = {IFB_WIDTH{1'b0}};
-        end else if(s_push_i)begin
+        if(s_push_i)begin
             s_wbuffer[0] = s_data_i;
         end else begin
             s_wbuffer[0] = s_ubuffer[0]; 
         end
-        if(~s_resetn_i | s_flush_i)begin
+        if(s_flush_i)begin
             s_woccupied[0][0] = 1'b0;
         end else if(s_push_i)begin
             s_woccupied[0][0] = 1'b1;
@@ -133,9 +131,7 @@ module ifb #(
             s_woccupied[0][0] = s_roccupied[0][0];
         end
 `ifdef PROTECTED
-        if(~s_resetn_i)begin
-            s_wchecksum[0] = 6'b0;
-        end else if(s_push_i)begin
+        if(s_push_i)begin
             s_wchecksum[0] = s_checksum_i;
         end else begin
             s_wchecksum[0] = s_rchecksum[0]; 
@@ -146,13 +142,10 @@ module ifb #(
     genvar i;
     generate
         for(i=1;i<SIZE-1;i++)begin : buffer_controler
+            assign s_buffer_we[i]   = s_push_i & s_roccupied[0][i-1];
             always_comb begin
-                if(s_push_i)begin
-                    s_wbuffer[i] = s_ubuffer[i-1];
-                end else begin
-                    s_wbuffer[i] = s_ubuffer[i]; 
-                end
-                if(~s_resetn_i | s_flush_i)begin
+                s_wbuffer[i] = s_ubuffer[i-1];
+                if(s_flush_i)begin
                     s_woccupied[0][i] = 1'b0;
                 end else if(s_push_i & ~s_pop)begin
                     s_woccupied[0][i] = s_roccupied[0][i-1];
@@ -165,13 +158,10 @@ module ifb #(
         end
     endgenerate
 
+    assign s_buffer_we[SIZE-1]   = s_push_i & s_roccupied[0][SIZE-2];
     always_comb begin
-        if(s_push_i)begin
-            s_wbuffer[SIZE-1] = s_ubuffer[SIZE-2];
-        end else begin
-            s_wbuffer[SIZE-1] = s_ubuffer[SIZE-1]; 
-        end
-        if(~s_resetn_i | s_flush_i)begin
+        s_wbuffer[SIZE-1] = s_ubuffer[SIZE-2];
+        if(s_flush_i)begin
             s_woccupied[0][SIZE-1] = 1'b0;
         end else if(s_push_i & ~s_pop)begin
             s_woccupied[0][SIZE-1] = s_roccupied[0][SIZE-2];

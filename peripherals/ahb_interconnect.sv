@@ -74,7 +74,7 @@ module ahb_interconnect #(
 
     endgenerate
 
-    always_ff @( posedge s_clk_i ) begin : selected
+    always_ff @( posedge s_clk_i or negedge s_resetn_i) begin : selected
         if(~s_resetn_i)begin
             r_selected  <= {(SELMSB+1){1'b0}};
             r_active    <= 1'd0;
@@ -82,7 +82,7 @@ module ahb_interconnect #(
             r_selected  <= r_selected;
             r_active    <= r_active;
         end else begin
-            r_selected  <= s_selected[0];
+            r_selected  <= (s_mhtrans_i == 2'd2) ? s_selected[0] : '0;
             r_active    <= (s_mhtrans_i == 2'd2);
         end
     end

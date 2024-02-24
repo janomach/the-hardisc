@@ -85,16 +85,16 @@ module tracer
                 (s_dut_mcycle_i == 32'b0) ? $bitstoreal(0) : ($bitstoreal({32'b0,s_dut_minstret_i})/$bitstoreal({32'b0,s_dut_mcycle_i})),
                 s_dut_fe0_utd_i ? {s_dut_fe0_add_i,1'b0} : 32'd0, 
                 s_dut_fe1_utd_i ? {s_dut_fe1_add_i,1'b0} : 32'd0,
-                s_dut_id_ictrl_i, 
-                s_dut_aligner_nop_i ? "no operation" : ((s_dec_instr_i[1:0] == 2'b11) ? decoder_instruction.text : {"c.",decoder_instruction.text}),
+                s_dut_aligner_nop_i ? 0 : s_dut_id_ictrl_i, 
+                s_dut_aligner_nop_i ? "" : ((s_dec_instr_i[1:0] == 2'b11) ? decoder_instruction.text : {"c.",decoder_instruction.text}),
                 s_dut_op_ictrl_i, s_dut_ex_ictrl_i,s_dut_ma_ictrl_i, s_dut_wb_ictrl_i,
-                s_wb_pc_i, (|s_dut_wb_ictrl_i[3:0])? 8'd86 : 8'd32 );                
+                s_wb_pc_i, (|s_dut_wb_ictrl_i[4:0])? 8'd86 : 8'd32 );                
             if(s_dut_rfc_we_i) $write(" %x -> R%2d",s_dut_rfc_wval_i,s_dut_rfc_wadd_i);
             $write("\n");                       
         end
     end
     always_ff @( posedge s_clk_i ) begin
-        if(s_resetn_i & (s_dut_wb_ictrl_i != 8'b0) & fd != 0)begin
+        if(s_resetn_i & (s_dut_wb_ictrl_i != 7'b0) & fd != 0)begin
             if(s_wb_instr_i[1:0] == 2'b11)begin
                 commited_instruction = instr_i(s_wb_instr_i);
             end else begin
