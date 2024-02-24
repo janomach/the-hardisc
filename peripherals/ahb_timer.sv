@@ -111,7 +111,7 @@ module ahb_timer#(
     generate
     genvar i;
         for (i = 0; i < 4; i = i+1) begin: byte_write
-            always @(posedge s_clk_i) begin
+            always @(posedge s_clk_i or negedge s_resetn_i) begin
                 //mtime
                 if(~s_resetn_i)
                     r_mtime[(i+1)*8-1:i*8] <= 32'b0;
@@ -150,7 +150,7 @@ module ahb_timer#(
     end
 
     //Save transfer information
-    always_ff @(posedge s_clk_i) begin : memory_control
+    always_ff @(posedge s_clk_i or negedge s_resetn_i) begin : memory_control
         if(~s_resetn_i | (r_hresp & r_trans))begin
             r_trans <= 1'd0;
             r_write <= 1'd0;

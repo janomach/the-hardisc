@@ -103,7 +103,7 @@ generate
         end
 
         //Latency generation
-        always_ff @(posedge s_clk_i) begin : delay_control
+        always_ff @(posedge s_clk_i or negedge s_resetn_i) begin : delay_control
             if(~s_resetn_i | ~latency)begin
                 r_delay   <= 2'b0;
                 randomval <= 32'b0; 
@@ -216,7 +216,7 @@ endgenerate
                 r_checksum <= r_cmemory[s_ra[MSB:2]];
             end
             //Save transfer information
-            always_ff @(posedge s_cclock) begin : memory_control
+            always_ff @(posedge s_cclock or negedge s_resetn_i) begin : memory_control
                 if(~s_resetn_i)begin
                     r_wtor_checksum <= 32'b0;
                 end else if(s_hsel_i & s_transfer)begin
@@ -236,7 +236,7 @@ endgenerate
     end
 
     //Save transfer information
-    always_ff @(posedge s_cclock) begin : memory_control
+    always_ff @(posedge s_cclock or negedge s_resetn_i) begin : memory_control
         if(~s_resetn_i | (r_hresp & r_trans))begin
             r_trans <= 1'd0;
             r_write <= 1'd0;
