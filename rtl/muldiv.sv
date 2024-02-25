@@ -39,7 +39,7 @@ module muldiv (
     logic[31:0] s_roperand[1], s_woperand[1];
 
     seu_ff_we #(.LABEL("MD_RPROD"),.W(65),.N(1)) m_seu_rproduct(.s_c_i({s_clk_i}),.s_we_i({s_compute_i}),.s_d_i(s_wproduct),.s_q_o(s_rproduct));
-    seu_ff_we_rst #(.LABEL("MD_RCNTR"),.W(6),.N(1),.RSTVAL(6'h3f)) m_seu_rcounter(.s_c_i({s_clk_i}),.s_r_i({s_resetn_i}),.s_we_i({s_compute_i}),.s_d_i(s_wcounter),.s_q_o(s_rcounter));
+    seu_ff_rst #(.LABEL("MD_RCNTR"),.W(6),.N(1),.RSTVAL(6'h3f)) m_seu_rcounter(.s_c_i({s_clk_i}),.s_r_i({s_resetn_i}),.s_d_i(s_wcounter),.s_q_o(s_rcounter));
     seu_ff_we #(.LABEL("MD_RCHS"),.W(1),.N(1)) m_seu_rchngsign(.s_c_i({s_clk_i}),.s_we_i({s_compute_i}),.s_d_i(s_wchngsign),.s_q_o(s_rchngsign));
     seu_ff_we #(.LABEL("MD_ROPER"),.W(32),.N(1)) m_seu_roperand(.s_c_i({s_clk_i}),.s_we_i({s_compute_i}),.s_d_i(s_woperand),.s_q_o(s_roperand));
 
