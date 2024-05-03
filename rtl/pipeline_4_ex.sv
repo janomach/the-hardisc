@@ -72,7 +72,7 @@ module pipeline_4_ex #(
           s_ex_fin[PROT_2REP], s_bubble[PROT_3REP], s_pma_violation[PROT_3REP], s_ex_empty[PROT_3REP];
     logic s_exma_we_aux[PROT_3REP], s_exma_we_esn[PROT_3REP];
 `ifdef PROTECTED
-    logic s_opex_esn_neq[PROT_2REP], s_opex_aux_neq[PROT_2REP], s_rstpipe[PROT_3REP];
+    logic s_opex_esn_neq[PROT_2REP], s_opex_aux_neq[PROT_2REP], s_rstpipe[PROT_3REP], s_ex_discr[PROT_3REP];
 `endif
 
     assign s_exma_rd_o      = s_exma_rd;
@@ -179,8 +179,10 @@ module pipeline_4_ex #(
 `endif
                                   ) | (!s_d_hready_i[i] & s_opex_ictrl_i[i%2][ICTRL_UNIT_LSU]);
 `ifdef PROTECTED
-            //Reset the instruction if discrepancy exists between the OPEX registers
-            assign s_rstpipe[i]    = s_opex_esn_neq[0] | s_opex_esn_neq[1] | (!s_ex_empty[i] & (s_opex_aux_neq[0] | s_opex_aux_neq[1]));
+            //Detect discrepancy in the availability of the executor result
+            assign s_ex_discr[i]   = s_opex_ictrl_i[i%2][ICTRL_UNIT_MDU] & (s_ex_fin[0] ^ s_ex_fin[1]);
+            //Reset the instruction if discrepancy exists
+            assign s_rstpipe[i]    = s_ex_discr[i] | s_opex_esn_neq[0] | s_opex_esn_neq[1] | (!s_ex_empty[i] & (s_opex_aux_neq[0] | s_opex_aux_neq[1]));
             //Only two executors are present in the EX stage, they results must be compared
             assign s_exma_neq_o[i] = (s_rexma_val[0] != s_rexma_val[1]);
 `endif                             

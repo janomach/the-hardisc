@@ -51,9 +51,9 @@ module predictor
     //Prediction
     assign s_predictor      = s_bp_taken & (~s_bp_ualigc | ~s_jp_taken);
     assign s_taken_align    = (s_jp_taken ? ~s_jp_ualigc : 1'b0) | (s_bp_taken ? ~s_bp_ualigc : 1'b0);
-    assign s_taken_ualign   = ~s_taken_align & ((s_jp_taken ? s_jp_ualigc : 1'b0) | (s_bp_taken ? s_bp_ualigc : 1'b0));
+    assign s_taken_ualign   = (s_jp_taken ? s_jp_ualigc : 1'b0) | (s_bp_taken ? s_bp_ualigc : 1'b0);
     assign s_pred_add[0]    = (s_predictor) ? s_bp_tadd : s_jp_tadd;
-    assign s_pred_taken[0]  = {s_taken_ualign,s_taken_align};
+    assign s_pred_taken[0]  = {s_taken_ualign | s_taken_align, s_taken_align};
 
     //Updating
     /* 
