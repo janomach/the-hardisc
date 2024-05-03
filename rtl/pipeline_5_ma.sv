@@ -114,15 +114,16 @@ module pipeline_5_ma (
     //Triple-Modular-Redundancy
     tmr_comb #(.W($size(rf_add))) m_tmr_mawb_rd (.s_d_i(s_rmawb_rd),.s_d_o(s_mawb_rd));
     tmr_comb #(.W($size(ictrl))) m_tmr_mawb_ictrl (.s_d_i(s_rmawb_ictrl),.s_d_o(s_mawb_ictrl));
+    tmr_comb m_tmr_toc_addr (.s_d_i(s_ma_toc_addr),.s_d_o(s_ma_toc_addr_o));
 `else
     assign s_mawb_rd        = s_rmawb_rd;
     assign s_mawb_ictrl     = s_rmawb_ictrl;
+    assign s_ma_toc_addr_o  = s_ma_toc_addr;
 `endif
 
     //Reset-point output for lower stages
     assign s_rst_point_o        = s_rst_point;
     //Signals for the Predictor and Transfer of Control
-    assign s_ma_toc_addr_o      = s_ma_toc_addr;
     assign s_bop_pop_o          = s_exma_ictrl_i[0][ICTRL_UNIT_BRU] & s_exma_payload_i[0][11];
     assign s_ma_pred_clean_o    = s_exma_imiscon_i[0] == IMISCON_DSCR;
     assign s_ma_pred_btbu_o     = s_ma_pred_btbu[0];

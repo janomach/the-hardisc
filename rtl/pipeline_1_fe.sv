@@ -85,8 +85,8 @@ module pipeline_1_fe #(
     logic[`OPTION_FIFO_SIZE-1:0] s_ifb_occupied[PROT_2REP];
     logic[IFB_WIDTH-1:0] s_ifb_last_entry[PROT_2REP];
     logic[31:0] s_f0_add_next[PROT_2REP];
-    logic s_ras_toc_valid[PROT_2REP], s_ras_pred_free[PROT_2REP];
-    logic[1:0] s_ras_toc[PROT_2REP];
+    logic s_ras_toc_valid[PROT_2REP], s_ras_pred_free[PROT_2REP], s_pred_toc_valid[PROT_2REP];
+    logic[1:0] s_ras_toc[PROT_2REP], s_pred_toc[PROT_2REP];
     logic s_pma_idempotent[PROT_2REP], s_pma_violation[PROT_2REP], s_wo_trreq_fe1[PROT_2REP];
     
     //Instruction bus interface signals
@@ -102,9 +102,9 @@ module pipeline_1_fe #(
 `endif
 
     //Prediction of the next fetch address
-    logic[1:0] s_pred_taken, s_pred_toc, s_ras_pop;
+    logic[1:0] s_pred_taken, s_ras_pop;
     logic[31:0] s_pred_tadd;
-    logic s_bop_push, s_bop_hazard, s_ras_enable, s_pred_toc_valid, s_bop_full, s_bop_afull;
+    logic s_bop_push, s_bop_hazard, s_ras_enable, s_bop_full, s_bop_afull;
     logic[30:0] s_bop_wdata, s_ras_pred_add;
 
     //Predictor for branches and jumps
@@ -146,10 +146,6 @@ module pipeline_1_fe #(
         .s_pop_addr_o(s_ras_pred_add)
     );
 
-    //Predictor barrier, active if BOP is full or prediction is not allowed
-    assign s_pred_toc       = (s_bop_hazard | s_pred_disable_i) ? 2'b0 : s_pred_taken;
-    assign s_pred_toc_valid = s_pred_toc != 2'b0;
-
     //Update and control of the BOP
     assign s_bop_push       = (s_ifb_push[0] & (s_rfe1_inf[0] != 2'b0)) | s_ras_toc_valid[0];
     assign s_bop_wdata      = s_ras_toc_valid[0] ? s_ras_pred_add : s_rfe0_add[0];
@@ -177,9 +173,13 @@ module pipeline_1_fe #(
             assign s_flush_fe[i]        = s_flush_i[i]; 
 
             //RAS barrier, active if BOP is full, prediction is not allowed, last entry of IFB is not valid, or predictor did prediction 
-            assign s_ras_toc[i]         = (s_bop_hazard | s_pred_disable_i | ~s_ras_pred_free[i] | ~s_ifb_occupied[i][0]) ? 2'b0 : s_ras_pop;
+            assign s_ras_toc[i]         = (s_bop_hazard | s_pred_disable_i | ~s_ras_pred_free[i] | ~s_ifb_occupied[i][0] | (s_ifb_occupied[i] == 4'b1111)) ? 2'b0 : s_ras_pop;
             assign s_ras_toc_valid[i]   = s_ras_toc[i] != 2'b0;
-            assign s_ras_pred_free[i]   = s_ifb_last_entry[i][37:36] == 2'b0; 
+            assign s_ras_pred_free[i]   = s_ifb_last_entry[i][37:36] == 2'b0;
+
+            //Predictor barrier, active if BOP is full or prediction is not allowed
+            assign s_pred_toc[i]        = (s_bop_hazard | s_pred_disable_i | ~s_pred_taken[1]) ? 2'b0 : s_pred_taken[0] ? 2'b01 : 2'b10;
+            assign s_pred_toc_valid[i]  = s_pred_toc[i] != 2'b0; 
 
             //Update and control of the IFB
             assign s_ifb_pop[i]         = ~(s_stall_i[i][PIPE_ID]);
@@ -256,7 +256,7 @@ module pipeline_1_fe #(
                         //FE1 is updated with data from FE0 and the Predictor
                         s_wfe1_add[i]   = s_rfe0_add[i];
                         s_wfe1_utd[i]   = s_rfe0_utd[i];
-                        s_wfe1_inf[i]   = s_pma_violation[i] ? 2'b11 : s_pred_toc;
+                        s_wfe1_inf[i]   = (s_pma_violation[i] & s_rfe0_utd[i]) ? 2'b11 : s_pred_toc[i];
                     end
                 end
             end
@@ -283,7 +283,7 @@ module pipeline_1_fe #(
                             s_wfe0_utd[i] = ~s_ifb_occupied[i][`OPTION_FIFO_SIZE-1];
                         end
                     end else if(s_rfe0_utd[i])begin
-                        if(s_pred_toc_valid)begin
+                        if(s_pred_toc_valid[i])begin
                             //TOC signalized by Predictor
                             s_wfe0_add[i] = s_pred_tadd[31:1];
                         end else begin

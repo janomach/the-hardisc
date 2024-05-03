@@ -98,7 +98,7 @@ module csru (
     seu_ff_we_rst #(.LABEL("CSR_MTVAL"),.N(PROT_3REP)) m_mtval (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mtval_we),.s_d_i(s_wmtval),.s_q_o(s_rmtval));
     seu_ff_we_rst #(.LABEL("CSR_MIE"),.W(15),.N(PROT_3REP)) m_mie (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mie_we),.s_d_i(s_wmie),.s_q_o(s_rmie));
     seu_ff_we_rst #(.LABEL("CSR_MIP"),.W(15),.N(PROT_3REP)) m_mip (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mip_we),.s_d_i(s_wmip),.s_q_o(s_rmip));
-    seu_ff_we_rst #(.LABEL("CSR_MHRDCTRL0"),.N(PROT_3REP),.RSTVAL(32'h1293)) m_mhrdctrl0 (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mhrdctrl0_we),.s_d_i(s_wmhrdctrl0),.s_q_o(s_rmhrdctrl0));
+    seu_ff_we_rst #(.LABEL("CSR_MHRDCTRL0"),.N(PROT_3REP),.RSTVAL(32'h1493)) m_mhrdctrl0 (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mhrdctrl0_we),.s_d_i(s_wmhrdctrl0),.s_q_o(s_rmhrdctrl0));
 `ifdef PROTECTED
     seu_ff_we_rst #(.LABEL("CSR_MADDRERR"),.N(PROT_3REP)) m_maddrerr (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_maddrerr_we),.s_d_i(s_wmaddrerr),.s_q_o(s_rmaddrerr));
 
@@ -426,7 +426,7 @@ module csru (
                 07: enable automatic pipeline restart after the first bus error
                 06: reserved
                 05-04: acm settings
-                03: enable predictor
+                03: disable predictor
                 02: max consecutive restarts not reached
                 01: after the max number of consecutive restarts, try to disable the predictor at first
                 00: enable monitoring of consecutive restarts          
