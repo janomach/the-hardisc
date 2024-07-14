@@ -54,7 +54,8 @@ module ahb_timer#(
     logic[MSB:0] r_address, r_paddress, s_ra;
     logic[1:0] r_size;
     logic r_write, r_trans, r_hresp;
-    logic[63:0] r_mtime, s_mtime, r_mtimecmp0; 
+    logic[63:0] s_mtime, r_mtimecmp0; 
+    logic[7:0] r_mtime[8];
     logic[31:0] r_data, r_wtor_data;
     logic s_wea[4];
     logic s_we, r_wtor, s_cclock, s_parity_error;
@@ -93,7 +94,7 @@ module ahb_timer#(
     assign s_write_data[31:24]  = s_wea[3] ? s_hwdata_i[31:24] : s_read_data[31:24];
 
     //Timeout
-    assign s_timeout_o  = r_mtime >= r_mtimecmp0;
+    assign s_timeout_o  = {r_mtime[7],r_mtime[6],r_mtime[5],r_mtime[4],r_mtime[3],r_mtime[2],r_mtime[1],r_mtime[0]} >= r_mtimecmp0;
 
     //Response
     assign s_hrdata_o   = s_read_data;
@@ -106,25 +107,27 @@ module ahb_timer#(
     assign s_wea[2] = s_we & (((r_address[1:0] == 2'd0) & (r_size == 2'd2)) || (r_address[1:0] == 2'd2));
     assign s_wea[3] = s_we & (((r_address[1:0] == 2'd0) & (r_size == 2'd2)) || ((r_address[1:0] == 2'd2) & (r_size == 2'd1)) || (r_address[1:0] == 2'd3));
 
-    assign s_mtime  = r_mtime + 64'd1;
+    assign s_mtime  = {r_mtime[7],r_mtime[6],r_mtime[5],r_mtime[4],r_mtime[3],r_mtime[2],r_mtime[1],r_mtime[0]} + 64'd1;
 
     generate
     genvar i;
         for (i = 0; i < 4; i = i+1) begin: byte_write
             always @(posedge s_clk_i or negedge s_resetn_i) begin
-                //mtime
+                //mtime                   
                 if(~s_resetn_i)
-                    r_mtime[(i+1)*8-1:i*8] <= 32'b0;
+                    r_mtime[i] <= 8'b0;
                 else if(s_wea[i] & (r_address[MSB:2] == 2'd0))
-                    r_mtime[(i+1)*8-1:i*8] <= s_hwdata_i[(i+1)*8-1:i*8];
+                    r_mtime[i] <= s_hwdata_i[(i+1)*8-1:i*8];
                 else
-                    r_mtime[(i+1)*8-1:i*8] <= s_mtime[(i+1)*8-1:i*8];
+                    r_mtime[i] <= s_mtime[(i+1)*8-1:i*8];
                 if(~s_resetn_i)
-                    r_mtime[(i+1)*8-1 +32:i*8 +32] <= 32'b0;
+                    r_mtime[i+4] <= 8'b0;
                 else if(s_wea[i] & (r_address[MSB:2] == 2'd1))
-                    r_mtime[(i+1)*8-1 +32:i*8 +32] <= s_hwdata_i[(i+1)*8-1:i*8];
+                    r_mtime[i+4] <= s_hwdata_i[(i+1)*8-1:i*8];
                 else
-                    r_mtime[(i+1)*8-1 +32:i*8 +32] <= s_mtime[(i+1)*8-1 +32:i*8 +32];
+                    r_mtime[i+4] <= s_mtime[(i+1)*8-1 +32:i*8 +32];
+            end
+            always @(posedge s_clk_i) begin
                 //mtimecmp0
                 if(s_wea[i] & (r_address[MSB:2] == 2'd2))
                     r_mtimecmp0[(i+1)*8-1:i*8] <= s_hwdata_i[(i+1)*8-1:i*8];
@@ -142,8 +145,8 @@ module ahb_timer#(
     //Data are read in the address phase
     always_ff @(posedge s_clk_i) begin : memory_read
         case (s_ra[MSB:2])
-            2'd0: r_data <= r_mtime[31:0]; 
-            2'd1: r_data <= r_mtime[63:32]; 
+            2'd0: r_data <= {r_mtime[3],r_mtime[2],r_mtime[1],r_mtime[0]}; 
+            2'd1: r_data <= {r_mtime[7],r_mtime[6],r_mtime[5],r_mtime[4]}; 
             2'd2: r_data <= r_mtimecmp0[31:0]; 
             default: r_data <= r_mtimecmp0[63:32]; 
         endcase

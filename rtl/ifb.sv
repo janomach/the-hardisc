@@ -51,7 +51,7 @@ module ifb #(
     logic[SIZE-1:0] s_roccupied[1];
     logic[IFB_WIDTH-1:0] s_buffer0;
     logic s_pop, s_buffer_we[SIZE];
-`ifdef PROTECTED
+`ifdef PROT_INTF
     logic[31:0] s_corrected_data;
     logic[6:0] s_wchecksum[1], s_rchecksum[1], s_achecksum, s_syndrome;
     logic s_ce, s_uce, s_fetch_check;
@@ -73,7 +73,7 @@ module ifb #(
                               s_roccupied[0][SIZE-2] ? s_ubuffer[SIZE-2] :
                               s_roccupied[0][SIZE-3] ? s_ubuffer[SIZE-3] : s_buffer0;
 
-`ifdef PROTECTED
+`ifdef PROT_INTF
     //Check the fetched data for any errors
     secded_encode m_encode  (.s_data_i(s_rbuffer[0][31:0]),.s_checksum_o(s_achecksum));
     secded_analyze m_analyze(.s_syndrome_i(s_syndrome),.s_ce_o(s_ce),.s_uce_o(s_uce));
@@ -130,7 +130,7 @@ module ifb #(
         end else begin
             s_woccupied[0][0] = s_roccupied[0][0];
         end
-`ifdef PROTECTED
+`ifdef PROT_INTF
         if(s_push_i)begin
             s_wchecksum[0] = s_checksum_i;
         end else begin

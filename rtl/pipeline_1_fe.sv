@@ -93,7 +93,7 @@ module pipeline_1_fe #(
     assign s_haddr_o    = {s_rfe0_add[0][30:1],2'b0};
     assign s_htrans_o   = (s_rfe0_utd[0] && !s_pma_violation[0]) ? 2'b10 : 2'b00;
 
-`ifdef PROTECTED
+`ifdef PROT_INTF
     assign s_hparity_o[3:0] = {^s_rfe0_add[PROT_2REP-1][30:23], ^s_rfe0_add[PROT_2REP-1][22:15], ^s_rfe0_add[PROT_2REP-1][14:7], ^s_rfe0_add[PROT_2REP-1][6:1]};
     assign s_hparity_o[4]   = 1'b1;                             //hsize, hwrite, hprot, hburst, hmastlock
     assign s_hparity_o[5]   = (s_rfe0_utd[PROT_2REP-1] && !s_pma_violation[PROT_2REP-1]);  //htrans
@@ -179,7 +179,7 @@ module pipeline_1_fe #(
 
             //Predictor barrier, active if BOP is full or prediction is not allowed
             assign s_pred_toc[i]        = (s_bop_hazard | s_pred_disable_i | ~s_pred_taken[1]) ? 2'b0 : s_pred_taken[0] ? 2'b01 : 2'b10;
-            assign s_pred_toc_valid[i]  = s_pred_toc[i] != 2'b0; 
+            assign s_pred_toc_valid[i]  = s_pred_toc[i] != 2'b0;
 
             //Update and control of the IFB
             assign s_ifb_pop[i]         = ~(s_stall_i[i][PIPE_ID]);

@@ -23,6 +23,8 @@ module ahb_ram#(
     parameter GROUP = 1,
     parameter MPROB = 1,
     parameter IFP = 0,
+    parameter MEM_INIT = 0,
+    parameter MEM_FILE = "SPECIFY",
     parameter LABEL = "MEMORY"
 )
 (
@@ -71,6 +73,11 @@ module ahb_ram#(
     logic[1:0] r_delay;
 
 generate
+    initial begin
+        if(MEM_INIT == 1)begin
+            $readmemh(MEM_FILE,r_memory);
+        end
+    end
     if(SIMULATION == 1)begin
         int logging, see_prob, see_group;
         logic latency;
@@ -141,6 +148,14 @@ generate
                 end                
             end
         end
+        
+        //Disable update of the internal registers if a response is being delayed
+        always_latch begin : clockgating
+            if(~s_clk_i)
+                l_clock <= (r_delay == 2'b00);
+        end
+        
+        assign s_cclock = s_clk_i & l_clock;
 
         assign s_we     = r_write & (r_delay == 2'b00);
         assign s_ra     = (r_delay == 2'b00) ? s_haddr_i[$clog2(MEM_SIZE)-1:0] : r_address;
@@ -148,6 +163,7 @@ generate
         assign s_we     = r_write;
         assign s_ra     = s_haddr_i[$clog2(MEM_SIZE)-1:0];
         assign r_delay  = 2'b0;
+        assign s_cclock = s_clk_i;
     end
     if(IFP == 1)begin
         assign s_parity_error   = s_parity != s_hparity_i;
@@ -157,14 +173,6 @@ generate
         assign s_wrong_comb     = 1'b0;
     end
 endgenerate
-
-    //Disable update of the internal registers if a response is being delayed
-    always_latch begin : clockgating
-        if(~s_clk_i)
-            l_clock <= (r_delay == 2'b00);
-    end
-
-    assign s_cclock = s_clk_i & l_clock;
 
     assign s_parity[0]  = ^s_haddr_i[7:0];
     assign s_parity[1]  = ^s_haddr_i[15:8];
@@ -189,10 +197,10 @@ endgenerate
     assign s_byte[3]    = ((r_address[1:0] == 2'd0) && (r_size == 2'd2)) || ((r_address[1:0] == 2'd2) && (r_size == 2'd1)) || (r_address[1:0] == 2'd3);
 
     //Response
-    assign s_hrdata_o[7:0]      = s_byte[0] ? s_read_data[7:0]   : 8'dx;
-    assign s_hrdata_o[15:8]     = s_byte[1] ? s_read_data[15:8]  : 8'dx;
-    assign s_hrdata_o[23:16]    = s_byte[2] ? s_read_data[23:16] : 8'dx;
-    assign s_hrdata_o[31:24]    = s_byte[3] ? s_read_data[31:24] : 8'dx;
+    assign s_hrdata_o[7:0]      = s_byte[0] ? s_read_data[7:0]   : 8'd0;
+    assign s_hrdata_o[15:8]     = s_byte[1] ? s_read_data[15:8]  : 8'd0;
+    assign s_hrdata_o[23:16]    = s_byte[2] ? s_read_data[23:16] : 8'd0;
+    assign s_hrdata_o[31:24]    = s_byte[3] ? s_read_data[31:24] : 8'd0;
     assign s_hready_o   = !(r_hresp & r_trans) & (r_delay == 2'b00);
     assign s_hresp_o    = r_hresp;
 

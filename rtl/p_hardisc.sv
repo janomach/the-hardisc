@@ -23,7 +23,7 @@ package p_hardisc;
     parameter IFB_WIDTH     = 38;
     parameter BOP_WIDTH     = 31;
 
-`ifdef PROTECTED
+`ifdef PROT_PIPE
     parameter PROT_2REP     = 2;
     parameter PROT_3REP     = 3;
 `else
@@ -106,7 +106,7 @@ package p_hardisc;
                 //LEVEL_SUVISOR   = 2'b01,
                 LEVEL_MACHINE   = 2'b11; 
 
-`ifdef PROTECTED
+`ifdef PROT_INTF
     parameter MAX_MCSR    = 15;
 `else
     parameter MAX_MCSR    = 14;
@@ -243,6 +243,10 @@ package p_hardisc;
     } pma_cfg_t;
 
     // Default attribution when PMA is configured
-    parameter pma_cfg_t PMA_DEFAULT = '{base  : 32'b0, mask  : 32'b0, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1};
+    parameter pma_cfg_t PMA_DEFAULT[3] = '{
+        '{base  : 32'h10000000, mask  : 32'hFFF00000, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
+        '{base  : 32'h80000000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
+        '{base  : 32'h80001000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1}
+    };   
 
 endpackage

@@ -24,9 +24,7 @@ module pipeline_2_id (
     input logic[4:0] s_stall_i[PROT_3REP],          //stall signals from upper stages
     input logic s_flush_i[PROT_3REP],               //flush signal from MA stage
     output logic s_stall_o[PROT_3REP],              //signalize stalling to the FE stage
-`ifdef PROTECTED
-    input logic[1:0] s_acm_settings_i,              //acm settings
-`endif
+    input logic[1:0] s_acm_settings_i,              //acm settings - PROT_PIPE only
     input logic[4:0] s_feid_info_i[PROT_2REP],      //instruction payload information
     input logic[31:0] s_feid_instr_i[PROT_2REP],    //instruction to execute
     input logic[1:0] s_feid_pred_i[PROT_2REP],      //instruction prediction information
@@ -78,13 +76,18 @@ module pipeline_2_id (
     seu_ff_we_rst #(.LABEL("IDOP_ICTRL"),.W($size(ictrl)),.N(PROT_2REP)) m_idop_ictrl (.s_c_i(s_clk_prw),.s_we_i(s_idop_we_esn),.s_r_i(s_resetn_prw),.s_d_i(s_widop_ictrl),.s_q_o(s_ridop_ictrl));
     //Instruction misconduct indicator
     seu_ff_we_rst #(.LABEL("IDOP_IMISCON"),.W($size(imiscon)),.N(PROT_2REP)) m_idop_imiscon (.s_c_i(s_clk_prw),.s_we_i(s_idop_we_esn),.s_r_i(s_resetn_prw),.s_d_i(s_widop_imiscon),.s_q_o(s_ridop_imiscon));
-`ifdef PROTECTED
+`ifdef PROT_INTF
     //Instruction was fixed (SEU corrected)
     seu_ff_rst #(.LABEL("IDOP_FIXED"),.W(1),.N(PROT_2REP)) m_idop_fixed (.s_c_i(s_clk_prw),.s_r_i(s_resetn_prw),.s_d_i(s_widop_fixed),.s_q_o(s_ridop_fixed));
-    //ACM address
-    seu_ff_rst #(.LABEL("IDOP_ACMADD"),.W($size(rf_add)),.N(1),.RSTVAL(5'd1)) m_idop_acmadd (.s_c_i({s_clk_i[0]}),.s_r_i({s_resetn_i[0]}),.s_d_i(s_widop_acmadd),.s_q_o(s_ridop_acmadd));
 `else
     assign s_ridop_fixed[0] = 1'b0;
+`endif
+`ifdef PROT_PIPE
+    //ACM address
+    seu_ff_rst #(.LABEL("IDOP_ACMADD"),.W($size(rf_add)),.N(1),.RSTVAL(5'd1)) m_idop_acmadd (.s_c_i({s_clk_i[0]}),.s_r_i({s_resetn_i[0]}),.s_d_i(s_widop_acmadd),.s_q_o(s_ridop_acmadd));
+
+    logic s_acmadd_update, s_acmadd_enable;
+    logic[1:0] s_op_free_rp[2],s_id_free_rp[2];
 `endif
 
 	logic s_flush_id[PROT_2REP], s_stall_id[PROT_2REP];
@@ -98,10 +101,6 @@ module pipeline_2_id (
     logic s_aligner_stall[PROT_2REP], s_align_error[PROT_2REP], 
           s_aligner_nop[PROT_2REP], s_aligner_pred[PROT_2REP], s_idop_empty[PROT_2REP];
     logic [2:0] s_fetch_error[PROT_2REP];
-`ifdef PROTECTED
-    logic s_acmadd_update, s_acmadd_enable;
-    logic[1:0] s_op_free_rp[2],s_id_free_rp[2];
-`endif
 
     genvar i;
     generate  
@@ -176,7 +175,7 @@ module pipeline_2_id (
                 end
             end
 
-`ifndef PROTECTED
+`ifndef PROT_PIPE
             //Update values for IDOP read-address registers
             assign s_idop_we_rs1[i] = s_idop_we_aux[i];
             assign s_idop_we_rs2[i] = s_idop_we_aux[i];
@@ -207,7 +206,8 @@ module pipeline_2_id (
                         s_widop_rs2[i]  = s_rs2[i];
                 end
             end
-
+`endif
+`ifdef PROT_INTF
             always_comb begin : pipe_2_fixed_writer
                 if(s_flush_id[i] | (s_aligner_nop[i] & ~s_stall_id[i]))begin
                     s_widop_fixed[i]= 1'b0;
@@ -221,7 +221,7 @@ module pipeline_2_id (
         end
     endgenerate
 
-`ifdef PROTECTED
+`ifdef PROT_PIPE
     /*  Automatic Correction Mechanism - read-address preparation */
 
     //The HRDCTRL register enables pro-active search of the register file 

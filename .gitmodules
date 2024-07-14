@@ -1,0 +1,3 @@
+[submodule "static-fault-injection"]
+	path = static-fault-injection
+	url = git@github.com:janomach/static-fault-injection.git

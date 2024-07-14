@@ -18,13 +18,17 @@
 import p_hardisc::*;
 import edac::*;
 
-`ifdef PROTECTED
-`define MEMORY_IFP 1
+`ifdef PROT_INTF
+    `define MEMORY_IFP 1
+    `define INTF_REPS  3 
+    `define SYSTEM system_dcls //available systems: system_hardisc, system_dcls, system_tcls
 `else
-`define MEMORY_IFP 0
+    `define MEMORY_IFP 0
+    `define INTF_REPS  1
+    `define SYSTEM system_core 
 `endif
 
-`timescale 1ps/1ps
+`timescale 1ns/1ns
 
 module tb_mh_wrapper();
 
@@ -41,8 +45,8 @@ localparam pma_cfg_t PMA_CONFIG[SUBORDINATES] = '{
 logic[5:0] s_i_hparity[1], s_i_hparity_see[1];
 logic[6:0] s_i_hrchecksum[1], s_i_hwchecksum[1], s_i_hrchecksum_see[1], s_i_hwchecksum_see[1];
 logic[31:0] s_i_hrdata[1], s_i_haddr[1], s_i_hwdata[1], s_i_hrdata_see[1], s_i_haddr_see[1], s_i_hwdata_see[1];
-logic s_i_hwrite[1], s_i_hmastlock[1],s_i_hready[PROT_3REP],s_i_hresp[PROT_3REP], 
-        s_i_hwrite_see[1], s_i_hmastlock_see[1],s_i_hready_see[PROT_3REP],s_i_hresp_see[PROT_3REP];
+logic s_i_hwrite[1], s_i_hmastlock[1],s_i_hready[`INTF_REPS],s_i_hresp[`INTF_REPS], 
+        s_i_hwrite_see[1], s_i_hmastlock_see[1],s_i_hready_see[`INTF_REPS],s_i_hresp_see[`INTF_REPS];
 logic[1:0] s_i_htrans[1], s_i_htrans_see[1];
 logic[2:0] s_i_hsize[1],s_i_hburst[1], s_i_hsize_see[1],s_i_hburst_see[1];
 logic[3:0] s_i_hprot[1], s_i_hprot_see[1];
@@ -50,8 +54,8 @@ logic[3:0] s_i_hprot[1], s_i_hprot_see[1];
 logic[5:0] s_d_hparity[1], s_d_hparity_see[1];
 logic[6:0] s_d_hrchecksum[1], s_d_hwchecksum[1], s_d_hrchecksum_see[1], s_d_hwchecksum_see[1];
 logic[31:0] s_d_hrdata[1], s_d_haddr[1], s_d_hwdata[1], s_d_hrdata_see[1], s_d_haddr_see[1], s_d_hwdata_see[1];
-logic s_d_hwrite[1], s_d_hmastlock[1],s_d_hready[PROT_3REP],s_d_hresp[PROT_3REP], 
-        s_d_hwrite_see[1], s_d_hmastlock_see[1],s_d_hready_see[PROT_3REP],s_d_hresp_see[PROT_3REP];
+logic s_d_hwrite[1], s_d_hmastlock[1],s_d_hready[`INTF_REPS],s_d_hresp[`INTF_REPS], 
+        s_d_hwrite_see[1], s_d_hmastlock_see[1],s_d_hready_see[`INTF_REPS],s_d_hresp_see[`INTF_REPS];
 logic[1:0] s_d_htrans[1], s_d_htrans_see[1];
 logic[2:0] s_d_hsize[1],s_d_hburst[1],s_d_hsize_see[1],s_d_hburst_see[1];
 logic[3:0] s_d_hprot[1],s_d_hprot_see[1];
@@ -63,23 +67,24 @@ logic s_shready[SUBORDINATES], s_shresp[SUBORDINATES], s_shsel[SUBORDINATES];
 logic s_int_meip, s_int_mtip, s_hrdmax_rst;
 logic[31:0] r_timeout;
 
-logic s_halt;
+logic s_halt, s_sim_timeout;
 
 string binfile;
 int fd,i;
 bit [7:0] r8;
 bit [31:0] value, addr, r_clk_time;
 
-logic r_ver_clk, r_ver_rstn, r_err_clk, s_clk_see[PROT_3REP], s_resetn_see[PROT_3REP], 
-      s_clk_dut[PROT_3REP], s_resetn_dut[PROT_3REP], s_upset_clk[PROT_3REP], s_upset_resetn[PROT_3REP];
+logic r_ver_clk, r_ver_rstn, r_err_clk, s_clk_see[3], s_resetn_see[3], 
+      s_clk_dut[3], s_resetn_dut[3], s_upset_clk[3], s_upset_resetn[3];
 
 initial begin
     r_timeout   = 32'd150000;
-    r_clk_time  = 32'd768;
+    r_clk_time  = 32'd10;
     r_ver_clk   = 1'b1;
     r_err_clk   = 1'b1;
     r_ver_rstn  = 1'b0;
     addr        = 32'b0;
+    s_sim_timeout = 1'b0;
     if ($value$plusargs ("CLKPERIOD=%d", r_clk_time))
         $display ("Clock period: 0x%h", r_clk_time);
     if ($value$plusargs ("BIN=%s", binfile))
@@ -93,7 +98,7 @@ initial begin
         while ($fread(r8,fd)) begin
             value = m_memory.ahb_dmem.r_memory[addr[31:2]] | (r8<<(addr[1:0]*8));
             m_memory.ahb_dmem.r_memory[addr[31:2]] = value;
-`ifdef PROTECTED
+`ifdef PROT_INTF
             m_memory.ahb_dmem.r_cmemory[addr[31:2]] = edac_checksum(value);
 `endif
             addr = addr + 1;
@@ -108,9 +113,8 @@ initial begin
     #((r_clk_time * 20) + 1);  
     r_ver_rstn  = 1'b1;
     #(r_clk_time * 2 * r_timeout);
-
+    s_sim_timeout = 1'b1;
     $display ("Timeout!");
-    $finish;
 end
 
 always #(r_clk_time) r_ver_clk = ~r_ver_clk;
@@ -118,8 +122,8 @@ always #(r_clk_time) r_ver_clk = ~r_ver_clk;
 // WB PC extraction
 logic[31:0] s_wb_pc, r_last_rp;
 
-assign s_wb_pc = ((|dut.s_mawb_ictrl[0][4:0])) ? r_last_rp : 32'd0;
-always_ff @(posedge r_ver_clk) r_last_rp <= dut.s_rst_point[0];
+assign s_wb_pc = ((|dut.rep[0].core.s_mawb_ictrl[0][4:0])) ? r_last_rp : 32'd0;
+always_ff @(posedge r_ver_clk) r_last_rp <= dut.rep[0].core.s_rst_point[0];
 /////////////////////
 
 //GET INSTRUCTION OUT OF MEMORY
@@ -134,10 +138,10 @@ always_comb begin : wb_instr_find
         end else begin
             s_wb_instr[15:0] = m_memory.ahb_dmem.r_memory[s_mem_pc][15:0];
         end
-        if(s_wb_pc[1] & ~dut.s_mawb_ictrl[0][ICTRL_RVC])begin
+        if(s_wb_pc[1] & ~dut.rep[0].core.s_mawb_ictrl[0][ICTRL_RVC])begin
             s_wb_instr[31:16] = m_memory.ahb_dmem.r_memory[s_mem_pc + 1][15:0];
         end else begin
-            s_wb_instr[31:16] = (s_wb_pc[1] | dut.s_mawb_ictrl[0][ICTRL_RVC]) ? 16'b0 : m_memory.ahb_dmem.r_memory[s_mem_pc][31:16]; 
+            s_wb_instr[31:16] = (s_wb_pc[1] | dut.rep[0].core.s_mawb_ictrl[0][ICTRL_RVC]) ? 16'b0 : m_memory.ahb_dmem.r_memory[s_mem_pc][31:16]; 
         end
     end else begin
         s_wb_instr = 32'b0;
@@ -150,29 +154,29 @@ tracer m_tracer(
     .s_resetn_i(r_ver_rstn),
     .s_wb_pc_i(s_wb_pc),
     .s_wb_instr_i(s_wb_instr),
-    .s_wb_rd_i(dut.s_mawb_rd[0]),
-    .s_wb_val_i(dut.s_mawb_val[0]),
-    .s_dec_instr_i(dut.m_pipe_2_id.s_aligner_instr[0]),
-    .s_dut_mcycle_i(dut.m_pipe_5_ma.m_csru.s_mcycle[0]),
-    .s_dut_minstret_i(dut.m_pipe_5_ma.m_csru.s_minstret[0]),
-    .s_dut_fe0_add_i(dut.m_pipe_1_fe.s_rfe0_add[0]),
-    .s_dut_fe0_utd_i(dut.m_pipe_1_fe.s_rfe0_utd[0]),
-    .s_dut_fe1_add_i(dut.m_pipe_1_fe.s_rfe1_add[0]),
-    .s_dut_fe1_utd_i(dut.m_pipe_1_fe.s_rfe1_utd[0]),
-    .s_dut_id_ictrl_i(dut.m_pipe_2_id.s_instr_ctrl[0]),
-    .s_dut_aligner_nop_i(dut.m_pipe_2_id.s_aligner_nop[0]),
-    .s_dut_op_ictrl_i(dut.m_pipe_3_op.s_idop_ictrl_i[0]),
-    .s_dut_ex_ictrl_i(dut.m_pipe_4_ex.s_opex_ictrl_i[0]),
-    .s_dut_ma_ictrl_i(dut.m_pipe_5_ma.s_exma_ictrl_i[0]),
-    .s_dut_wb_ictrl_i(dut.s_mawb_ictrl[0]),
-    .s_dut_rfc_we_i(dut.m_rfc.s_rf_we),
-    .s_dut_rfc_wval_i(dut.m_rfc.s_rf_w_val),
-    .s_dut_rfc_wadd_i(dut.m_rfc.s_rf_w_add)
+    .s_wb_rd_i(dut.rep[0].core.s_mawb_rd[0]),
+    .s_wb_val_i(dut.rep[0].core.s_mawb_val[0]),
+    .s_dec_instr_i(dut.rep[0].core.m_pipe_2_id.s_aligner_instr[0]),
+    .s_dut_mcycle_i(dut.rep[0].core.m_pipe_5_ma.m_csru.s_mcycle[0]),
+    .s_dut_minstret_i(dut.rep[0].core.m_pipe_5_ma.m_csru.s_minstret[0]),
+    .s_dut_fe0_add_i(dut.rep[0].core.m_pipe_1_fe.s_rfe0_add[0]),
+    .s_dut_fe0_utd_i(dut.rep[0].core.m_pipe_1_fe.s_rfe0_utd[0]),
+    .s_dut_fe1_add_i(dut.rep[0].core.m_pipe_1_fe.s_rfe1_add[0]),
+    .s_dut_fe1_utd_i(dut.rep[0].core.m_pipe_1_fe.s_rfe1_utd[0]),
+    .s_dut_id_ictrl_i(dut.rep[0].core.m_pipe_2_id.s_instr_ctrl[0]),
+    .s_dut_aligner_nop_i(dut.rep[0].core.m_pipe_2_id.s_aligner_nop[0]),
+    .s_dut_op_ictrl_i(dut.rep[0].core.m_pipe_3_op.s_idop_ictrl_i[0]),
+    .s_dut_ex_ictrl_i(dut.rep[0].core.m_pipe_4_ex.s_opex_ictrl_i[0]),
+    .s_dut_ma_ictrl_i(dut.rep[0].core.m_pipe_5_ma.s_exma_ictrl_i[0]),
+    .s_dut_wb_ictrl_i(dut.rep[0].core.s_mawb_ictrl[0]),
+    .s_dut_rfc_we_i(dut.rep[0].core.m_rfc.s_rf_we),
+    .s_dut_rfc_wval_i(dut.rep[0].core.m_rfc.s_rf_w_val),
+    .s_dut_rfc_wadd_i(dut.rep[0].core.m_rfc.s_rf_w_add)
 );
 
 assign s_int_meip = 1'b0;
 
-hardisc #(.PMA_REGIONS(SUBORDINATES),.PMA_CFG(PMA_CONFIG)) dut
+`SYSTEM #(.PMA_REGIONS(SUBORDINATES),.PMA_CFG(PMA_CONFIG)) dut
 (
     .s_clk_i(s_clk_dut),
     .s_resetn_i(s_resetn_dut),
@@ -239,7 +243,7 @@ ahb_interconnect #(.SLAVES(SUBORDINATES)) data_interconnect
     .s_shresp_o(s_d_hresp[0])
 );
 
-assign s_halt = r_ver_rstn & ((m_control.s_we & (m_control.r_address[2:0] == 3'd4)) /*| dut.m_pipe_5_ma.m_csru.s_rmcause[0] == EXC_ECALL_M_VAL*/);
+assign s_halt = r_ver_rstn & ((m_control.s_we & (m_control.r_address[2:0] == 3'd4)) | s_hrdmax_rst | s_sim_timeout/*| dut.rep[0].core.m_pipe_5_ma.m_csru.s_rmcause[0] == EXC_ECALL_M_VAL*/);
 always_ff @( posedge s_halt ) begin : halt_execution
     $finish;
 end
@@ -327,7 +331,7 @@ assign s_shresp[0]      = s_m_hresp[0];
 assign s_shrdata[0]     = s_m_hrdata[0];
 assign s_shrchecksum[0] = s_m_hrchecksum[0];
 
-dahb_ram #(.MEM_SIZE(MEM_SIZE),.SIMULATION(1),.ENABLE_LOG(0),.LABEL("MEMORY"),.IFP(`MEMORY_IFP),.GROUP(SEEGR_MEMORY)) m_memory
+dahb_ram #(.MEM_SIZE(MEM_SIZE),.SIMULATION(0),.ENABLE_LOG(0),.LABEL("MEMORY"),.IFP(`MEMORY_IFP),.GROUP(SEEGR_MEMORY)) m_memory
 (
     .s_clk_i(r_ver_clk),
     .s_resetn_i(r_ver_rstn),
@@ -365,8 +369,8 @@ see_wires #(.LABEL("IHWRITE"),.GROUP(SEEGR_BUS_WIRE),.W(1))     see_ihwrite(.s_c
 see_wires #(.LABEL("IHPARITY"),.GROUP(SEEGR_BUS_WIRE),.W(6))    see_ihparity(.s_c_i(r_ver_clk),.s_d_i(s_i_hparity),.s_d_o(s_i_hparity_see));
 see_wires #(.LABEL("IHRDATA"),.GROUP(SEEGR_BUS_WIRE),.W(32),.N(1))          see_ihrdata(.s_c_i(r_ver_clk),.s_d_i(s_i_hrdata),.s_d_o(s_i_hrdata_see));
 see_wires #(.LABEL("IHRCHECKSUM"),.GROUP(SEEGR_BUS_WIRE),.W(7),.N(1))       see_ihrchecksum(.s_c_i(r_ver_clk),.s_d_i(s_i_hrchecksum),.s_d_o(s_i_hrchecksum_see));
-see_wires #(.LABEL("IHREADY"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(PROT_3REP))   see_ihready(.s_c_i(r_ver_clk),.s_d_i(s_i_hready),.s_d_o(s_i_hready_see));
-see_wires #(.LABEL("IHRESP"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(PROT_3REP))    see_ihresp(.s_c_i(r_ver_clk),.s_d_i(s_i_hresp),.s_d_o(s_i_hresp_see));
+see_wires #(.LABEL("IHREADY"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(3))   see_ihready(.s_c_i(r_ver_clk),.s_d_i(s_i_hready),.s_d_o(s_i_hready_see));
+see_wires #(.LABEL("IHRESP"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(3))    see_ihresp(.s_c_i(r_ver_clk),.s_d_i(s_i_hresp),.s_d_o(s_i_hresp_see));
 //see_wires #(.LABEL("IHWDATA"),.GROUP(SEEGR_BUS_WIRE),.W(32))    see_ihwdata(.s_c_i(r_ver_clk),.s_d_i(s_i_hwdata),.s_d_o(s_i_hwdata_see));
 //see_wires #(.LABEL("IHWCHECKSUM"),.GROUP(SEEGR_BUS_WIRE),.W(7)) see_ihwchecksum(.s_c_i(r_ver_clk),.s_d_i(s_i_hwchecksum),.s_d_o(s_i_hwchecksum_see));
 //see_wires #(.LABEL("IHBURST"),.GROUP(SEEGR_BUS_WIRE),.W(3))     see_ihburst(.s_c_i(r_ver_clk),.s_d_i(s_i_hburst),.s_d_o(s_i_hburst_see));
@@ -383,13 +387,13 @@ see_wires #(.LABEL("DHWRITE"),.GROUP(SEEGR_BUS_WIRE),.W(1))     see_dhwrite(.s_c
 see_wires #(.LABEL("DHPARITY"),.GROUP(SEEGR_BUS_WIRE),.W(6))    see_dhparity(.s_c_i(r_ver_clk),.s_d_i(s_d_hparity),.s_d_o(s_d_hparity_see));
 see_wires #(.LABEL("DHRDATA"),.GROUP(SEEGR_BUS_WIRE),.W(32),.N(1))          see_dhrdata(.s_c_i(r_ver_clk),.s_d_i(s_d_hrdata),.s_d_o(s_d_hrdata_see));
 see_wires #(.LABEL("DHRCHECKSUM"),.GROUP(SEEGR_BUS_WIRE),.W(7),.N(1))       see_dhrchecksum(.s_c_i(r_ver_clk),.s_d_i(s_d_hrchecksum),.s_d_o(s_d_hrchecksum_see));
-see_wires #(.LABEL("DHREADY"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(PROT_3REP))   see_dhready(.s_c_i(r_ver_clk),.s_d_i(s_d_hready),.s_d_o(s_d_hready_see));
-see_wires #(.LABEL("DHRESP"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(PROT_3REP))    see_dhresp(.s_c_i(r_ver_clk),.s_d_i(s_d_hresp),.s_d_o(s_d_hresp_see));
+see_wires #(.LABEL("DHREADY"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(3))   see_dhready(.s_c_i(r_ver_clk),.s_d_i(s_d_hready),.s_d_o(s_d_hready_see));
+see_wires #(.LABEL("DHRESP"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(3))    see_dhresp(.s_c_i(r_ver_clk),.s_d_i(s_d_hresp),.s_d_o(s_d_hresp_see));
 //see_wires #(.LABEL("DHBURST"),.GROUP(SEEGR_BUS_WIRE),.W(3))     see_dhburst(.s_c_i(r_ver_clk),.s_d_i(s_d_hburst),.s_d_o(s_d_hburst_see));
 //see_wires #(.LABEL("DHMASTLOCK"),.GROUP(SEEGR_BUS_WIRE),.W(1))  see_dhmastlock(.s_c_i(r_ver_clk),.s_d_i(s_d_hmastlock),.s_d_o(s_d_hmastlock_see));
 //see_wires #(.LABEL("DHPROT"),.GROUP(SEEGR_BUS_WIRE),.W(4))      see_dhprot(.s_c_i(r_ver_clk),.s_d_i(s_d_hprot),.s_d_o(s_d_hprot_see));
 
-`ifdef PROTECTED
+`ifdef PROT_INTF
 //replication is at the ouput of the interconnect
 assign s_d_hready[1]    = s_d_hready[0];
 assign s_d_hready[2]    = s_d_hready[0];
@@ -406,15 +410,15 @@ assign s_i_hresp[2]     = s_i_hresp[0];
    - each fault creates a new rising and falling edge during the second half of the source clock period 
 */
 `ifdef SEE_TESTING
-see_insert #(.W(1),.N(PROT_3REP),.GROUP(SEEGR_CORE_WIRE),.ELOG("T"),.LABEL("CLK"),.MPROB(0)) see_clk(.s_clk_i(r_ver_clk),.s_upset_o(s_upset_clk));
-see_insert #(.W(1),.N(PROT_3REP),.GROUP(SEEGR_CORE_WIRE),.ELOG("T"),.LABEL("RSTN"),.MPROB(0)) see_rst(.s_clk_i(r_ver_clk),.s_upset_o(s_upset_resetn));
+see_insert #(.W(1),.N(3),.GROUP(SEEGR_CORE_WIRE),.ELOG("T"),.LABEL("CLK"),.MPROB(0)) see_clk(.s_clk_i(r_ver_clk),.s_upset_o(s_upset_clk));
+see_insert #(.W(1),.N(3),.GROUP(SEEGR_CORE_WIRE),.ELOG("T"),.LABEL("RSTN"),.MPROB(0)) see_rst(.s_clk_i(r_ver_clk),.s_upset_o(s_upset_resetn));
 
 always #(r_clk_time + {1'b0,r_clk_time[31:1]}) r_err_clk = ~r_err_clk;
 `endif
 
 genvar s;
 generate
-    for(s=0;s<PROT_3REP;s++)begin
+    for(s=0;s<3;s++)begin
 `ifdef SEE_TESTING
         assign s_clk_see[s]     = (~s_upset_clk[s] | r_ver_clk) ? r_ver_clk : r_err_clk;
         assign s_resetn_see[s]  = (r_ver_rstn ^ s_upset_resetn[s]);
