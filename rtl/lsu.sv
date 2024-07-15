@@ -112,9 +112,11 @@ module lsu (
     //Majority voting prevents save of corrupted checksum 
     tmr_comb #(.OUT_REPS(1),.W(7)) m_tmr_schecksum (.s_d_i(s_checksum),.s_d_o(s_wchecksum));
 `else
+`ifdef PROT_INTF
     assign s_fsm[0]         = s_rfsm[0];
     assign s_wdata[0]       = s_rwdata[0];
     assign s_wchecksum[0]   = s_checksum[0];
+`endif
 `endif
 
     genvar i;

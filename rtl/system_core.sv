@@ -70,8 +70,8 @@ generate
     for (i = 0; i < 1;i++ ) begin : rep
         hardisc #(.PMA_REGIONS(PMA_REGIONS),.PMA_CFG(PMA_CFG)) core
         (
-            .s_clk_i(s_clk_i),
-            .s_resetn_i(s_resetn_i),
+            .s_clk_i({s_clk_i[0]}),
+            .s_resetn_i({s_resetn_i[0]}),
             .s_int_meip_i(s_int_meip_i),
             .s_int_mtip_i(s_int_mtip_i),
             .s_boot_add_i(s_boot_add_i),

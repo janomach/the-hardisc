@@ -21,7 +21,7 @@ import edac::*;
 `ifdef PROT_INTF
     `define MEMORY_IFP 1
     `define INTF_REPS  3 
-    `define SYSTEM system_dcls //available systems: system_hardisc, system_dcls, system_tcls
+    `define SYSTEM system_hardisc //available systems: system_hardisc, system_dcls, system_tcls
 `else
     `define MEMORY_IFP 0
     `define INTF_REPS  1
@@ -369,8 +369,8 @@ see_wires #(.LABEL("IHWRITE"),.GROUP(SEEGR_BUS_WIRE),.W(1))     see_ihwrite(.s_c
 see_wires #(.LABEL("IHPARITY"),.GROUP(SEEGR_BUS_WIRE),.W(6))    see_ihparity(.s_c_i(r_ver_clk),.s_d_i(s_i_hparity),.s_d_o(s_i_hparity_see));
 see_wires #(.LABEL("IHRDATA"),.GROUP(SEEGR_BUS_WIRE),.W(32),.N(1))          see_ihrdata(.s_c_i(r_ver_clk),.s_d_i(s_i_hrdata),.s_d_o(s_i_hrdata_see));
 see_wires #(.LABEL("IHRCHECKSUM"),.GROUP(SEEGR_BUS_WIRE),.W(7),.N(1))       see_ihrchecksum(.s_c_i(r_ver_clk),.s_d_i(s_i_hrchecksum),.s_d_o(s_i_hrchecksum_see));
-see_wires #(.LABEL("IHREADY"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(3))   see_ihready(.s_c_i(r_ver_clk),.s_d_i(s_i_hready),.s_d_o(s_i_hready_see));
-see_wires #(.LABEL("IHRESP"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(3))    see_ihresp(.s_c_i(r_ver_clk),.s_d_i(s_i_hresp),.s_d_o(s_i_hresp_see));
+see_wires #(.LABEL("IHREADY"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(`INTF_REPS))   see_ihready(.s_c_i(r_ver_clk),.s_d_i(s_i_hready),.s_d_o(s_i_hready_see));
+see_wires #(.LABEL("IHRESP"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(`INTF_REPS))    see_ihresp(.s_c_i(r_ver_clk),.s_d_i(s_i_hresp),.s_d_o(s_i_hresp_see));
 //see_wires #(.LABEL("IHWDATA"),.GROUP(SEEGR_BUS_WIRE),.W(32))    see_ihwdata(.s_c_i(r_ver_clk),.s_d_i(s_i_hwdata),.s_d_o(s_i_hwdata_see));
 //see_wires #(.LABEL("IHWCHECKSUM"),.GROUP(SEEGR_BUS_WIRE),.W(7)) see_ihwchecksum(.s_c_i(r_ver_clk),.s_d_i(s_i_hwchecksum),.s_d_o(s_i_hwchecksum_see));
 //see_wires #(.LABEL("IHBURST"),.GROUP(SEEGR_BUS_WIRE),.W(3))     see_ihburst(.s_c_i(r_ver_clk),.s_d_i(s_i_hburst),.s_d_o(s_i_hburst_see));
@@ -387,8 +387,8 @@ see_wires #(.LABEL("DHWRITE"),.GROUP(SEEGR_BUS_WIRE),.W(1))     see_dhwrite(.s_c
 see_wires #(.LABEL("DHPARITY"),.GROUP(SEEGR_BUS_WIRE),.W(6))    see_dhparity(.s_c_i(r_ver_clk),.s_d_i(s_d_hparity),.s_d_o(s_d_hparity_see));
 see_wires #(.LABEL("DHRDATA"),.GROUP(SEEGR_BUS_WIRE),.W(32),.N(1))          see_dhrdata(.s_c_i(r_ver_clk),.s_d_i(s_d_hrdata),.s_d_o(s_d_hrdata_see));
 see_wires #(.LABEL("DHRCHECKSUM"),.GROUP(SEEGR_BUS_WIRE),.W(7),.N(1))       see_dhrchecksum(.s_c_i(r_ver_clk),.s_d_i(s_d_hrchecksum),.s_d_o(s_d_hrchecksum_see));
-see_wires #(.LABEL("DHREADY"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(3))   see_dhready(.s_c_i(r_ver_clk),.s_d_i(s_d_hready),.s_d_o(s_d_hready_see));
-see_wires #(.LABEL("DHRESP"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(3))    see_dhresp(.s_c_i(r_ver_clk),.s_d_i(s_d_hresp),.s_d_o(s_d_hresp_see));
+see_wires #(.LABEL("DHREADY"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(`INTF_REPS))   see_dhready(.s_c_i(r_ver_clk),.s_d_i(s_d_hready),.s_d_o(s_d_hready_see));
+see_wires #(.LABEL("DHRESP"),.GROUP(SEEGR_BUS_WIRE),.W(1),.N(`INTF_REPS))    see_dhresp(.s_c_i(r_ver_clk),.s_d_i(s_d_hresp),.s_d_o(s_d_hresp_see));
 //see_wires #(.LABEL("DHBURST"),.GROUP(SEEGR_BUS_WIRE),.W(3))     see_dhburst(.s_c_i(r_ver_clk),.s_d_i(s_d_hburst),.s_d_o(s_d_hburst_see));
 //see_wires #(.LABEL("DHMASTLOCK"),.GROUP(SEEGR_BUS_WIRE),.W(1))  see_dhmastlock(.s_c_i(r_ver_clk),.s_d_i(s_d_hmastlock),.s_d_o(s_d_hmastlock_see));
 //see_wires #(.LABEL("DHPROT"),.GROUP(SEEGR_BUS_WIRE),.W(4))      see_dhprot(.s_c_i(r_ver_clk),.s_d_i(s_d_hprot),.s_d_o(s_d_hprot_see));
