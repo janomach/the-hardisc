@@ -8,13 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
  - Support for the Static Fault Injection 
- Support for protected interface (by option PROT_INTF) in a configuration without protected pipeline
+ - Support for protected interface (by option PROT_INTF) in a configuration without protected pipeline
  - Examples of lockstepped systems (triple and double) based on the unproted version of the core
  - Tracer supports B-extension instructions 
 
 ### Changed
  - Option PROTECTED was renamed to PROT_PIPE (protected pipeline)
- - Maximum maximum number of consecutive restarts in the mhrdctrl0 CSR were set to 4
+ - Maximum number of consecutive restarts in the mhrdctrl0 CSR were set to 4
  - Default size of branch/jump predictors
 
 ## [1.4.1] - 2024-05-03
