@@ -61,7 +61,7 @@ module lsu (
     logic[1:0] s_htrans[PROT_2REP];
     logic[31:0] s_haddr[PROT_2REP];
     logic s_hwrite[PROT_2REP];
-`ifdef PROTECTED
+`ifdef PROT_INTF
     logic s_error[PROT_3REP], s_rchecksynd[PROT_3REP], s_wchecksynd[PROT_3REP], s_syndrome_we[PROT_3REP]; 
     logic rmw_activate[PROT_3REP], s_ce[PROT_3REP], s_uce[PROT_3REP];
     logic[31:0] s_data_merged[PROT_3REP], s_data_fixed[PROT_3REP], s_wdata[1];
@@ -73,19 +73,13 @@ module lsu (
     seu_ff_we_rst #(.LABEL("WDATA"),.N(PROT_3REP))m_wdata (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_data_we),.s_d_i(s_wwdata),.s_q_o(s_rwdata));
     //Bus-transfer error
     seu_ff_rst #(.LABEL("HRESP"),.W(1),.N(PROT_3REP))m_hresp (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_d_i(s_whresp),.s_q_o(s_rhresp));
-`ifdef PROTECTED
+`ifdef PROT_INTF
     //Finite state machine for the Read-Modify-Write sequence
     seu_ff_rst #(.LABEL("FSM"),.W(2),.N(PROT_3REP))m_fsm (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_d_i(s_wfsm),.s_q_o(s_rfsm));
     //Indicator to check the syndrome of loaded data
     seu_ff_rst #(.LABEL("CHECKSYND"),.W(1),.N(PROT_3REP))m_checksynd (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_d_i(s_wchecksynd),.s_q_o(s_rchecksynd));
     //Syndrome of the loaded value
     seu_ff_we_rst #(.LABEL("LSYNDROME"),.N(PROT_3REP),.W(7))m_lsyndrome(.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_syndrome_we),.s_d_i(s_wlsyndrome),.s_q_o(s_rlsyndrome)); 
-    //Majority voting for state of internal FSM - WARNING: potential single point of failure
-    tmr_comb #(.W(2)) m_tmr_fsm (.s_d_i(s_rfsm),.s_d_o(s_fsm));
-    //Majority voting prevents save of corrupted data
-    tmr_comb #(.OUT_REPS(1)) m_tmr_sval (.s_d_i(s_rwdata),.s_d_o(s_wdata));
-    //Majority voting prevents save of corrupted checksum 
-    tmr_comb #(.OUT_REPS(1),.W(7)) m_tmr_schecksum (.s_d_i(s_checksum),.s_d_o(s_wchecksum));
 
     //Parity protection signal is determined by pipeline 1
     assign s_hparity_o[3:0] = {^s_haddr[PROT_2REP-1][31:24], ^s_haddr[PROT_2REP-1][23:16], ^s_haddr[PROT_2REP-1][15:8], ^s_haddr[PROT_2REP-1][7:0]};
@@ -110,6 +104,21 @@ module lsu (
     assign s_dp_data_o      = s_hrdata_i;
     assign s_dp_hresp_o     = s_rhresp;
 
+`ifdef PROT_PIPE
+    //Majority voting for state of internal FSM - WARNING: potential single point of failure
+    tmr_comb #(.W(2)) m_tmr_fsm (.s_d_i(s_rfsm),.s_d_o(s_fsm));
+    //Majority voting prevents save of corrupted data
+    tmr_comb #(.OUT_REPS(1)) m_tmr_sval (.s_d_i(s_rwdata),.s_d_o(s_wdata));
+    //Majority voting prevents save of corrupted checksum 
+    tmr_comb #(.OUT_REPS(1),.W(7)) m_tmr_schecksum (.s_d_i(s_checksum),.s_d_o(s_wchecksum));
+`else
+`ifdef PROT_INTF
+    assign s_fsm[0]         = s_rfsm[0];
+    assign s_wdata[0]       = s_rwdata[0];
+    assign s_wchecksum[0]   = s_checksum[0];
+`endif
+`endif
+
     genvar i;
     generate
         for (i = 0; i<PROT_2REP ;i++ ) begin : interface_replicator
@@ -118,7 +127,7 @@ module lsu (
                 s_hwrite[i] = s_opex_f_i[i][3]; 
                 s_haddr[i]  = s_ap_address_i[i];
                 s_htrans[i] = {s_ap_active[i],1'b0};
-`ifdef PROTECTED
+`ifdef PROT_INTF
                 if(rmw_activate[i])begin
                     //at the beggining of the RMW sequence is always a load from from aligned address 
                     s_hsize[i][1:0] = 2'b10;
@@ -150,7 +159,7 @@ module lsu (
                 end else if(s_ap_address_i[i%2][1:0] == 2'b11)begin
                     s_wwdata[i][31:24] = s_wdata_i[i][7:0];
                 end
-`ifdef PROTECTED
+`ifdef PROT_INTF
                 if(s_fsm[i] == LSU_RMW_WRITE) begin
                     //Save merged data, that will be send in the following cycle
                     s_wwdata[i] = s_data_merged[i];
@@ -160,7 +169,7 @@ module lsu (
 
             //LSU activation
             assign s_ap_active[i]   = s_ap_approve_i[i] & ~s_flush_i[i];
-`ifndef PROTECTED
+`ifndef PROT_INTF
             //Save bus responses
             assign s_whresp[i]      = ~s_hready_i[i] & s_hresp_i[i];        
             assign s_data_we[i]     = s_hready_i[i] & s_ap_active[i] & s_opex_f_i[i%2][3];

@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2024-07-16
+
+### Added
+ - Support for the Static Fault Injection 
+ Support for protected interface (by option PROT_INTF) in a configuration without protected pipeline
+ - Examples of lockstepped systems (triple and double) based on the unproted version of the core
+ - Tracer supports B-extension instructions 
+
+### Changed
+ - Option PROTECTED was renamed to PROT_PIPE (protected pipeline)
+ - Maximum maximum number of consecutive restarts in the mhrdctrl0 CSR were set to 4
+ - Default size of branch/jump predictors
+
 ## [1.4.1] - 2024-05-03
 
 ### Fixed
@@ -165,6 +178,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public version
 
+[1.5.0]: https://github.com/janomach/the-hardisc/releases/tag/v1.5.0
 [1.4.1]: https://github.com/janomach/the-hardisc/releases/tag/v1.4.1
 [1.4.0]: https://github.com/janomach/the-hardisc/releases/tag/v1.4.0
 [1.3.3]: https://github.com/janomach/the-hardisc/releases/tag/v1.3.3

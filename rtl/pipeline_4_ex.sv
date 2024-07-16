@@ -46,9 +46,7 @@ module pipeline_4_ex #(
     output logic s_lsu_idempotent_o[PROT_3REP],     //LSU idempotent access
     output logic s_lsu_approve_o[PROT_3REP],        //LSU address phase approval
 
-`ifdef PROTECTED
-    output logic s_exma_neq_o[PROT_3REP],           //discrepancy in results          
-`endif
+    output logic s_exma_neq_o[PROT_3REP],           //discrepancy in results - PROT_PIPE only          
     output ictrl s_exma_ictrl_o[PROT_3REP],         //instruction control indicator for MA stage
     output imiscon s_exma_imiscon_o[PROT_3REP],     //instruction misconduct indicator for MA stage
     output f_part s_exma_f_o[PROT_3REP],            //instruction function for MA stage
@@ -71,7 +69,7 @@ module pipeline_4_ex #(
     logic s_stall_ex[PROT_3REP], s_flush_ex[PROT_3REP], s_prevent_ex[PROT_3REP], s_lsu[PROT_3REP], s_lsu_misa[PROT_3REP], 
           s_ex_fin[PROT_2REP], s_bubble[PROT_3REP], s_pma_violation[PROT_3REP], s_ex_empty[PROT_3REP];
     logic s_exma_we_aux[PROT_3REP], s_exma_we_esn[PROT_3REP];
-`ifdef PROTECTED
+`ifdef PROT_PIPE
     logic s_opex_esn_neq[PROT_2REP], s_opex_aux_neq[PROT_2REP], s_rstpipe[PROT_3REP], s_ex_discr[PROT_3REP];
 `endif
 
@@ -100,7 +98,7 @@ module pipeline_4_ex #(
     //Transfer started
     seu_ff_rst #(.LABEL("EXMA_TSTRD"),.N(PROT_3REP),.W(1))m_exma_tstrd (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_d_i(s_wexma_tstrd),.s_q_o(s_rexma_tstrd));    
 
-`ifdef PROTECTED
+`ifdef PROT_PIPE
     //Triple-Modular-Redundancy
     tmr_comb #(.W(12)) m_tmr_exma_payload (.s_d_i(s_rexma_payload),.s_d_o(s_exma_payload));
     tmr_comb #(.W(32)) m_tmr_exma_val (.s_d_i(s_rexma_val),.s_d_o(s_exma_val));
@@ -127,7 +125,7 @@ module pipeline_4_ex #(
     genvar i;
     generate
         for (i = 0; i<PROT_2REP ;i++ ) begin : ex_replicator_2
-`ifdef PROTECTED
+`ifdef PROT_PIPE
             //OPEX registers replicas comparision
             assign s_opex_aux_neq[i] = (s_opex_op1_i[0] != s_opex_op1_i[1]) | (s_opex_op2_i[0] != s_opex_op2_i[1]) | 
                                        (s_opex_rd_i[0] != s_opex_rd_i[1]) | (s_opex_payload_i[0] != s_opex_payload_i[1]) | 
@@ -174,18 +172,20 @@ module pipeline_4_ex #(
             assign s_exma_we_esn[i]= s_flush_ex[i] || !s_stall_ex[i];
             //Bubble can happen only from MDU
             assign s_bubble[i]  = (s_opex_ictrl_i[i%2][ICTRL_UNIT_MDU] & ~s_ex_fin[0] 
-`ifdef PROTECTED
+`ifdef PROT_PIPE
                                     & ~s_ex_fin[1] //Disable a bubble if at least one replica signalizes a finish
 `endif
                                   ) | (!s_d_hready_i[i] & s_opex_ictrl_i[i%2][ICTRL_UNIT_LSU]);
-`ifdef PROTECTED
+`ifdef PROT_PIPE
             //Detect discrepancy in the availability of the executor result
             assign s_ex_discr[i]   = s_opex_ictrl_i[i%2][ICTRL_UNIT_MDU] & (s_ex_fin[0] ^ s_ex_fin[1]);
             //Reset the instruction if discrepancy exists
             assign s_rstpipe[i]    = s_ex_discr[i] | s_opex_esn_neq[0] | s_opex_esn_neq[1] | (!s_ex_empty[i] & (s_opex_aux_neq[0] | s_opex_aux_neq[1]));
             //Only two executors are present in the EX stage, they results must be compared
             assign s_exma_neq_o[i] = (s_rexma_val[0] != s_rexma_val[1]);
-`endif                             
+`else
+            assign s_exma_neq_o[i] = 1'b0;
+`endif
             //Forward data from the upper stages registers to the instruction operands in EX stage
             assign s_operand1[i]= (s_opex_fwd_i[i%2][0]) ? s_exma_val[i] : (s_opex_fwd_i[i%2][2]) ? s_mawb_val_i[i] : s_opex_op1_i[i%2];
             assign s_operand2[i]= (s_opex_fwd_i[i%2][1]) ? s_exma_val[i] : (s_opex_fwd_i[i%2][3]) ? s_mawb_val_i[i] : s_opex_op2_i[i%2];
@@ -202,7 +202,7 @@ module pipeline_4_ex #(
             assign s_lsu_misa[i]= ((|s_opex_op1_i[i%2][1:0] & s_opex_f_i[i%2][1]) | (s_opex_op1_i[i%2][0] & s_opex_f_i[i%2][0]));
             //Data bus transfer activation
             assign s_lsu[i]     = s_opex_ictrl_i[i%2][ICTRL_UNIT_LSU] & ~s_lsu_misa[i] & ~s_prevent_ex[i] & ~s_pma_violation[i]
-`ifdef PROTECTED            
+`ifdef PROT_PIPE            
                                 & ~s_rstpipe[i]
 `endif
                                 ;
@@ -219,12 +219,12 @@ module pipeline_4_ex #(
                 //Payload for the MA stage
                 s_wexma_payload[i]  = {s_opex_payload_i[i%2][20],s_opex_payload_i[i%2][10:0]};
                 s_wexma_imiscon[i]  = 
-`ifdef PROTECTED
+`ifdef PROT_PIPE
                                         s_rstpipe[i] ? IMISCON_DSCR :                                          
 `endif
                                         (s_pma_violation[i] & s_opex_ictrl_i[i%2][ICTRL_UNIT_LSU]) ? IMISCON_PMAV : s_opex_imiscon_i[i%2];
                 if(s_flush_ex[i] || s_prevent_ex[i]  
-`ifdef PROTECTED
+`ifdef PROT_PIPE
                 || (s_ex_empty[i] & ~s_rstpipe[i])
 `else
                 || s_ex_empty[i]

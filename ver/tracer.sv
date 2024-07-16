@@ -206,12 +206,39 @@ module tracer
                 case (instr[14:12])
                     3'b000: instr_i.text = (rs1_zero & rd_zero & instr[31:20] == 12'b0) ? {"nop    "}: 
                                       (rs1_zero) ? {"li      ",rd_name,", ",signed_12off}: {"addi    ",rd_name,", ",rs1_name,", ",signed_12off};
-                    3'b001: instr_i.text = (instr[31:25] == 7'b0) ? {"slli    ",rd_name,", ",rs1_name,", ",signed_12off} : "unknown";
+                    3'b001: begin
+                        case (instr[31:25])
+                            7'b0000000: instr_i.text = {"slli    ",rd_name,", ",rs1_name,", ",signed_12off};
+                            7'b0100100: instr_i.text = {"bclri   ",rd_name,", ",rs1_name,", ",signed_12off};
+                            7'b0110100: instr_i.text = {"binvi   ",rd_name,", ",rs1_name,", ",signed_12off};
+                            7'b0010100: instr_i.text = {"bseti   ",rd_name,", ",rs1_name,", ",signed_12off};
+                            7'b0110000: begin
+                                case (instr[24:20])
+                                    5'b00000: instr_i.text = {"clz     ",rd_name,", ",rs1_name};
+                                    5'b00010: instr_i.text = {"cpop    ",rd_name,", ",rs1_name};
+                                    5'b00001: instr_i.text = {"ctz     ",rd_name,", ",rs1_name};
+                                    5'b00100: instr_i.text = {"sext.b  ",rd_name,", ",rs1_name};
+                                    5'b00101: instr_i.text = {"sext.h  ",rd_name,", ",rs1_name};
+                                    default:instr_i.text = "unknown";
+                                endcase
+                            end
+                            default: instr_i.text = "unknown";
+                        endcase
+                    end
                     3'b010: instr_i.text = {"slti    ",rd_name,", ",rs1_name,", ",signed_12off};
                     3'b011: instr_i.text = {"sltiu   ",rd_name,", ",rs1_name,", ",signed_12off};
                     3'b100: instr_i.text = {"xori    ",rd_name,", ",rs1_name,", ",signed_12off};
-                    3'b101: instr_i.text = (instr[31:25] == 7'b0000000) ? {"srli    ",rd_name,", ",rs1_name,", ",signed_12off} : 
-                                      (instr[31:25] == 7'b0100000) ? {"srai    ",rd_name,", ",rs1_name,", ",signed_12off} : "unknown";
+                    3'b101: begin
+                        case (instr[31:25])
+                            7'b0000000: instr_i.text = {"srli    ",rd_name,", ",rs1_name,", ",signed_12off};
+                            7'b0100000: instr_i.text = {"srai    ",rd_name,", ",rs1_name,", ",signed_12off};
+                            7'b0100100: instr_i.text = {"bexti   ",rd_name,", ",rs1_name,", ",signed_12off};
+                            7'b0110000: instr_i.text = {"rori   ",rd_name,", ",rs1_name,", ",signed_12off};
+                            7'b0010100: instr_i.text = (instr[24:20] == 5'b00111) ? {"orc.b   ",rd_name,", ",rs1_name} : "unknown";
+                            7'b0110100: instr_i.text = (instr[24:20] == 5'b11000) ? {"rev8    ",rd_name,", ",rs1_name} : "unknown";
+                            default: instr_i.text = "unknown";
+                        endcase
+                    end
                     3'b110: instr_i.text = {"ori     ",rd_name,", ",rs1_name,", ",signed_12off};
                     3'b111: instr_i.text = {"andi    ",rd_name,", ",rs1_name,", ",signed_12off};
                     default:instr_i.text = "unknown";
@@ -230,6 +257,26 @@ module tracer
                     10'b0000000100: instr_i.text = {"xor     ",rd_name,", ",rs1_name,", ",rs2_name};
                     10'b0000000101: instr_i.text = {"srl     ",rd_name,", ",rs1_name,", ",rs2_name};
                     10'b0100000101: instr_i.text = {"sra     ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0100000111: instr_i.text = {"andn    ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0100100001: instr_i.text = {"bclr    ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0100100101: instr_i.text = {"bext    ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0110100001: instr_i.text = {"binv    ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0010100001: instr_i.text = {"bset    ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0000101001: instr_i.text = {"clmul   ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0000101011: instr_i.text = {"clmulh  ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0000101010: instr_i.text = {"clmulr  ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0000101110: instr_i.text = {"max     ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0000101111: instr_i.text = {"maxu    ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0000101100: instr_i.text = {"min     ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0000101101: instr_i.text = {"minu    ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0100000110: instr_i.text = {"orn     ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0110000001: instr_i.text = {"rol     ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0110000101: instr_i.text = {"ror     ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0010000010: instr_i.text = {"sh1add  ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0010000100: instr_i.text = {"sh2add  ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0010000110: instr_i.text = {"sh3add  ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0100000100: instr_i.text = {"xnor    ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0000100100: instr_i.text = (instr[24:20] == 5'b0) ? {"zext.h    ",rd_name,", ",rs1_name} : "unknown";
                     10'b0000000110: instr_i.text = {"or      ",rd_name,", ",rs1_name,", ",rs2_name};
                     10'b0000000111: instr_i.text = {"and     ",rd_name,", ",rs1_name,", ",rs2_name};
                     10'b0000001000: instr_i.text = {"mul     ",rd_name,", ",rs1_name,", ",rs2_name};

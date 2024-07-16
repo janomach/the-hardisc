@@ -46,10 +46,10 @@ vector_table:
     j _no_irq_handler   //NMI - Register-file uncorrectable error during execution
 
 _no_irq_handler:
-    tail exit
+    tail abort
 
 _exc_handler:
-    tail exit
+    tail abort
 
 _fcer_irq_handler:
     csrw mscratch, a0   //save context of a0

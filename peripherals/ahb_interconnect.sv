@@ -41,7 +41,7 @@ module ahb_interconnect #(
     output logic s_shresp_o
 );
     /* Simplified implementation of AMBA 3 AHB-Lite interconnect */
-    parameter SELMSB = (SLAVES < 32'd2) ? 32'd0 : ($clog2(SLAVES)-1);
+    localparam SELMSB = (SLAVES < 32'd2) ? 32'd0 : ($clog2(SLAVES)-1);
     logic[SELMSB:0] r_selected, s_selected[SLAVES];
     logic[SLAVES-1:0]s_slave_range;
     logic r_active, s_stall;

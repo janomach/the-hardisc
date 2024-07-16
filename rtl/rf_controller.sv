@@ -29,14 +29,13 @@ module rf_controller
     input rf_add s_r_p1_add_i[PROT_2REP],       //read port 1 address
     input rf_add s_r_p2_add_i[PROT_2REP],       //read port 2 address
 
-`ifdef PROTECTED
-    input rf_add s_exma_add_i[PROT_3REP],       //destination register address from MA stage
-    input ictrl s_exma_ictrl_i[PROT_3REP],      //instruction control indicator from MA stage
-    input rf_add s_opex_add_i[PROT_2REP],       //destination register address from EX stage
-    input ictrl s_opex_ictrl_i[PROT_2REP],      //instruction control indicator from EX stage
-    output logic[1:0] s_uce_o[PROT_2REP],       //uncorrectable error
-    output logic[1:0] s_ce_o[PROT_2REP],        //correctable error
-`endif
+    input rf_add s_exma_add_i[PROT_3REP],       //destination register address from MA stage - PROT_PIPE only
+    input ictrl s_exma_ictrl_i[PROT_3REP],      //instruction control indicator from MA stage - PROT_PIPE only
+    input rf_add s_opex_add_i[PROT_2REP],       //destination register address from EX stage - PROT_PIPE only
+    input ictrl s_opex_ictrl_i[PROT_2REP],      //instruction control indicator from EX stage - PROT_PIPE only
+    output logic[1:0] s_uce_o[PROT_2REP],       //uncorrectable error - PROT_PIPE only
+    output logic[1:0] s_ce_o[PROT_2REP],        //correctable error - PROT_PIPE only
+
     output logic[31:0] s_p1_val_o,              //read value from port 1
     output logic[31:0] s_p2_val_o               //read value from port 2
 );
@@ -51,7 +50,7 @@ module rf_controller
     assign s_rp_add[0]  = s_r_p1_add_i[0];
     assign s_rp_add[1]  = s_r_p2_add_i[0];
 
-`ifdef PROTECTED
+`ifdef PROT_PIPE
 
     assign s_clk_rf     = s_clk_i[2];
     assign s_resetn_rf  = s_resetn_i[2];
@@ -90,6 +89,9 @@ module rf_controller
     assign s_rf_w_val   = s_mawb_val_i[0];
     //address for the write port of the register file
     assign s_rf_w_add   = s_mawb_add_i[0];
+    //not utilized without PROT_PIPE
+    assign s_ce_o[0]    = 1'b0;
+    assign s_uce_o[0]   = 1'b0;
 `endif
 
     seu_ff_file #(.LABEL("RFGPR"),.W(32),.N(32),.RP(2)) m_rfgpr 

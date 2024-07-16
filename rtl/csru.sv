@@ -32,9 +32,7 @@ module csru (
     input logic s_int_lcer_i[PROT_3REP],            //correctable error on load interface
     input logic s_int_fcer_i,                       //fetch correctable error
     input logic s_nmi_luce_i[PROT_3REP],            //uncorrectable error on load interface
-`ifdef PROTECTED
-    output logic[1:0] s_acm_settings_o,             //acm settings
-`endif
+
     input logic s_hresp_i[PROT_3REP],               //registered hresp signal
     input imiscon s_imiscon_i[PROT_3REP],           //instruction misconduct indicator
     input logic s_rstpp_i[PROT_3REP],               //pipeline reset
@@ -57,6 +55,7 @@ module csru (
     output logic s_dbus_rst_en_o[PROT_3REP],        //enables the repetition of transfer that resulted in a data bus error
     output logic s_initialize_o[PROT_3REP],         //core has been reseted, jump to the reset point
     output logic s_pred_disable_o,                  //disable any predictions
+    output logic[1:0] s_acm_settings_o,             //acm settings - PROT_PIPE only
     output logic s_hrdmax_rst_o                     //max consecutive pipeline restarts reached
 );
     logic[31:0] s_mcsr_r_val[PROT_3REP], s_read_val[PROT_3REP], s_csr_w_val[PROT_3REP], s_int_vectored[PROT_3REP], s_exc_trap[PROT_3REP], s_int_trap[PROT_3REP];
@@ -78,7 +77,7 @@ module csru (
                 s_mtvec[PROT_3REP],s_mepc[PROT_3REP],s_mcause[PROT_3REP],s_mtval[PROT_3REP],s_mhrdctrl0[PROT_3REP], s_rstpoint[PROT_3REP];
     logic s_rstpoint_we[PROT_3REP], s_mstatus_we[PROT_3REP], s_minstret_we[PROT_3REP], s_minstreth_we[PROT_3REP], s_mcycle_we[PROT_3REP], s_mcycleh_we[PROT_3REP],
           s_mscratch_we[PROT_3REP], s_mtvec_we[PROT_3REP], s_mepc_we[PROT_3REP], s_mcause_we[PROT_3REP], s_mtval_we[PROT_3REP], s_mie_we[PROT_3REP], s_mip_we[PROT_3REP], s_mhrdctrl0_we[PROT_3REP];
-`ifdef PROTECTED
+`ifdef PROT_INTF
     logic s_mcsr_addr_free[PROT_3REP], s_maddrerr_we[PROT_3REP];
     logic[31:0]s_wmaddrerr[PROT_3REP],s_rmaddrerr[PROT_3REP], s_maddrerr[PROT_3REP];
 `endif
@@ -99,9 +98,10 @@ module csru (
     seu_ff_we_rst #(.LABEL("CSR_MIE"),.W(15),.N(PROT_3REP)) m_mie (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mie_we),.s_d_i(s_wmie),.s_q_o(s_rmie));
     seu_ff_we_rst #(.LABEL("CSR_MIP"),.W(15),.N(PROT_3REP)) m_mip (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mip_we),.s_d_i(s_wmip),.s_q_o(s_rmip));
     seu_ff_we_rst #(.LABEL("CSR_MHRDCTRL0"),.N(PROT_3REP),.RSTVAL(32'h1493)) m_mhrdctrl0 (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mhrdctrl0_we),.s_d_i(s_wmhrdctrl0),.s_q_o(s_rmhrdctrl0));
-`ifdef PROTECTED
+`ifdef PROT_INTF
     seu_ff_we_rst #(.LABEL("CSR_MADDRERR"),.N(PROT_3REP)) m_maddrerr (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_maddrerr_we),.s_d_i(s_wmaddrerr),.s_q_o(s_rmaddrerr));
-
+`endif
+`ifdef PROT_PIPE
     //Triple-Modular-Redundancy
     tmr_comb #(.W(8))m_tmr_mstatus (.s_d_i(s_rmstatus),.s_d_o(s_mstatus));
     tmr_comb m_tmr_minstret (.s_d_i(s_rminstret),.s_d_o(s_minstret));
@@ -133,6 +133,9 @@ module csru (
     assign s_rstpoint   = s_rrstpoint;
     assign s_mie        = s_rmie;
     assign s_mip        = s_rmip;
+`ifdef PROT_INTF
+    assign s_maddrerr   = s_rmaddrerr;
+`endif
 `endif
 
     assign s_pred_disable_o = s_mhrdctrl0[0][3];
@@ -187,13 +190,16 @@ module csru (
             assign s_commit[i]         = (s_ictrl_i[i] != 7'b0) & ~s_stall_i[i] & ~s_flush_i[i];
 
             //Interrupt and exception evaluation
-`ifdef PROTECTED
+`ifdef PROT_INTF
             assign s_nmi[i][0]         = s_nmi_luce_i[i];
             assign s_nmi[i][1]         = (s_imiscon_i[i] == IMISCON_FUCE);
-            assign s_nmi[i][2]         = (s_imiscon_i[i] == IMISCON_RUCE) & ~s_rstpp_i[i];
 `else
             assign s_nmi[i][0]         = 1'b0; //Load UCE cannot happen
             assign s_nmi[i][1]         = 1'b0; //Fetch UCE cannot happen
+`endif
+`ifdef PROT_PIPE
+            assign s_nmi[i][2]         = (s_imiscon_i[i] == IMISCON_RUCE) & ~s_rstpp_i[i];
+`else
             assign s_nmi[i][2]         = 1'b0; //Register UCE cannot happen
 `endif
 
@@ -237,7 +243,7 @@ module csru (
                     MCSR_HARTID:     s_mcsr_r_val[i] = 32'b0;
                     MCSR_HRDCTRL0:   s_mcsr_r_val[i] = s_rmhrdctrl0[i];
                     MCSR_ISA:        s_mcsr_r_val[i] = 32'h40001104; // 32bit - IMC
-`ifdef PROTECTED
+`ifdef PROT_INTF
                     MCSR_ADDRERR:    s_mcsr_r_val[i] = s_rmaddrerr[i];
 `endif
                     default:         s_mcsr_r_val[i] = 32'b0;
@@ -258,7 +264,7 @@ module csru (
             end
                                                                      
         assign s_csr_refresh[i] = 
-`ifdef PROTECTED
+`ifdef PROT_PIPE
                                   (s_mhrdctrl0[i][13:12] == 2'b00) ? 1'b1 :               //every cycle
                                   (s_mhrdctrl0[i][13:12] == 2'b01) ? !(|s_mcycle[i][7:0]) :  //every 2^8 cycles
                                   (s_mhrdctrl0[i][13:12] == 2'b10) ? !(|s_mcycle[i][15:0]) : //every 2^16 cycles
@@ -377,16 +383,20 @@ module csru (
 
             assign s_mip_we[i] = 1'b1;
             always_comb begin : mip_writer
-`ifdef PROTECTED
+`ifdef PROT_INTF
                 s_wmip[i][14]     = (s_int_lcer_i[i] & s_mie[i][14]) | s_mip[i][14];
                 s_wmip[i][13]     = (s_int_fcer_i & s_mie[i][13]) | s_mip[i][13];
+`else
+                s_wmip[i][14:13]  = 2'b0;
+`endif
+`ifdef PROT_PIPE
                 s_wmip[i][12]     = s_int_uce_i  | s_mip[i][12];
-                if (s_write_machine[i] & (s_csr_add[i] == MCSR_IP) & s_uadd_00[i]) begin
+`else
+                s_wmip[i][12]     = 1'b0;
+`endif
+                if (s_write_machine[i] & (s_csr_add[i] == MCSR_IP) & s_uadd_00[i]) begin //not applicable without PROT_INTF or PROT_PIPE
                     s_wmip[i][14:12]  = s_csr_w_val[i][14:12];
                 end
-`else
-                s_wmip[i][14:12]  = 3'b0;
-`endif
                 s_wmip[i][11]     = s_int_meip_i;
                 s_wmip[i][10:8]   = 3'b0;
                 s_wmip[i][7]      = s_int_mtip_i;
@@ -427,7 +437,7 @@ module csru (
                 06: reserved
                 05-04: acm settings
                 03: disable predictor
-                02: max consecutive restarts not reached
+                02: max consecutive restarts reached
                 01: after the max number of consecutive restarts, try to disable the predictor at first
                 00: enable monitoring of consecutive restarts          
             */
@@ -499,7 +509,7 @@ module csru (
             assign s_rstpoint_we[i] = (s_execute[i] & ~s_stall_i[i]) | s_interrupted_i[i];
             assign s_wrstpoint[i]   = s_newrst_point_i[i];
 
-`ifdef PROTECTED            
+`ifdef PROT_INTF            
             //CSR_ADDRERR is free to receive data if neither FCER nor LCER interrupt is pending
             assign s_mcsr_addr_free[i] = (~s_mie[i][13] | (s_mie[i][13] & ~s_mip[i][13])) & (~s_mie[i][14] | (s_mie[i][14] & ~s_mip[i][14]));
 

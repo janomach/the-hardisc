@@ -26,10 +26,9 @@ module pipeline_5_ma (
     input logic s_int_mtip_i,                       //timer interrupt
     input logic s_int_uce_i,                        //uncorrectable error in register-file
     input logic s_int_fcer_i,                       //fetch correctable error
-`ifdef PROTECTED
-    output logic[1:0] s_acm_settings_o,             //acm settings
-    input logic s_exma_neq_i[PROT_3REP],            //discrepancy in result
-`endif
+
+    output logic[1:0] s_acm_settings_o,             //acm settings - PROT_PIPE only
+    input logic s_exma_neq_i[PROT_3REP],            //discrepancy in result - PROT_PIPE only
 
     output logic s_stall_o[PROT_3REP],              //stall signal for lower stages
     output logic s_flush_o[PROT_3REP],              //flush signal for lower stages
@@ -88,7 +87,7 @@ module pipeline_5_ma (
     logic s_int_lcer[PROT_3REP], s_nmi_luce[PROT_3REP], s_wb_error[PROT_3REP], s_wb_reset[PROT_3REP], s_ex_discrepancy[PROT_3REP], 
             s_ibus_rst_en[PROT_3REP], s_dbus_rst_en[PROT_3REP], s_berr_rst[PROT_3REP], s_trans_rst[PROT_3REP], s_ma_empty[PROT_3REP];
     logic s_mawb_we_aux[PROT_3REP], s_mawb_we_esn[PROT_3REP];
-`ifdef PROTECTED
+`ifdef PROT_INTF
     logic[2:0] s_lsu_einfo[PROT_3REP];
     logic[1:0] s_wmawb_err[PROT_3REP], s_rmawb_err[PROT_3REP];
     logic[31:0] s_lsurdatac[PROT_3REP];
@@ -107,10 +106,11 @@ module pipeline_5_ma (
     seu_ff_we_rst #(.LABEL("MAWB_ICTRL"),.W($size(ictrl)),.N(PROT_3REP)) m_mawb_ictrl (.s_c_i(s_clk_prw),.s_r_i(s_resetn_prw),.s_we_i(s_mawb_we_esn),.s_d_i(s_wmawb_ictrl),.s_q_o(s_rmawb_ictrl));
     //Load instruction information
     seu_ff_we_rst #(.LABEL("MAWB_LDINFO"),.W($size(ld_info)),.N(PROT_3REP)) m_mawb_ldinfo (.s_c_i(s_clk_prw),.s_r_i(s_resetn_prw),.s_we_i(s_mawb_we_aux),.s_d_i(s_wmawb_ldi),.s_q_o(s_rmawb_ldi));
-`ifdef PROTECTED
+`ifdef PROT_INTF
     //Checksum for loaded value
     seu_ff #(.LABEL("MAWB_ERR"),.N(PROT_3REP),.W(2))m_mawb_err (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_err),.s_q_o(s_rmawb_err));
-    
+`endif
+`ifdef PROT_PIPE
     //Triple-Modular-Redundancy
     tmr_comb #(.W($size(rf_add))) m_tmr_mawb_rd (.s_d_i(s_rmawb_rd),.s_d_o(s_mawb_rd));
     tmr_comb #(.W($size(ictrl))) m_tmr_mawb_ictrl (.s_d_i(s_rmawb_ictrl),.s_d_o(s_mawb_ictrl));
@@ -136,7 +136,7 @@ module pipeline_5_ma (
         for ( i = 0; i<PROT_3REP ; i++ ) begin : ma_replicator
             assign s_clk_prw[i]     = s_clk_i[i];
             assign s_resetn_prw[i]  = s_resetn_i[i];
-`ifdef PROTECTED
+`ifdef PROT_PIPE
             //Only two executors are present in the EX stage, if they were used, they results must be compared
             assign s_ex_discrepancy[i] =  s_exma_neq_i[i] & (
                                           s_exma_ictrl_i[i][ICTRL_UNIT_BRU] | 
@@ -229,7 +229,7 @@ module pipeline_5_ma (
             assign s_mawb_val[i] = (s_rmawb_ictrl[i][ICTRL_UNIT_LSU]) ? s_lsurdata[i] : s_rmawb_val[i];
             //Decoding of the loaded data, that can be forwarded to the lower stages
             lsu_decoder m_lsu_decoder(.s_lsu_data_i(s_rmawb_val[i]),.s_ld_info_i(s_rmawb_ldi[i]),.s_data_o(s_lsurdata[i]));
-`ifdef PROTECTED
+`ifdef PROT_INTF
             //Decoding of the loaded data after potential fixing - long combinational path, data are not forwarded to the lower stages
             lsu_decoder m_lsu_decoder_slow(.s_lsu_data_i(s_lsu_fixed_data_i[i]),.s_ld_info_i(s_rmawb_ldi[i]),.s_data_o(s_lsurdatac[i])); 
             //Check LSU error information in WB stage        
@@ -275,9 +275,7 @@ module pipeline_5_ma (
         .s_nmi_luce_i(s_nmi_luce),
         .s_hresp_i(s_lsu_hresp_i),
         .s_imiscon_i(s_exma_imiscon_i),
-`ifdef PROTECTED
         .s_acm_settings_o(s_acm_settings_o),
-`endif
         .s_rstpp_i(s_rstpp),
         .s_interrupted_i(s_interrupt),
         .s_newrst_point_i(s_newrst_point),
