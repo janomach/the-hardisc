@@ -9,6 +9,8 @@ The protection is based on a selective replication of resources in the pipeline 
 * [On-Chip Bus Protection against Soft Errors - Review](https://www.mdpi.com/2566434)
 * [Integrating Data Protection at Interface of RISC-V Processor Core](https://doi.org/10.1109/PACET60398.2024.10497010)
 * [Interface Protection Against Transient Faults](https://doi.org/10.1109/DDECS60919.2024.10508928)
+* [Lockstep Vs Microarchitecture: A Comparison](https://doi.org/10.1109/SOCC62300.2024.10737833)
+* [Influence of Structural Units on Vulnerability of Systems with Distinct Protection Approaches](https://doi.org/10.1109/DSD64264.2024.00019)
 
 ## Documentation
 Refer to the [Wiki](https://github.com/janomach/the-hardisc/wiki) pages for a detailed explanation of the architecture, examples, and more.
