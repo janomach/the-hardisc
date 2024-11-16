@@ -54,7 +54,7 @@ module ifb #(
 `ifdef PROT_INTF
     logic[31:0] s_corrected_data;
     logic[6:0] s_wchecksum[1], s_rchecksum[1], s_achecksum, s_syndrome;
-    logic s_ce, s_uce, s_fetch_check;
+    logic s_ce, s_error, s_fetch_check;
 
     //Data checksum
     seu_ff_we #(.LABEL({LABEL,"_CHECKSUM"}),.W(7),.N(1)) m_seu_checksum(.s_c_i({s_clk_i}),.s_we_i({s_push_i}),.s_d_i(s_wchecksum),.s_q_o(s_rchecksum));
@@ -76,24 +76,24 @@ module ifb #(
 `ifdef PROT_INTF
     //Check the fetched data for any errors
     secded_encode m_encode  (.s_data_i(s_rbuffer[0][31:0]),.s_checksum_o(s_achecksum));
-    secded_analyze m_analyze(.s_syndrome_i(s_syndrome),.s_ce_o(s_ce),.s_uce_o(s_uce));
+    secded_analyze m_analyze(.s_syndrome_i(s_syndrome),.s_error_o(s_error),.s_ce_o(s_ce));
     secded_decode m_decode  (.s_data_i(s_rbuffer[0][31:0]),.s_syndrome_i(s_syndrome),.s_data_o(s_corrected_data));
     assign s_syndrome       = s_achecksum ^ s_rchecksum[0];
 
     //Check only once and only if the fetch was succesful
     assign s_fetch_check    = s_rbuffer[0][35:33] == FETCH_VALID;
     //Delay poping if the IFB has only a single entry that has an error; if the error is corretable, it will be corrected
-    assign s_valid_o        = s_roccupied[0][0] & (~s_fetch_check | s_roccupied[0][1] | ~(s_ce | s_uce));
+    assign s_valid_o        = s_roccupied[0][0] & (~s_fetch_check | s_roccupied[0][1] | ~s_error);
     //Corrected data; the decoder does not change data that are not faulty
     assign s_ubuffer[0][31:0]   = s_corrected_data;
     assign s_ubuffer[0][32:32]  = s_rbuffer[0][32:32];
 
     always_comb begin : fetch_check
         s_ubuffer[0][35:33] = s_rbuffer[0][35:33];
-        if(s_roccupied[0][0] & s_fetch_check)begin
+        if(s_roccupied[0][0] & s_fetch_check & s_error)begin
             if(s_ce) //Save information that the data contains a correctable error
                 s_ubuffer[0][35:33] = FETCH_INCER;
-            else if(s_uce) //Save information that the data contains an uncorrectable error
+            else  //Save information that the data contains an uncorrectable error
                 s_ubuffer[0][35:33] = FETCH_INUCE;
         end
     end

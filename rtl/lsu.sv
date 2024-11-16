@@ -53,7 +53,7 @@ module lsu (
     //Fix data
     input logic[31:0] s_read_data_i[PROT_3REP],     //data read by previous transfer
     output logic[31:0] s_fixed_data_o[PROT_3REP],   //fixed data
-    output logic[2:0] s_einfo_o[PROT_3REP]          //data error info
+    output logic[1:0] s_einfo_o[PROT_3REP]          //data error info
 );
     logic s_ap_active[PROT_3REP], s_whresp[PROT_3REP], s_rhresp[PROT_3REP], s_data_we[PROT_3REP];
     logic[31:0] s_wwdata[PROT_3REP], s_rwdata[PROT_3REP];
@@ -63,7 +63,7 @@ module lsu (
     logic s_hwrite[PROT_2REP];
 `ifdef PROT_INTF
     logic s_error[PROT_3REP], s_rchecksynd[PROT_3REP], s_wchecksynd[PROT_3REP], s_syndrome_we[PROT_3REP]; 
-    logic rmw_activate[PROT_3REP], s_ce[PROT_3REP], s_uce[PROT_3REP];
+    logic rmw_activate[PROT_3REP], s_ce[PROT_3REP];
     logic[31:0] s_data_merged[PROT_3REP], s_data_fixed[PROT_3REP], s_wdata[1];
     logic[6:0] s_achecksum[PROT_3REP], s_wlsyndrome[PROT_3REP], s_rlsyndrome[PROT_3REP], s_checksum[PROT_3REP], s_wchecksum[1];
     logic[1:0] s_wfsm[PROT_3REP], s_rfsm[PROT_3REP], s_fsm[PROT_3REP];
@@ -82,7 +82,15 @@ module lsu (
     seu_ff_we_rst #(.LABEL("LSYNDROME"),.N(PROT_3REP),.W(7))m_lsyndrome(.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_syndrome_we),.s_d_i(s_wlsyndrome),.s_q_o(s_rlsyndrome)); 
 
     //Parity protection signal is determined by pipeline 1
-    assign s_hparity_o[3:0] = {^s_haddr[PROT_2REP-1][31:24], ^s_haddr[PROT_2REP-1][23:16], ^s_haddr[PROT_2REP-1][15:8], ^s_haddr[PROT_2REP-1][7:0]};
+    logic[31:0] s_aux_addr;
+    assign s_aux_addr = s_haddr[PROT_2REP-1];
+    genvar p;
+    generate
+        for (p=0;p<4;p++) begin
+            assign s_hparity_o[p]   = s_aux_addr[0 + p] ^ s_aux_addr[4 + p] ^ s_aux_addr[8 + p] ^ s_aux_addr[12 + p] ^
+                                      s_aux_addr[16 + p] ^ s_aux_addr[20 + p] ^ s_aux_addr[24 + p] ^ s_aux_addr[28 + p];            
+        end
+    endgenerate
     assign s_hparity_o[4]   = (^s_hsize[PROT_2REP-1]) ^ s_hwrite[PROT_2REP-1];    //hsize, hwrite, hprot, hburst, hmastlock
     assign s_hparity_o[5]   = (^s_htrans[PROT_2REP-1]);                           //htrans
     assign s_hwdcheck_o     = s_wchecksum[0];
@@ -174,7 +182,7 @@ module lsu (
             assign s_whresp[i]      = ~s_hready_i[i] & s_hresp_i[i];        
             assign s_data_we[i]     = s_hready_i[i] & s_ap_active[i] & s_opex_f_i[i%2][3];
             assign s_fixed_data_o[i]= 32'b0;
-            assign s_einfo_o[i]     = 3'b0;
+            assign s_einfo_o[i]     = 2'b0;
             assign s_ap_busy_o[i]   = 1'b0;
 `else
             //Save bus responses - ignored if it happens without an intended bus request
@@ -234,7 +242,7 @@ module lsu (
             end
             
             //Analyze read data
-            secded_analyze m_analyze (.s_syndrome_i(s_rlsyndrome[i]),.s_ce_o(s_ce[i]),.s_uce_o(s_uce[i]));
+            secded_analyze m_analyze (.s_syndrome_i(s_rlsyndrome[i]),.s_error_o(s_error[i]),.s_ce_o(s_ce[i]));
             //Decode the read data - correct errors
             secded_decode m_decode   (.s_data_i(s_read_data_i[i]),.s_syndrome_i(s_rlsyndrome[i]),.s_data_o(s_data_fixed[i]));
 
@@ -246,8 +254,7 @@ module lsu (
 
             //Provides fixed data and information about detected errors into the MA stage
             assign s_fixed_data_o[i]= s_data_fixed[i];
-            assign s_error[i]       = s_rlsyndrome[i] != 7'b0;
-            assign s_einfo_o[i]     = {s_uce[i], s_ce[i], s_error[i]};
+            assign s_einfo_o[i]     = {s_ce[i], s_error[i]};
             //The LSU cannot accept a new transfer during RMW sequence
             assign s_ap_busy_o[i]   = (s_fsm[i] != LSU_RMW_IDLE) && !s_rhresp[i];
 `endif

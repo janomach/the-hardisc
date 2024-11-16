@@ -25,151 +25,147 @@ module acm
     input logic[31:0] s_mawb_val_i[3],  //instruction result from WB stage
     input rf_add s_mawb_add_i[3],       //destination register address from WB stage
     input ictrl s_mawb_ictrl_i[3],      //instruction control indicator from WB stage
-    input rf_add s_exma_add_i[3],       //destination register address from MA stage
-    input ictrl s_exma_ictrl_i[3],      //instruction control indicator from MA stage
-    input rf_add s_opex_add_i[2],       //destination register address from EX stage
-    input ictrl s_opex_ictrl_i[2],      //instruction control indicator from EX stage
 
     input rf_add s_r_p1_add_i[2],       //read port 1 address
     input rf_add s_r_p2_add_i[2],       //read port 2 address
-    input logic[31:0] s_r_p1_val_i,     //value read through port 1
-    input logic[31:0] s_r_p2_val_i,     //value read through port 1
+    input logic[31:0] s_r_p1_val_i[2],  //value read through port 1
+    input logic[31:0] s_r_p2_val_i[2],  //value read through port 1
 
-    output rp_info s_uce_o[2],          //uncorrectable error
-    output rp_info s_ce_o[2],           //correctable error
+    input logic[1:0] s_acm_settings_i,
+    output logic s_uce_o[2],            //uncorrectable error
 
-    output logic[31:0] s_val_o,         //write value
-    output rf_add s_add_o,              //write address
-    output logic s_we_o                 //write request
+    output logic[31:0] s_val_o[2],      //write value
+    output rf_add s_add_o[2],           //write address
+    output logic s_we_o[2]              //write request
 );
 
-    logic s_write[1];
-    logic[6:0] s_w_checksum[1], s_w1_checksum[3], s_r1_achecksum[2], s_r2_achecksum[2], s_r1_syndrome[2], s_r2_syndrome[2], s_rp_checksum[2];
-    logic s_r1_ce[2], s_r1_uce[2], s_r2_ce[2], s_r2_uce[2];
-    logic[31:0] s_r1_dec[2], s_r2_dec[2], s_wacm_val[2], s_racm_val[2], s_repair_val[2], s_file_w_val[3], s_w_data[1];
-    logic s_file_we[3], s_mawb_we[3];
-    rf_add s_file_w_add[3], s_w_address[1], s_wacm_add[2], s_racm_add[2], s_repair_add[2], s_rp_add[2];
-    rp_info s_rp1_info[2], s_rp2_info[2];
+    logic[6:0] s_w_checksum[2], s_acm_achecksum[2], s_acm_syndrome[2],
+               s_rf0_checksum[1], s_rf1_checksum[1], s_rp_checksum[2];
+    logic[1:0] s_racm_fsm[2], s_wacm_fsm[2];
+    logic[31:0] s_acm_dec[2], s_wacm_val[2], s_racm_val[2], s_repair_val[2], s_file_w_val[2], s_w_data[2];
+    logic s_file_we[2], s_mawb_we[3], s_acm_repair[2];
+    rf_add s_file_w_add[2], s_w_address[2], s_wacm_add[2], s_racm_add[2], s_repair_add[2];
     logic s_rs1_repreq[2], s_rs2_repreq[2], s_rs2_repair[2], s_rs1_repair[2];
-    logic[1:0] s_fwd[2], s_valid_err[2];
-    logic s_acm_neq[2], s_repair[2], s_fix_ce[3];
+    logic s_acm_neq[2], s_repair[2], s_fix_ce[2], s_acm_val_neq[2], s_acm_chs_eq[2];
     logic s_clk_prw[2], s_resetn_prw[2];
-    logic s_wacm_rep[2],s_racm_rep[2], s_acm_we[2];
+    logic s_acm_we[2], s_corr[2], s_write[2], s_acm_ce[2], s_acm_error[2];
 
-    seu_ff_we_rst #(.LABEL("ACM_REP"),.W(1),.N(2))   m_acm_rep (.s_c_i(s_clk_prw),.s_r_i(s_resetn_prw),.s_we_i(s_acm_we),.s_d_i(s_wacm_rep),.s_q_o(s_racm_rep));
     seu_ff_we #(.LABEL("ACM_ADD"),.W(5),.N(2))   m_acm_add (.s_c_i(s_clk_prw),.s_we_i(s_acm_we),.s_d_i(s_wacm_add),.s_q_o(s_racm_add));
     seu_ff_we #(.LABEL("ACM_VAL"),.N(2))   m_acm_val (.s_c_i(s_clk_prw),.s_we_i(s_acm_we),.s_d_i(s_wacm_val),.s_q_o(s_racm_val));
+    seu_ff_we_rst #(.LABEL("ACM_FSM"),.W(2),.N(2))   m_acm_fsm (.s_c_i(s_clk_prw),.s_r_i(s_resetn_prw),.s_we_i(s_acm_we),.s_d_i(s_wacm_fsm),.s_q_o(s_racm_fsm));
 
-    assign s_rp_add[0]  = s_r_p1_add_i[0];
-    assign s_rp_add[1]  = s_r_p2_add_i[0];
-
-    assign s_val_o  = s_w_data[0];
-    assign s_add_o  = s_w_address[0];
-    assign s_we_o   = s_write[0];
+    assign s_val_o  = s_file_w_val;
+    assign s_add_o  = s_file_w_add;
+    assign s_we_o   = s_file_we;
     
     genvar i;
     generate
-        /* Automatic Ccorrection Mechanism*/
+        /* Automatic Correction Mechanism*/
         for (i = 0; i<2 ; i++ ) begin : acm_replicator
             assign s_clk_prw[i]     = s_clk_i[i];
             assign s_resetn_prw[i]  = s_resetn_i[i];
-            //uncorrectable error at read ports
-            assign s_uce_o[i]       = {s_rp2_info[i][1],s_rp1_info[i][1]};
-            //correctable error at read ports
-            assign s_ce_o[i]        = {s_rs2_repreq[i],s_rs1_repreq[i]};
-            //value directly from register x0 is never used, so fault in it is ignored
-            assign s_valid_err[i][0]= s_r_p1_add_i[i] != 5'b0;
-            assign s_valid_err[i][1]= s_r_p2_add_i[i] != 5'b0;
-            //error information signals, info from x0 is ignored
-            assign s_rp1_info[i]    = {s_r1_uce[i] & s_valid_err[i][0], s_r1_ce[i] & s_valid_err[i][0]};
-            assign s_rp2_info[i]    = {s_r2_uce[i] & s_valid_err[i][1], s_r2_ce[i] & s_valid_err[i][1]};
-            //check whether value for read port 1 can be forwarded
-            assign s_fwd[i][0]      = (s_mawb_add_i[i] == s_r_p1_add_i[i] & s_mawb_ictrl_i[i][ICTRL_REG_DEST]) || 
-                                      (s_exma_add_i[i] == s_r_p1_add_i[i] & s_exma_ictrl_i[i][ICTRL_REG_DEST]) || 
-                                      (s_opex_add_i[i] == s_r_p1_add_i[i] & s_opex_ictrl_i[i][ICTRL_REG_DEST]);
-            //check whether value for read port 2 can be forwarded
-            assign s_fwd[i][1]      = (s_mawb_add_i[i] == s_r_p2_add_i[i] & s_mawb_ictrl_i[i][ICTRL_REG_DEST]) || 
-                                      (s_exma_add_i[i] == s_r_p2_add_i[i] & s_exma_ictrl_i[i][ICTRL_REG_DEST]) || 
-                                      (s_opex_add_i[i] == s_r_p2_add_i[i] & s_opex_ictrl_i[i][ICTRL_REG_DEST]);
+            
             //repair request - correctable errors, which cannot be forwarded   
-            assign s_rs1_repreq[i]  =  (~s_fwd[i][0] & s_rp1_info[i][0]);  
-            assign s_rs2_repreq[i]  =  (~s_fwd[i][1] & s_rp2_info[i][0]);                                  
+            assign s_rs1_repreq[i]  = (s_r_p1_val_i[0] != s_r_p1_val_i[1]);  
+            assign s_rs2_repreq[i]  = ((s_r_p2_val_i[0] != s_r_p2_val_i[1]) || s_acm_settings_i[1]);
+
             //repair request is valid, if no write to the faulty register is ongoing
-            assign s_rs1_repair[i]  = (s_rs1_repreq[i] & (~s_file_we[i] | (s_file_w_add[i] != s_r_p1_add_i[i])));
-            assign s_rs2_repair[i]  = (s_rs2_repreq[i] & (~s_file_we[i] | (s_file_w_add[i] != s_r_p2_add_i[i])));
+            assign s_rs1_repair[i]  = (s_r_p1_add_i[i] != 5'b0) && (s_rs1_repreq[i] & (~s_file_we[i] | (s_file_w_add[i] != s_r_p1_add_i[i])));
+            assign s_rs2_repair[i]  = (s_r_p2_add_i[i] != 5'b0) && (s_rs2_repreq[i] & (~s_file_we[i] | (s_file_w_add[i] != s_r_p2_add_i[i])));
 
-            //if replicas of repair-request registers have discrepancies, invalidate the request
-            assign s_acm_neq[i] = (s_racm_add[0] != s_racm_add[1]) | (s_racm_val[0] != s_racm_val[1]) | (s_racm_rep[0] != s_racm_rep[1]);
-            //request to repair value at read port 2 has a higher priority
-            assign s_repair_add[i]  = (s_rs2_repair[i]) ? s_r_p2_add_i[i] : s_r_p1_add_i[i];
-            //takes corrected value
-            assign s_repair_val[i]  = (s_rs2_repair[i]) ? s_r2_dec[i] : s_r1_dec[i];
-            //prepare write to register file in the next clock cycle
-            assign s_repair[i]      = (s_rs2_repair[i] | s_rs1_repair[i]);
+            //selects address - rs1 has priority
+            assign s_repair_add[i]  = (s_rs1_repair[i]) ? s_r_p1_add_i[i] : s_r_p2_add_i[i];
+            //selects value and checksum for the correction
+            assign s_repair_val[i]  = (s_rs1_repair[i]) ? s_r_p1_val_i[i] : s_r_p2_val_i[i];
+            //save repair flag
+            assign s_repair[i]      = (s_rs1_repair[i] | s_rs2_repair[i]);
 
-            assign s_acm_we[i]      = s_racm_rep[i] | s_repair[i];
-            always_comb begin : acm_block_rs2
-                //new repair request
-                s_wacm_rep[i]  = s_repair[i];
-                s_wacm_add[i]  = s_repair_add[i];
-                s_wacm_val[i]  = s_repair_val[i];
-                if(s_racm_rep[i] & s_mawb_ictrl_i[i][ICTRL_REG_DEST])begin
+            assign s_acm_we[i]      = (s_racm_fsm[i] != ACM_IDLE) | s_repair[i];
+
+            always_comb begin : acm_ff_update
+                s_wacm_fsm[i] = ACM_IDLE;
+                s_wacm_add[i] = s_racm_add[i];
+                s_wacm_val[i] = s_racm_val[i]; 
+                if((s_racm_fsm[i] == ACM_CORRECT) && s_mawb_we[i] && (s_mawb_add_i[i] != s_racm_add[i]))begin
                     //delay repair by one clock cycle, if WB stage performs write
-                    //invalidate repair request, if WB stage is writing to the  register waiting to repair
-                    s_wacm_rep[i]  = (s_mawb_add_i[i] != s_racm_add[i]);
-                    s_wacm_add[i]  = s_racm_add[i];
-                    s_wacm_val[i]  = s_racm_val[i];
+                    s_wacm_fsm[i]  = ACM_CORRECT;                   
+                end else if((s_racm_fsm[i] == ACM_CHECK) && !(s_mawb_we[i] && (s_mawb_add_i[i] == s_racm_add[i])) && s_acm_repair[i])begin
+                    //progress to correction phase
+                    s_wacm_fsm[i]  = ACM_CORRECT;
+                    s_wacm_val[i]  = s_acm_dec[i];
+                end else if(s_repair[i]) begin
+                    //new correction request
+                    s_wacm_fsm[i]  = ACM_CHECK;
+                    s_wacm_add[i]  = s_repair_add[i];
+                    s_wacm_val[i]  = s_repair_val[i];           
                 end
             end
         end
 
-        for (i =0 ; i<3 ;i++ ) begin : acm_replicator_1
-            //write enable from WB stage
-            assign s_mawb_we[i]     = s_mawb_ictrl_i[i][ICTRL_REG_DEST];
+        for (i = 0; i<2 ;i++ ) begin : acm_double
+            //analyze saved data
+            secded_encode m_acm_encode    (.s_data_i(s_racm_val[i]),.s_checksum_o(s_acm_achecksum[i]));
+            secded_analyze m_acm_analyze  (.s_syndrome_i(s_acm_syndrome[i]),.s_error_o(s_acm_error[i]),.s_ce_o(s_acm_ce[i]));
+            secded_decode m_acm_decode    (.s_data_i(s_racm_val[i]),.s_syndrome_i(s_acm_syndrome[i]),.s_data_o(s_acm_dec[i]));
+            assign s_acm_syndrome[i]    = s_acm_achecksum[i] ^ s_rp_checksum[i];
+            assign s_acm_chs_eq[i]      = (s_rp_checksum[0] == s_rp_checksum[1]);
+            assign s_corr[i]            = !((s_acm_error[0] & !s_acm_ce[0]) || (s_acm_error[1] & !s_acm_ce[1])) && (s_acm_dec[0] == s_acm_dec[1]);
+
+            //if replicas of repair-request registers have discrepancies, invalidate the request
+            assign s_acm_val_neq[i] = (s_racm_val[0] != s_racm_val[1]);
+            assign s_acm_neq[i]     = (s_racm_add[0] != s_racm_add[1]) || (s_racm_fsm[0] != s_racm_fsm[1]);
+
+            //determine correctability
+            assign s_acm_repair[i] = s_corr[0] && s_corr[1] && (s_acm_val_neq[i] || !s_acm_chs_eq[i]);
+
+            //signalize uncorrectable error
+            assign s_uce_o[i]      = (s_racm_fsm[i] == ACM_CHECK) && ~s_acm_neq[i] && s_acm_val_neq[i] && ~s_acm_repair[i];
+
             //write request by ACM
-            assign s_fix_ce[i]      = s_racm_rep[i%2] & ~s_acm_neq[0] & ~s_acm_neq[1];
+            assign s_fix_ce[i]     = (s_racm_fsm[i] == ACM_CORRECT) & ~s_acm_neq[i] & ~s_acm_val_neq[i];
             //write enable signal for the register file
-            assign s_file_we[i]     = s_mawb_we[i] | s_fix_ce[i];
+            assign s_file_we[i]    = s_write[i] || s_fix_ce[i]; 
             //value to be written to the register file
-            assign s_file_w_val[i]  = (s_mawb_we[i]) ? s_mawb_val_i[i] : s_racm_val[i%2];
+            assign s_file_w_val[i] = s_write[i] ? s_w_data[i] : s_racm_val[i]; 
             //address for the write port of the register file
-            assign s_file_w_add[i]  = (s_mawb_we[i]) ? s_mawb_add_i[i] : s_racm_add[i%2];       
+            assign s_file_w_add[i] = s_write[i] ? s_w_address[i] : s_racm_add[i]; 
+
+            //generate checksum to be saved alongside the data
+            secded_encode m_w1_encode (.s_data_i(s_file_w_val[i]), .s_checksum_o(s_w_checksum[i])); 
         end
 
-        for (i = 0; i<2 ;i++ ) begin : codeword_analyzer
-            secded_encode m_p1_encode   (.s_data_i(s_r_p1_val_i),.s_checksum_o(s_r1_achecksum[i]));
-            secded_analyze m_p1_analyze (.s_syndrome_i(s_r1_syndrome[i]),.s_ce_o(s_r1_ce[i]),.s_uce_o(s_r1_uce[i]));
-            secded_decode m_p1_decode   (.s_data_i(s_r_p1_val_i),.s_syndrome_i(s_r1_syndrome[i]),.s_data_o(s_r1_dec[i]));
-            assign s_r1_syndrome[i]     = s_r1_achecksum[i] ^ s_rp_checksum[0];
-
-            secded_encode m_p2_encode   (.s_data_i(s_r_p2_val_i),.s_checksum_o(s_r2_achecksum[i]));
-            secded_analyze m_p2_analyze (.s_syndrome_i(s_r2_syndrome[i]),.s_ce_o(s_r2_ce[i]),.s_uce_o(s_r2_uce[i]));
-            secded_decode m_p2_decode   (.s_data_i(s_r_p2_val_i),.s_syndrome_i(s_r2_syndrome[i]),.s_data_o(s_r2_dec[i]));
-            assign s_r2_syndrome[i]     = s_r2_achecksum[i] ^ s_rp_checksum[1];
-        end
-        for (i =0 ;i<3 ;i++ ) begin : codeword_encoder
-            secded_encode m_w1_encode
-            (
-                .s_data_i(s_w_data[0]),
-                .s_checksum_o(s_w1_checksum[i])
-            );
+        for (i =0 ; i<3 ;i++ ) begin : wb_triple
+            //write enable from WB stage
+            assign s_mawb_we[i] = s_mawb_ictrl_i[i][ICTRL_REG_DEST];     
         end
     endgenerate
 
-    //Tripple modula redundancy - final write, WARNING: potential single point of failure
-    tmr_comb #(.W(1),.OUT_REPS(1)) m_tmr_write (.s_d_i(s_file_we),.s_d_o(s_write));
-    tmr_comb #(.W(5),.OUT_REPS(1)) m_tmr_address (.s_d_i(s_file_w_add),.s_d_o(s_w_address));
-    tmr_comb #(.W(7),.OUT_REPS(1)) m_tmr_checksum (.s_d_i(s_w1_checksum),.s_d_o(s_w_checksum));
-    tmr_comb #(.W(32),.OUT_REPS(1)) m_tmr_data (.s_d_i(s_file_w_val),.s_d_o(s_w_data));
+    tmr_comb #(.W(1),.OUT_REPS(2)) m_tmr_write (.s_d_i(s_mawb_we),.s_d_o(s_write));
+    tmr_comb #(.W(5),.OUT_REPS(2)) m_tmr_address (.s_d_i(s_mawb_add_i),.s_d_o(s_w_address));
+    tmr_comb #(.W(32),.OUT_REPS(2)) m_tmr_data (.s_d_i(s_mawb_val_i),.s_d_o(s_w_data));
 
-    seu_ff_file #(.LABEL("RFACM"),.W(7),.N(32),.RP(2)) m_rf_acm 
+    assign s_rp_checksum[0] = s_rf0_checksum[0];
+    assign s_rp_checksum[1] = s_rf1_checksum[0];
+
+    seu_ff_file #(.LABEL("RFACM0"),.W(7),.N(32),.RP(1)) m_rf0_acm 
     (
-        .s_c_i(s_clk_i[2]),
-        .s_we_i(s_write[0]),
-        .s_wa_i(s_w_address[0]),
+        .s_c_i(s_clk_i[0]),
+        .s_we_i(s_file_we[0]),
+        .s_wa_i(s_file_w_add[0]),
         .s_d_i(s_w_checksum[0]),
-        .s_ra_i(s_rp_add),
-        .s_q_o(s_rp_checksum)
-    );   
+        .s_ra_i({s_racm_add[0]}),
+        .s_q_o(s_rf0_checksum)
+    );
+
+    seu_ff_file #(.LABEL("RFACM1"),.W(7),.N(32),.RP(1)) m_rf1_acm 
+    (
+        .s_c_i(s_clk_i[1]),
+        .s_we_i(s_file_we[1]),
+        .s_wa_i(s_file_w_add[1]),
+        .s_d_i(s_w_checksum[1]),
+        .s_ra_i({s_racm_add[1]}),
+        .s_q_o(s_rf1_checksum)
+    ); 
 
 endmodule
+

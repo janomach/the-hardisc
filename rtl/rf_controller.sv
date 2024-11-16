@@ -29,28 +29,32 @@ module rf_controller
     input rf_add s_r_p1_add_i[PROT_2REP],       //read port 1 address
     input rf_add s_r_p2_add_i[PROT_2REP],       //read port 2 address
 
-    input rf_add s_exma_add_i[PROT_3REP],       //destination register address from MA stage - PROT_PIPE only
-    input ictrl s_exma_ictrl_i[PROT_3REP],      //instruction control indicator from MA stage - PROT_PIPE only
-    input rf_add s_opex_add_i[PROT_2REP],       //destination register address from EX stage - PROT_PIPE only
-    input ictrl s_opex_ictrl_i[PROT_2REP],      //instruction control indicator from EX stage - PROT_PIPE only
-    output logic[1:0] s_uce_o[PROT_2REP],       //uncorrectable error - PROT_PIPE only
-    output logic[1:0] s_ce_o[PROT_2REP],        //correctable error - PROT_PIPE only
+    input logic[1:0] s_acm_settings_i,
+    output logic s_uce_o[PROT_2REP],            //uncorrectable error - PROT_PIPE only
 
-    output logic[31:0] s_p1_val_o,              //read value from port 1
-    output logic[31:0] s_p2_val_o               //read value from port 2
+    output logic[31:0] s_p1_val_o[PROT_2REP],   //read value from port 1
+    output logic[31:0] s_p2_val_o[PROT_2REP]    //read value from port 2
 );
 
-    logic[31:0] s_rf_w_val, s_rp_val[2];
-    logic s_rf_we, s_clk_rf;
-    rf_add s_rf_w_add, s_rp_add[2];
+    logic[31:0] s_rf_w_val[PROT_2REP], s_rf0_val[2], s_rp2_val[PROT_2REP];
+    logic s_rf_we[PROT_2REP], s_clk_rf;
+    rf_add s_rf_w_add[PROT_2REP], s_rf0_add[2];
 
-    assign s_p1_val_o   = s_rp_val[0];
-    assign s_p2_val_o   = s_rp_val[1];  
+    assign s_p1_val_o[0] = s_rf0_val[0];
+    assign s_p2_val_o[0] = s_rf0_val[1];  
     
-    assign s_rp_add[0]  = s_r_p1_add_i[0];
-    assign s_rp_add[1]  = s_r_p2_add_i[0];
+    assign s_rf0_add[0]  = s_r_p1_add_i[0];
+    assign s_rf0_add[1]  = s_r_p2_add_i[0];
 
 `ifdef PROT_PIPE
+    rf_add s_rf1_add[2];
+    logic[31:0] s_rf1_val[2];
+
+    assign s_p1_val_o[1] = s_rf1_val[0];
+    assign s_p2_val_o[1] = s_rf1_val[1];
+
+    assign s_rf1_add[0]  = s_r_p1_add_i[1];
+    assign s_rf1_add[1]  = s_r_p2_add_i[1];
 
     assign s_clk_rf     = s_clk_i[2];
     assign s_resetn_rf  = s_resetn_i[2];
@@ -63,45 +67,60 @@ module rf_controller
         .s_mawb_val_i(s_mawb_val_i),
         .s_mawb_add_i(s_mawb_add_i),
         .s_mawb_ictrl_i(s_mawb_ictrl_i),
-        .s_exma_add_i(s_exma_add_i),
-        .s_exma_ictrl_i(s_exma_ictrl_i),
-        .s_opex_add_i(s_opex_add_i),
-        .s_opex_ictrl_i(s_opex_ictrl_i),
 
         .s_r_p1_add_i(s_r_p1_add_i),
         .s_r_p2_add_i(s_r_p2_add_i),
-        .s_r_p1_val_i(s_rp_val[0]),
-        .s_r_p2_val_i(s_rp_val[1]),
+        .s_r_p1_val_i(s_p1_val_o),
+        .s_r_p2_val_i(s_p2_val_o),
 
+        .s_acm_settings_i(s_acm_settings_i),
         .s_uce_o(s_uce_o),
-        .s_ce_o(s_ce_o),
 
         .s_val_o(s_rf_w_val),
         .s_add_o(s_rf_w_add),
         .s_we_o(s_rf_we)
     );
 
+    seu_ff_file #(.LABEL("RFGPR0"),.W(32),.N(32),.RP(2)) m_rf0_gpr 
+    (
+        .s_c_i(s_clk_i[0]),
+        .s_we_i(s_rf_we[0]),
+        .s_wa_i(s_rf_w_add[0]),
+        .s_d_i(s_rf_w_val[0]),
+        .s_ra_i(s_rf0_add),
+        .s_q_o(s_rf0_val)
+    ); 
+
+    seu_ff_file #(.LABEL("RFGPR1"),.W(32),.N(32),.RP(2)) m_rf1_gpr
+    (
+        .s_c_i(s_clk_i[1]),
+        .s_we_i(s_rf_we[1]),
+        .s_wa_i(s_rf_w_add[1]),
+        .s_d_i(s_rf_w_val[1]),
+        .s_ra_i(s_rf1_add),
+        .s_q_o(s_rf1_val)
+    );
+
 `else
     assign s_clk_rf     = s_clk_i[0]; 
     //write enable signal for the register file
-    assign s_rf_we      = s_mawb_ictrl_i[0][ICTRL_REG_DEST];
+    assign s_rf_we[0]   = s_mawb_ictrl_i[0][ICTRL_REG_DEST];
     //value to be written to the register file
-    assign s_rf_w_val   = s_mawb_val_i[0];
+    assign s_rf_w_val[0]= s_mawb_val_i[0];
     //address for the write port of the register file
-    assign s_rf_w_add   = s_mawb_add_i[0];
+    assign s_rf_w_add[0]= s_mawb_add_i[0];
     //not utilized without PROT_PIPE
-    assign s_ce_o[0]    = 1'b0;
     assign s_uce_o[0]   = 1'b0;
-`endif
 
-    seu_ff_file #(.LABEL("RFGPR"),.W(32),.N(32),.RP(2)) m_rfgpr 
+    seu_ff_file #(.LABEL("RFGPR"),.W(32),.N(32),.RP(2)) m_rf0_gpr 
     (
-        .s_c_i(s_clk_rf),
-        .s_we_i(s_rf_we),
-        .s_wa_i(s_rf_w_add),
-        .s_d_i(s_rf_w_val),
-        .s_ra_i(s_rp_add),
-        .s_q_o(s_rp_val)
-    );    
+        .s_c_i(s_clk_i[0]),
+        .s_we_i(s_rf_we[0]),
+        .s_wa_i(s_rf_w_add[0]),
+        .s_d_i(s_rf_w_val[0]),
+        .s_ra_i(s_rf0_add),
+        .s_q_o(s_rf0_val)
+    );  
+`endif   
 
 endmodule

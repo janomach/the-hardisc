@@ -77,10 +77,14 @@ module ahb_timer#(
     assign s_ra     = s_haddr_i[$clog2(MEM_SIZE)-1:0];
     assign r_delay  = 2'b0;
 
-    assign s_parity[0]  = ^s_haddr_i[7:0];
-    assign s_parity[1]  = ^s_haddr_i[15:8];
-    assign s_parity[2]  = ^s_haddr_i[23:16];
-    assign s_parity[3]  = ^s_haddr_i[31:24];
+    genvar p;
+    generate
+        for (p=0;p<4;p++) begin
+            assign s_parity[p]  = s_haddr_i[0 + p] ^ s_haddr_i[4 + p] ^ s_haddr_i[8 + p] ^ s_haddr_i[12 + p] ^
+                                  s_haddr_i[16 + p] ^ s_haddr_i[20 + p] ^ s_haddr_i[24 + p] ^ s_haddr_i[28 + p];            
+        end
+    endgenerate
+
     assign s_parity[4]  = (^s_hsize_i) ^ (^s_hburst_i) ^ (^s_hprot_i) ^ s_hwrite_i ^ s_hmastlock_i; //hsize, hwrite, hprot, hburst, hmastlock
     assign s_parity[5]  = (^s_htrans_i); //htrans
 
