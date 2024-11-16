@@ -46,7 +46,7 @@ module pipeline_5_ma (
     input logic[31:0] s_exma_val_i[PROT_3REP],      //result from EX stage
     input logic[11:0] s_exma_payload_i[PROT_3REP],  //instruction payload information    
 
-    input logic[2:0] s_lsu_einfo_i[PROT_3REP],      //lsu error info
+    input logic[1:0] s_lsu_einfo_i[PROT_3REP],      //lsu error info
     input logic[31:0] s_lsu_fixed_data_i[PROT_3REP],//lsu fixed data
 
     input logic[30:0] s_bop_tadd_i,                 //predicted target address saved in the BOP
@@ -88,7 +88,7 @@ module pipeline_5_ma (
             s_ibus_rst_en[PROT_3REP], s_dbus_rst_en[PROT_3REP], s_berr_rst[PROT_3REP], s_trans_rst[PROT_3REP], s_ma_empty[PROT_3REP];
     logic s_mawb_we_aux[PROT_3REP], s_mawb_we_esn[PROT_3REP];
 `ifdef PROT_INTF
-    logic[2:0] s_lsu_einfo[PROT_3REP];
+    logic[1:0] s_lsu_einfo[PROT_3REP];
     logic[1:0] s_wmawb_err[PROT_3REP], s_rmawb_err[PROT_3REP];
     logic[31:0] s_lsurdatac[PROT_3REP];
 `endif
@@ -233,17 +233,17 @@ module pipeline_5_ma (
             //Decoding of the loaded data after potential fixing - long combinational path, data are not forwarded to the lower stages
             lsu_decoder m_lsu_decoder_slow(.s_lsu_data_i(s_lsu_fixed_data_i[i]),.s_ld_info_i(s_rmawb_ldi[i]),.s_data_o(s_lsurdatac[i])); 
             //Check LSU error information in WB stage        
-            assign s_lsu_einfo[i]= s_rmawb_ictrl[i][ICTRL_UNIT_LSU] ? s_lsu_einfo_i[i] : 3'b0;
+            assign s_lsu_einfo[i]= s_rmawb_ictrl[i][ICTRL_UNIT_LSU] ? s_lsu_einfo_i[i] : 2'b0;
             //Save error information for further processing
-            assign s_wmawb_err[i]= s_flush_ma[i] ? 2'b0 : ({s_lsu_einfo[i][2],s_lsu_einfo[i][0]} | s_rmawb_err[i]); 
+            assign s_wmawb_err[i]= s_flush_ma[i] ? 2'b0 : ((s_lsu_einfo[i][0] ? {!s_lsu_einfo[i][1],1'b1} : 2'b0) | s_rmawb_err[i]); 
             //Any error in the WB stage prevents start of the new LSU transfer in the EX stage
             assign s_wb_error[i] = s_lsu_einfo[i][0] | s_rmawb_err[i][0];
             //WB error causes reset of the following instruction (except if the instruction is load/store)
             assign s_wb_reset[i] = s_wb_error[i] & ~s_exma_ictrl_i[i][ICTRL_UNIT_LSU];
             //Correctable error is a source of maskable interrupt
-            assign s_int_lcer[i] = s_lsu_einfo[i][1];
+            assign s_int_lcer[i] = (s_lsu_einfo[i][1] & s_lsu_einfo[i][0]);
             //Uncorrectable error is a source of not-maskable interrupt - preserve until the interrupt is taken
-            assign s_nmi_luce[i] = s_lsu_einfo[i][2] | s_rmawb_err[i][1];
+            assign s_nmi_luce[i] = (!s_lsu_einfo[i][1] & s_lsu_einfo[i][0]) | s_rmawb_err[i][1];
             //Data to be written into the register file - always take the data that has undergone a correction
             assign s_rf_val_o[i] = (s_rmawb_ictrl[i][ICTRL_UNIT_LSU]) ? s_lsurdatac[i] : s_rmawb_val[i];
 `else

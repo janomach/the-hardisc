@@ -64,7 +64,7 @@ module csru (
           s_pma_violation[PROT_3REP], s_csr_refresh[PROT_3REP];
     logic[63:0] s_mcycle_counter[PROT_3REP], s_minstret_counter[PROT_3REP];
     logic[4:0] s_int_code[PROT_3REP], s_csr_add[PROT_3REP], s_exc_code[PROT_3REP];
-    logic[2:0] s_nmi[PROT_3REP];
+    logic[1:0] s_nmi[PROT_3REP];
     exception s_exceptions[PROT_3REP];
 
     logic[7:0] s_wmstatus[PROT_3REP], s_rmstatus[PROT_3REP], s_mstatus[PROT_3REP];
@@ -197,11 +197,6 @@ module csru (
             assign s_nmi[i][0]         = 1'b0; //Load UCE cannot happen
             assign s_nmi[i][1]         = 1'b0; //Fetch UCE cannot happen
 `endif
-`ifdef PROT_PIPE
-            assign s_nmi[i][2]         = (s_imiscon_i[i] == IMISCON_RUCE) & ~s_rstpp_i[i];
-`else
-            assign s_nmi[i][2]         = 1'b0; //Register UCE cannot happen
-`endif
 
             assign s_interrupt[i]      = |(s_mie[i] & s_mip[i]) & s_mstatus[i][3];
             assign s_exc_active[i]     = s_exception[i] & s_execute[i] & ~s_interrupted_i[i];
@@ -209,8 +204,7 @@ module csru (
             assign s_int_pending[i]    = s_interrupt[i] | (|s_nmi[i]);
             assign s_mtval_zero[i]     = (s_exc_code[i] != EXC_MISALIGI_VAL) & (s_exc_code[i] != EXC_LADD_MISS_VAL) & (s_exc_code[i] != EXC_SADD_MISS_VAL) & s_exc_active[i];
             assign s_int_code[i]       = (s_nmi[i][0]) ? INT_LUCE_VAL : 
-                                         (s_nmi[i][1]) ? INT_FUCE_VAL : 
-                                         (s_nmi[i][2]) ? INT_RUCE_VAL :
+                                         (s_nmi[i][1]) ? INT_FUCE_VAL :
                                          (s_mie[i][11] & s_mip[i][11]) ? INT_MEI_VAL : 
                                          (s_mie[i][3]  & s_mip[i][3])  ? INT_MSI_VAL : 
                                          (s_mie[i][7]  & s_mip[i][7])  ? INT_MTI_VAL : 
@@ -428,7 +422,7 @@ module csru (
                 30-23: reserved
                 22: data bus error detected
                 21: instruction bus error detected
-                20: the restart counter not counting
+                20: the restart counter is counting
                 19-16: the restart counter - reserved
                 15-14: reserved
                 13-12: CSR refresh rate
@@ -436,6 +430,8 @@ module csru (
                 07: enable automatic pipeline restart after the first bus error
                 06: reserved
                 05-04: acm settings
+                     - bit 0 : proactive error search - read address increments whenever possible
+                     - bit 1 : proactive checksum analysis - even if error is not detected in data 
                 03: disable predictor
                 02: max consecutive restarts reached
                 01: after the max number of consecutive restarts, try to disable the predictor at first

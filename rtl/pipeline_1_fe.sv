@@ -94,7 +94,15 @@ module pipeline_1_fe #(
     assign s_htrans_o   = (s_rfe0_utd[0] && !s_pma_violation[0]) ? 2'b10 : 2'b00;
 
 `ifdef PROT_INTF
-    assign s_hparity_o[3:0] = {^s_rfe0_add[PROT_2REP-1][30:23], ^s_rfe0_add[PROT_2REP-1][22:15], ^s_rfe0_add[PROT_2REP-1][14:7], ^s_rfe0_add[PROT_2REP-1][6:1]};
+    logic[31:0] s_aux_addr;
+    assign s_aux_addr = {s_rfe0_add[PROT_2REP-1][30:1],2'b0};
+    genvar p;
+    generate
+        for (p=0;p<4;p++) begin
+            assign s_hparity_o[p]   = s_aux_addr[0 + p] ^ s_aux_addr[4 + p] ^ s_aux_addr[8 + p] ^ s_aux_addr[12 + p] ^
+                                      s_aux_addr[16 + p] ^ s_aux_addr[20 + p] ^ s_aux_addr[24 + p] ^ s_aux_addr[28 + p];            
+        end
+    endgenerate
     assign s_hparity_o[4]   = 1'b1;                             //hsize, hwrite, hprot, hburst, hmastlock
     assign s_hparity_o[5]   = (s_rfe0_utd[PROT_2REP-1] && !s_pma_violation[PROT_2REP-1]);  //htrans
 `else

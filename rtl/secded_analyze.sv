@@ -16,8 +16,8 @@
 
 module secded_analyze (
     input logic[6:0]s_syndrome_i,   //syndrome
-    output logic s_ce_o,            //correctable error
-    output logic s_uce_o            //uncorrectable error
+    output logic s_error_o,         //error exists
+    output logic s_ce_o             //error is correctable
 );
     /* Analyzer for Hsiao's Single-Error-Correction-Double-Error-Detection code */
     logic[6:0]s_checksum;
@@ -25,8 +25,8 @@ module secded_analyze (
     logic[20:0]s_5odd;
     logic s_not3bitodd;
     
-    assign s_ce_o       = s_odd_syn & ~s_not3bitodd & s_error;
-    assign s_uce_o      = (~s_odd_syn || s_not3bitodd) & s_error;
+    assign s_error_o    = s_error;
+    assign s_ce_o       = s_odd_syn & ~s_not3bitodd;
 
     assign s_error      = |s_syndrome_i;
     assign s_odd_syn    = ^s_syndrome_i;

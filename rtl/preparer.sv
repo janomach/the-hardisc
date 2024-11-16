@@ -37,11 +37,6 @@ module preparer (
     input ictrl s_idop_ictrl_i,         //instruction control indicator
     input logic s_idop_fixed_i,         //fix indicator
 
-    input logic[1:0] s_rf_uce_i,        //uncorrectable error in the register-file - PROT_PIPE only
-    input logic[1:0] s_rf_ce_i,         //correctable error in the register-file - PROT_PIPE only
-    output logic s_uce_o,               //uncorrectable and not-maskable error - PROT_PIPE only
-    output logic s_ce_o,                //correctable and not-maskable error - PROT_PIPE only
-
     output logic[31:0] s_operand1_o,    //prepared operand 1
     output logic[31:0] s_operand2_o,    //prepared operand 2
     output logic[3:0]s_fwd_o,           //forwarding information
@@ -56,7 +51,6 @@ module preparer (
             s_rs1_need_exma, s_rs2_need_exma, s_rs1_need_mawb, s_rs2_need_mawb,
             s_rs1_cmpr_opex, s_rs2_cmpr_opex, s_rs1_need_opex, s_rs2_need_opex,
             s_lsu_hazard, s_data_hazard, s_bubble, s_fix_hazard, s_pc_hazard, s_no_res_in_ex, s_result_in_ma, s_uce, s_ce;
-    logic[1:0] s_nfwd;
 
     assign s_bubble_o   = s_bubble;
     assign s_operand1_o = s_operand1;  
@@ -107,20 +101,6 @@ module preparer (
     assign s_forward[2]     = s_rs1_need_exma & ~s_idop_ictrl_i[ICTRL_UNIT_LSU];
     //Forward result from the WB stage to the second operand in the EX stage
     assign s_forward[3]     = s_rs2_need_exma;
-    
-`ifdef PROT_PIPE 
-    //The instruction requires value of read port 1, that is not forwarded from upper stages
-    assign s_nfwd[0]        = s_idop_sctrl_i[SCTRL_RFRP1] & ~(s_rs1_need_opex | s_rs1_need_exma | s_rs1_need_mawb) & ~s_idop_sctrl_i[SCTRL_ZERO1]; 
-    //The instruction requires value of read port 2, that is not forwarded from upper stages
-    assign s_nfwd[1]        = s_idop_sctrl_i[SCTRL_RFRP2] & ~(s_rs2_need_opex | s_rs2_need_exma | s_rs2_need_mawb) & ~s_idop_sctrl_i[SCTRL_ZERO2];  
-    //Uncorrectable and not-maskable error
-    assign s_uce_o          = (s_rf_uce_i[0] & s_nfwd[0]) | (s_rf_uce_i[1] & s_nfwd[1]);
-    //Correctable and not-maskable error
-    assign s_ce_o           = (s_rf_ce_i[0] & s_nfwd[0]) | (s_rf_ce_i[1] & s_nfwd[1]);
-`else
-    assign s_uce_o          = 1'b0;
-    assign s_ce_o           = 1'b0;
-`endif
 
     //Computation of data-bus transfer address 
     fast_adder #(.ADDONLY(0)) m_lsu_address(.s_base_val_i(s_operand1_fw),.s_add_val_i(s_idop_payload_i[15:0]),.s_val_o(s_address)); 

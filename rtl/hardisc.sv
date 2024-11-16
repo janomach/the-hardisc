@@ -74,11 +74,11 @@ module hardisc #(
     logic s_pred_disable, s_hrdmax_rst;
     logic[19:0] s_exma_offset;
     logic[11:0] s_exma_payload[PROT_3REP];
-    logic[31:0] s_exma_val[PROT_3REP], s_mawb_val[PROT_3REP], s_idop_p1, s_idop_p2, s_opex_op1[PROT_2REP], s_opex_op2[PROT_2REP], 
+    logic[31:0] s_exma_val[PROT_3REP], s_mawb_val[PROT_3REP], s_idop_p1[PROT_2REP], s_idop_p2[PROT_2REP], s_opex_op1[PROT_2REP], s_opex_op2[PROT_2REP], 
                 s_toc_addr[PROT_3REP], s_rf_val[PROT_3REP], s_lsu_wdata[PROT_3REP], s_read_data[PROT_3REP], s_lsu_fixed_data[PROT_3REP];
     logic[20:0] s_idop_payload[PROT_2REP];
-    logic[1:0] s_feid_pred[PROT_2REP], s_rf_uce[PROT_2REP], s_rf_ce[PROT_2REP], s_acm_settings;
-    logic s_idop_fixed[PROT_2REP];
+    logic[1:0] s_feid_pred[PROT_2REP], s_acm_settings;
+    logic s_idop_fixed[PROT_2REP], s_rf_uce[PROT_2REP];
     f_part s_idop_f[PROT_2REP], s_opex_f[PROT_2REP], s_exma_f[PROT_3REP];
     rf_add s_idop_rs1[PROT_2REP], s_idop_rs2[PROT_2REP], s_idop_rd[PROT_2REP], s_opex_rd[PROT_2REP], s_exma_rd[PROT_3REP], s_mawb_rd[PROT_3REP];
     ictrl s_idop_ictrl[PROT_2REP], s_exma_ictrl[PROT_3REP], s_mawb_ictrl[PROT_3REP], s_opex_ictrl[PROT_2REP];
@@ -89,7 +89,7 @@ module hardisc #(
     logic[31:0] s_rst_point[PROT_3REP], s_lsu_ap_address, s_lsu_dp_data;
     logic[30:0] s_bop_tadd;
     logic s_bop_pred, s_bop_pop, s_int_uce, s_lsu_ap_approve, s_lsu_dp_ready[PROT_3REP], s_lsu_dp_hresp[PROT_3REP];
-    logic[2:0] s_lsu_einfo[PROT_3REP];
+    logic[1:0] s_lsu_einfo[PROT_3REP];
 
     assign s_hrdmax_rst_o   = s_hrdmax_rst;
     
@@ -187,9 +187,6 @@ module hardisc #(
         .s_exma_rd_i(s_exma_rd),
         .s_exma_val_i(s_exma_val),
         .s_exma_ictrl_i(s_exma_ictrl),
-
-        .s_rf_uce_i(s_rf_uce),
-        .s_rf_ce_i(s_rf_ce),
 
         .s_idop_p1_i(s_idop_p1),
         .s_idop_p2_i(s_idop_p2),
@@ -350,24 +347,24 @@ module hardisc #(
         .s_r_p1_add_i(s_idop_rs1),
         .s_r_p2_add_i(s_idop_rs2),
 
-        .s_exma_add_i(s_exma_rd),
-        .s_exma_ictrl_i(s_exma_ictrl),
-        .s_opex_add_i(s_opex_rd),
-        .s_opex_ictrl_i(s_opex_ictrl),
+        .s_acm_settings_i(s_acm_settings),
         .s_uce_o(s_rf_uce),
-        .s_ce_o(s_rf_ce),
 
         .s_p1_val_o(s_idop_p1),
         .s_p2_val_o(s_idop_p2)
     );
 
-    assign s_int_uce    = s_rf_uce[0] != 2'b0;
+`ifdef PROT_PIPE
+    assign s_int_uce    = s_rf_uce[0] && s_rf_uce[1];
+`else                        
+    assign s_int_uce    = 1'b0;                     
+`endif
 
 `ifdef PROT_INTF
     assign s_int_fcer   = (s_idop_fixed[0] & ((s_opex_ictrl[0] == 7'b0) & (s_exma_ictrl[0] == 7'b0))) 
-    `ifdef PROT_PIPE
+`ifdef PROT_PIPE
                          | s_idop_fixed[1] & ((s_opex_ictrl[1] == 7'b0) & (s_exma_ictrl[1] == 7'b0))
-    `endif                         
+`endif                         
                          ;
 `else
     assign s_int_fcer   = 1'b0;

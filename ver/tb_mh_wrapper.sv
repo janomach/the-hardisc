@@ -169,9 +169,9 @@ tracer m_tracer(
     .s_dut_ex_ictrl_i(dut.rep[0].core.m_pipe_4_ex.s_opex_ictrl_i[0]),
     .s_dut_ma_ictrl_i(dut.rep[0].core.m_pipe_5_ma.s_exma_ictrl_i[0]),
     .s_dut_wb_ictrl_i(dut.rep[0].core.s_mawb_ictrl[0]),
-    .s_dut_rfc_we_i(dut.rep[0].core.m_rfc.s_rf_we),
-    .s_dut_rfc_wval_i(dut.rep[0].core.m_rfc.s_rf_w_val),
-    .s_dut_rfc_wadd_i(dut.rep[0].core.m_rfc.s_rf_w_add)
+    .s_dut_rfc_we_i(dut.rep[0].core.m_rfc.s_rf_we[0]),
+    .s_dut_rfc_wval_i(dut.rep[0].core.m_rfc.s_rf_w_val[0]),
+    .s_dut_rfc_wadd_i(dut.rep[0].core.m_rfc.s_rf_w_add[0])
 );
 
 assign s_int_meip = 1'b0;

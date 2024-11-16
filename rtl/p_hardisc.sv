@@ -90,8 +90,8 @@ package p_hardisc;
                 //reserved
                 IMISCON_FUCE    = 3'd4, //fetch uncorrectable error
                 IMISCON_ILLE    = 3'd5, //illegal instruction
-                IMISCON_DSCR    = 3'd6, //discrepancy in pipeline
-                IMISCON_RUCE    = 3'd7; //register uncorrectable error 
+                IMISCON_DSCR    = 3'd6; //discrepancy in pipeline
+                //reserved
     parameter [2:0]
                 FETCH_VALID     = 3'd0, //no fetch error
                 FETCH_BSERR     = 3'd1, //fetch bus error
@@ -213,6 +213,10 @@ package p_hardisc;
                 LSU_RMW_IDLE    = 2'b00,
                 LSU_RMW_READ    = 2'b01,
                 LSU_RMW_WRITE   = 2'b10;
+    parameter [1:0]
+                ACM_IDLE    = 2'b00,
+                ACM_CHECK   = 2'b01,
+                ACM_CORRECT = 2'b10;
     parameter [5:0]
                 SEEGR_CORE_REG  = 0,
                 SEEGR_REG_FILE  = 1,

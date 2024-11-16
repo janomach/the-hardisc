@@ -225,20 +225,19 @@ module pipeline_2_id (
     /*  Automatic Correction Mechanism - read-address preparation */
 
     //The HRDCTRL register enables pro-active search of the register file 
-    assign s_acmadd_enable = s_acm_settings_i != 2'b0;
+    assign s_acmadd_enable = s_acm_settings_i[0];
     //Increment the ACM's search address
-    assign s_acmadd_update = (~s_stall_id[0] & ((s_id_free_rp[0] != 2'b00) | s_aligner_nop[0])) | (s_stall_id[0] &  (s_op_free_rp[0] != 2'b00));
+    assign s_acmadd_update = s_stall_id[0] ? (s_op_free_rp[0] != 2'b00) : ((s_id_free_rp[0] != 2'b00) | s_aligner_nop[0]);
 
     //Update ACM search address
     always_comb begin
+        s_widop_acmadd[0] = s_ridop_acmadd[0];
         if(s_flush_id[0] | s_acmadd_update)begin
             if(s_ridop_acmadd[0] != 5'd31) begin
-                s_widop_acmadd[0] <= s_ridop_acmadd[0] + 5'b1;
+                s_widop_acmadd[0] = s_ridop_acmadd[0] + 5'b1;
             end else begin
-                s_widop_acmadd[0] <= 5'd1;
+                s_widop_acmadd[0] = 5'd1;
             end
-        end else begin
-            s_widop_acmadd[0] <= s_ridop_acmadd[0];
         end
     end
 `endif

@@ -86,10 +86,10 @@ add wave -noupdate -radix hexadecimal {/tb_mh_wrapper/dut/rep[0]/core/m_pipe_5_m
 add wave -noupdate -radix hexadecimal {/tb_mh_wrapper/dut/rep[0]/core/m_pipe_5_ma/s_mawb_rd_o[0]}
 add wave -noupdate -radix hexadecimal {/tb_mh_wrapper/dut/rep[0]/core/m_pipe_5_ma/s_mawb_val_o[0]}
 add wave -noupdate -divider {Register File}
-add wave -noupdate -radix hexadecimal /tb_mh_wrapper/dut/rep[0]/core/m_rfc/m_rfgpr/s_we_i
-add wave -noupdate -radix hexadecimal /tb_mh_wrapper/dut/rep[0]/core/m_rfc/m_rfgpr/s_wa_i
-add wave -noupdate -radix hexadecimal /tb_mh_wrapper/dut/rep[0]/core/m_rfc/m_rfgpr/s_d_i
-add wave -noupdate -radix hexadecimal /tb_mh_wrapper/dut/rep[0]/core/m_rfc/m_rfgpr/s_q
+add wave -noupdate -radix hexadecimal /tb_mh_wrapper/dut/rep[0]/core/m_rfc/m_rf0_gpr/s_we_i
+add wave -noupdate -radix hexadecimal /tb_mh_wrapper/dut/rep[0]/core/m_rfc/m_rf0_gpr/s_wa_i
+add wave -noupdate -radix hexadecimal /tb_mh_wrapper/dut/rep[0]/core/m_rfc/m_rf0_gpr/s_d_i
+add wave -noupdate -radix hexadecimal /tb_mh_wrapper/dut/rep[0]/core/m_rfc/m_rf0_gpr/s_q
 TreeUpdate [SetDefaultTree]
 WaveRestoreCursors {{Cursor 1} {0 ps} 0}
 quietly wave cursor active 0
