@@ -29,8 +29,7 @@ module rf_controller
     input rf_add s_r_p1_add_i[PROT_2REP],       //read port 1 address
     input rf_add s_r_p2_add_i[PROT_2REP],       //read port 2 address
 
-    input logic[1:0] s_acm_settings_i,
-    output logic s_uce_o[PROT_2REP],            //uncorrectable error - PROT_PIPE only
+    input logic[31:0] s_mhrdctrl0_i[PROT_3REP], //settings
 
     output logic[31:0] s_p1_val_o[PROT_2REP],   //read value from port 1
     output logic[31:0] s_p2_val_o[PROT_2REP]    //read value from port 2
@@ -73,8 +72,7 @@ module rf_controller
         .s_r_p1_val_i(s_p1_val_o),
         .s_r_p2_val_i(s_p2_val_o),
 
-        .s_acm_settings_i(s_acm_settings_i),
-        .s_uce_o(s_uce_o),
+        .s_mhrdctrl0_i(s_mhrdctrl0_i),
 
         .s_val_o(s_rf_w_val),
         .s_add_o(s_rf_w_add),
@@ -109,8 +107,6 @@ module rf_controller
     assign s_rf_w_val[0]= s_mawb_val_i[0];
     //address for the write port of the register file
     assign s_rf_w_add[0]= s_mawb_add_i[0];
-    //not utilized without PROT_PIPE
-    assign s_uce_o[0]   = 1'b0;
 
     seu_ff_file #(.LABEL("RFGPR"),.W(32),.N(32),.RP(2)) m_rf0_gpr 
     (

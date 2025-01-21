@@ -24,17 +24,14 @@ module pipeline_5_ma (
 
     input logic s_int_meip_i,                       //external interrupt
     input logic s_int_mtip_i,                       //timer interrupt
-    input logic s_int_uce_i,                        //uncorrectable error in register-file
     input logic s_int_fcer_i,                       //fetch correctable error
-
-    output logic[1:0] s_acm_settings_o,             //acm settings - PROT_PIPE only
-    input logic s_exma_neq_i[PROT_3REP],            //discrepancy in result - PROT_PIPE only
 
     output logic s_stall_o[PROT_3REP],              //stall signal for lower stages
     output logic s_flush_o[PROT_3REP],              //flush signal for lower stages
     output logic s_hold_o[PROT_3REP],               //hold signal for lower stages 
 
     input logic[31:0] s_lsu_data_i,                 //LSU read data
+    input logic s_lsu_save_i[PROT_3REP],            //LSU data should be saved  
     input logic s_lsu_ready_i[PROT_3REP],           //LSU ready
     input logic s_lsu_hresp_i[PROT_3REP],           //LSU bus error
     input logic s_lsu_busy_i[PROT_3REP],            //LSU cannot start new request
@@ -49,8 +46,8 @@ module pipeline_5_ma (
     input logic[1:0] s_lsu_einfo_i[PROT_3REP],      //lsu error info
     input logic[31:0] s_lsu_fixed_data_i[PROT_3REP],//lsu fixed data
 
-    input logic[30:0] s_bop_tadd_i,                 //predicted target address saved in the BOP
-    input logic s_bop_pred_i,                       //the prediction is prepared in the BOP
+    input logic[30:0] s_bop_tadd_i[PROT_2REP],      //predicted target address saved in the BOP
+    input logic s_bop_pred_i[PROT_2REP],            //the prediction is prepared in the BOP
     output logic s_bop_pop_o,                       //pop of the oldest entry in the BOP
     output logic s_ma_pred_clean_o,                 //clean selected prediction information
     output logic s_ma_pred_btbu_o,                  //update BTB of branch predictor
@@ -65,41 +62,44 @@ module pipeline_5_ma (
     output logic[31:0] s_rf_val_o[PROT_3REP],       //instruction result for register file
     output logic[31:0] s_read_data_o[PROT_3REP],    //direct access to read value
     
-    output logic[31:0] s_rst_point_o[PROT_3REP],    //reset-point address
-    output logic s_pred_disable_o,                  //disable any predictions
-    output logic s_hrdmax_rst_o                     //max consecutive pipeline restarts reached
+    output logic[31:0] s_pc_o[PROT_3REP],           //program counter address
+    output logic[31:0] s_mhrdctrl0_o[PROT_3REP]     //settings
 );
 
     logic s_flush_ma[PROT_3REP], s_stall_ma[PROT_3REP], s_initialize[PROT_3REP];
     logic[31:0] s_write_val[PROT_3REP], s_lsurdata[PROT_3REP], s_int_trap[PROT_3REP], s_exc_trap[PROT_3REP], s_mepc[PROT_3REP], 
-                s_ma_toc_addr[PROT_3REP], s_csr_val[PROT_3REP], s_bru_add[PROT_3REP], s_rst_point[PROT_3REP], 
-                s_newrst_point[PROT_3REP], s_next_pc[PROT_3REP];
+                s_ma_toc_addr[PROT_3REP], s_csr_val[PROT_3REP], s_bru_add[PROT_3REP], 
+                s_new_pc[PROT_3REP], s_next_pc[PROT_3REP], s_wpc[PROT_3REP], s_rpc[PROT_3REP], s_pc[PROT_3REP];
     logic[2:0] s_pc_incr[PROT_3REP];
     logic s_int_pending[PROT_3REP], s_exception[PROT_3REP], s_tereturn[PROT_3REP], s_ma_toc[PROT_3REP];
     logic s_bru_toc[PROT_3REP], s_rstpp[PROT_3REP], s_prior_rstpp[PROT_3REP], s_pred_bpu[PROT_3REP], s_pred_jpu[PROT_3REP], 
             s_ma_pred_btbu[PROT_3REP], s_ma_pred_btrue[PROT_3REP];
     logic s_interrupt[PROT_3REP], s_itaken[PROT_3REP];
-    rf_add s_wmawb_rd[PROT_3REP], s_rmawb_rd[PROT_3REP], s_mawb_rd[PROT_3REP]; 
+    rf_add s_wmawb_rd[PROT_3REP], s_rmawb_rd[PROT_3REP]; 
     logic[31:0] s_wmawb_val[PROT_3REP],s_rmawb_val[PROT_3REP],s_mawb_val[PROT_3REP];  
-    ictrl s_wmawb_ictrl[PROT_3REP], s_rmawb_ictrl[PROT_3REP], s_mawb_ictrl[PROT_3REP];
+    ictrl s_wmawb_ictrl[PROT_3REP], s_rmawb_ictrl[PROT_3REP];
     logic s_clk_prw[PROT_3REP], s_resetn_prw[PROT_3REP];
     ld_info s_wmawb_ldi[PROT_3REP], s_rmawb_ldi[PROT_3REP];
-    logic s_int_lcer[PROT_3REP], s_nmi_luce[PROT_3REP], s_wb_error[PROT_3REP], s_wb_reset[PROT_3REP], s_ex_discrepancy[PROT_3REP], 
-            s_ibus_rst_en[PROT_3REP], s_dbus_rst_en[PROT_3REP], s_berr_rst[PROT_3REP], s_trans_rst[PROT_3REP], s_ma_empty[PROT_3REP];
-    logic s_mawb_we_aux[PROT_3REP], s_mawb_we_esn[PROT_3REP];
+    logic s_int_lcer[PROT_3REP], s_nmi_luce[PROT_3REP], s_wb_error[PROT_3REP], s_wb_reset[PROT_3REP], 
+            s_ibus_rst_en[PROT_3REP], s_dbus_rst_en[PROT_3REP], s_berr_rst[PROT_3REP], s_trans_rst[PROT_3REP],
+            s_ex_discrepancy[PROT_3REP], s_bru_discrepancy[PROT_3REP];
+    logic s_mawb_we_aux[PROT_3REP], s_mawb_we_val[PROT_3REP], s_mawb_we_esn[PROT_3REP], s_ma_empty[PROT_3REP];
 `ifdef PROT_INTF
     logic[1:0] s_lsu_einfo[PROT_3REP];
     logic[1:0] s_wmawb_err[PROT_3REP], s_rmawb_err[PROT_3REP];
     logic[31:0] s_lsurdatac[PROT_3REP];
 `endif
 
-    assign s_mawb_rd_o      = s_mawb_rd;
+    assign s_mawb_rd_o      = s_rmawb_rd;
     assign s_mawb_val_o     = s_mawb_val;
-    assign s_mawb_ictrl_o   = s_mawb_ictrl;
+    assign s_mawb_ictrl_o   = s_rmawb_ictrl;
     assign s_read_data_o    = s_rmawb_val;
 
+    //Program Counter
+    seu_ff_rsts #(.LABEL("PC"),.N(PROT_3REP)) m_pc (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_rs_i(s_boot_add_i),.s_d_i(s_wpc),.s_q_o(s_rpc));
+
     //Result value from the MA stage
-    seu_ff_we #(.LABEL("MAWB_VAL"),.N(PROT_3REP))m_mawb_val (.s_c_i(s_clk_prw),.s_we_i(s_mawb_we_aux),.s_d_i(s_wmawb_val),.s_q_o(s_rmawb_val));
+    seu_ff_we #(.LABEL("MAWB_VAL"),.N(PROT_3REP))m_mawb_val (.s_c_i(s_clk_prw),.s_we_i(s_mawb_we_val),.s_d_i(s_wmawb_val),.s_q_o(s_rmawb_val));
     //Destination register address
     seu_ff_we #(.LABEL("MAWB_RD"),.W($size(rf_add)),.N(PROT_3REP)) m_mawb_rd (.s_c_i(s_clk_prw),.s_we_i(s_mawb_we_aux),.s_d_i(s_wmawb_rd),.s_q_o(s_rmawb_rd));
     //Instruction control indicator
@@ -111,18 +111,11 @@ module pipeline_5_ma (
     seu_ff #(.LABEL("MAWB_ERR"),.N(PROT_3REP),.W(2))m_mawb_err (.s_c_i(s_clk_prw),.s_d_i(s_wmawb_err),.s_q_o(s_rmawb_err));
 `endif
 `ifdef PROT_PIPE
-    //Triple-Modular-Redundancy
-    tmr_comb #(.W($size(rf_add))) m_tmr_mawb_rd (.s_d_i(s_rmawb_rd),.s_d_o(s_mawb_rd));
-    tmr_comb #(.W($size(ictrl))) m_tmr_mawb_ictrl (.s_d_i(s_rmawb_ictrl),.s_d_o(s_mawb_ictrl));
-    tmr_comb m_tmr_toc_addr (.s_d_i(s_ma_toc_addr),.s_d_o(s_ma_toc_addr_o));
-`else
-    assign s_mawb_rd        = s_rmawb_rd;
-    assign s_mawb_ictrl     = s_rmawb_ictrl;
-    assign s_ma_toc_addr_o  = s_ma_toc_addr;
+    tmr_comb m_tmr_pc (.s_d_i(s_rpc),.s_d_o(s_pc));
 `endif
 
-    //Reset-point output for lower stages
-    assign s_rst_point_o        = s_rst_point;
+    //program counter output for lower stages
+    assign s_pc_o               = s_rpc;
     //Signals for the Predictor and Transfer of Control
     assign s_bop_pop_o          = s_exma_ictrl_i[0][ICTRL_UNIT_BRU] & s_exma_payload_i[0][11];
     assign s_ma_pred_clean_o    = s_exma_imiscon_i[0] == IMISCON_DSCR;
@@ -130,6 +123,8 @@ module pipeline_5_ma (
     assign s_ma_pred_btrue_o    = s_ma_pred_btrue[0];
     assign s_ma_pred_bpu_o      = s_pred_bpu[0] & ~s_exception[0] & ~s_rstpp[0];
     assign s_ma_pred_jpu_o      = s_pred_jpu[0] & ~s_exception[0] & ~s_rstpp[0];
+    assign s_ma_toc_addr_o      = s_ma_toc_addr;
+    assign s_flush_o            = s_ma_toc;
 
     genvar i;
     generate
@@ -137,13 +132,16 @@ module pipeline_5_ma (
             assign s_clk_prw[i]     = s_clk_i[i];
             assign s_resetn_prw[i]  = s_resetn_i[i];
 `ifdef PROT_PIPE
-            //Only two executors are present in the EX stage, if they were used, they results must be compared
-            assign s_ex_discrepancy[i] =  s_exma_neq_i[i] & (
-                                          s_exma_ictrl_i[i][ICTRL_UNIT_BRU] | 
-                                          s_exma_ictrl_i[i][ICTRL_UNIT_ALU] | 
-                                          s_exma_ictrl_i[i][ICTRL_UNIT_MDU]);
+            //Only two executors are present in the EX stage, if they were used, their results must be compared
+            assign s_ex_discrepancy[i]  = (s_exma_val_i[0] != s_exma_val_i[1]) & (
+                                           s_exma_ictrl_i[i][ICTRL_UNIT_BRU] | 
+                                           s_exma_ictrl_i[i][ICTRL_UNIT_ALU] | 
+                                           s_exma_ictrl_i[i][ICTRL_UNIT_MDU] );
+            //Only two BOPs are present in the pipeline, if BRUs signalize distinct outcome, the execution should be restarted
+            assign s_bru_discrepancy[i] = (s_bru_toc[0] != s_bru_toc[1]) & s_exma_ictrl_i[i][ICTRL_UNIT_BRU];
 `else
-            assign s_ex_discrepancy[i] = 1'b0;
+            assign s_ex_discrepancy[i]  = 1'b0;
+            assign s_bru_discrepancy[i] = 1'b0;
 `endif
             //Reset pipeline condition prior to MA stage
             assign s_prior_rstpp[i] = (s_exma_imiscon_i[i] == IMISCON_DSCR);
@@ -153,7 +151,7 @@ module pipeline_5_ma (
             //Reset pipeline if bus error occurred without previously intended transfer
             assign s_berr_rst[i]    = s_lsu_hresp_i[i] & ~s_exma_ictrl_i[i][ICTRL_UNIT_LSU];
             //Gathering pipeline reset information
-            assign s_rstpp[i]       = s_prior_rstpp[i] | s_wb_reset[i] | s_trans_rst[i] | s_ex_discrepancy[i] | s_initialize[i];
+            assign s_rstpp[i]       = s_prior_rstpp[i] | s_wb_reset[i] | s_trans_rst[i] | s_ex_discrepancy[i] | s_bru_discrepancy[i] | s_initialize[i];
 
             //Branch/Jump unit
             bru m_bru
@@ -162,8 +160,8 @@ module pipeline_5_ma (
                 .s_exma_f_i(s_exma_f_i[i]),
                 .s_predicted_i(s_exma_payload_i[i][11]),
                 .s_exma_val_i(s_exma_val_i[i]),
-                .s_bop_tadd_i(s_bop_tadd_i),
-                .s_bop_pred_i(s_bop_pred_i),
+                .s_bop_tadd_i(s_bop_tadd_i[i%2]),
+                .s_bop_pred_i(s_bop_pred_i[i%2]),
 
                 .s_toc_o(s_bru_toc[i]),
                 .s_branch_true_o(s_ma_pred_btrue[i]),
@@ -175,17 +173,19 @@ module pipeline_5_ma (
             );
 
             //An address of the following instruction in the memory
-            assign s_pc_incr[i]         = s_exma_ictrl_i[i][ICTRL_RVC] ? 3'd2 : 3'd4;
-            fast_adder m_next_pc(.s_base_val_i(s_rst_point[i]),.s_add_val_i({13'd0,s_pc_incr[i]}),.s_val_o(s_next_pc[i])); 
+            assign s_pc_incr[i]     = s_exma_ictrl_i[i][ICTRL_RVC] ? 3'd2 : 3'd4;
+            fast_adder m_next_pc(.s_base_val_i(s_pc[i]),.s_add_val_i({13'd0,s_pc_incr[i]}),.s_val_o(s_next_pc[i])); 
 
-            //Selection of the new reset point
-            assign s_newrst_point[i]    = (s_interrupt[i]) ? s_int_trap[i] : 
-                                          (s_exception[i]) ? s_exc_trap[i] : 
-                                          (s_tereturn[i]) ? s_mepc[i] : 
-                                          (s_itaken[i]) ? s_bru_add[i] : s_next_pc[i];
+            //Selection of the value the program counter should be updated with
+            assign s_new_pc[i]  = (s_interrupt[i]) ? s_int_trap[i] : 
+                                      (s_exception[i]) ? s_exc_trap[i] : 
+                                      (s_tereturn[i]) ? s_mepc[i] : 
+                                      (s_itaken[i]) ? s_bru_add[i] : s_next_pc[i];
+
+            assign s_wpc[i]         = (~(s_rstpp[i] | s_ma_empty[i] | s_stall_ma[i]) | s_interrupt[i]) ? s_new_pc[i] : s_pc[i];
 
             //Transfer of control
-            assign s_ma_toc_addr[i] = (s_rstpp[i] & ~s_interrupt[i]) ? s_rst_point[i] : s_newrst_point[i];
+            assign s_ma_toc_addr[i] = (~(s_rstpp[i] | s_ma_empty[i]) | s_interrupt[i]) ? s_new_pc[i] : s_rpc[i];
             assign s_ma_toc[i]      = (s_interrupt[i] | s_bru_toc[i] | s_exception[i] | s_tereturn[i] | s_rstpp[i]);
 
             //Interrupts - delay until LSU operation is finished
@@ -197,15 +197,15 @@ module pipeline_5_ma (
             assign s_flush_ma[i]    = s_rstpp[i] | s_interrupt[i] | s_exception[i];
             //Stall lower stages on extended data-bus transfer
             assign s_stall_o[i]     = s_stall_ma[i];
-            //Flush lower stages on each TOC
-            assign s_flush_o[i]     = s_ma_toc[i];
             //Hold signal - do not start new instruction in EX stage
-            assign s_hold_o[i]      = s_int_pending[i] | s_wb_error[i] | s_lsu_busy_i[i];
+            assign s_hold_o[i]      = s_int_pending[i] | s_wb_error[i] | (s_lsu_busy_i[i] & s_exma_ictrl_i[i][ICTRL_UNIT_LSU]);
 
             assign s_ma_empty[i]    = (s_exma_imiscon_i[i] == IMISCON_FREE) & (s_exma_ictrl_i[i] == 7'b0);
-            //Write-enable signals for auxiliary MAWB registers
+            //Write-enable signal for auxiliary MAWB registers
             assign s_mawb_we_aux[i] = !(s_flush_ma[i] || s_ma_empty[i]);
-            //Write-enable signals for essential MAWB registers
+            //Write-enable signal for MAWB value register
+            assign s_mawb_we_val[i] = s_mawb_we_aux[i] && (!s_exma_ictrl_i[i][ICTRL_UNIT_LSU] || s_lsu_save_i[i]);
+            //Write-enable signal for essential MAWB registers
             assign s_mawb_we_esn[i] = s_flush_ma[i] || !s_ma_empty[i] || (s_rmawb_ictrl[i] != 7'b0);
 
             //Select result of the MA stage. NOTE: the REG_DEST bit in the instruction control must be active for register file write
@@ -263,29 +263,25 @@ module pipeline_5_ma (
     (
         .s_clk_i(s_clk_i),
         .s_resetn_i(s_resetn_i),
-        .s_boot_add_i(s_boot_add_i),
         .s_stall_i(s_stall_ma),
         .s_flush_i(s_flush_ma),
         .s_int_meip_i(s_int_meip_i),
         .s_int_mtip_i(s_int_mtip_i),
         .s_int_msip_i(1'b0),
-        .s_int_uce_i(s_int_uce_i),
         .s_int_lcer_i(s_int_lcer),
         .s_int_fcer_i(s_int_fcer_i),
         .s_nmi_luce_i(s_nmi_luce),
         .s_hresp_i(s_lsu_hresp_i),
         .s_imiscon_i(s_exma_imiscon_i),
-        .s_acm_settings_o(s_acm_settings_o),
         .s_rstpp_i(s_rstpp),
         .s_interrupted_i(s_interrupt),
-        .s_newrst_point_i(s_newrst_point),
         .s_ictrl_i(s_exma_ictrl_i),
         .s_function_i(s_exma_f_i),
         .s_payload_i(s_exma_payload_i),
         .s_val_i(s_exma_val_i),
         .s_exc_trap_o(s_exc_trap), 
         .s_int_trap_o(s_int_trap), 
-        .s_rst_point_o(s_rst_point),
+        .s_pc_i(s_rpc),
         .s_csr_r_o(s_csr_val),
         .s_mepc_o(s_mepc),
         .s_treturn_o(s_tereturn),
@@ -294,8 +290,7 @@ module pipeline_5_ma (
         .s_ibus_rst_en_o(s_ibus_rst_en),
         .s_dbus_rst_en_o(s_dbus_rst_en),
         .s_initialize_o(s_initialize),
-        .s_pred_disable_o(s_pred_disable_o),
-        .s_hrdmax_rst_o(s_hrdmax_rst_o)
+        .s_mhrdctrl0_o(s_mhrdctrl0_o)
     );
 
 endmodule

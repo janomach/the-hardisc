@@ -63,7 +63,7 @@ module system_dcls #(
     output logic[6:0] s_d_hwchecksum_o,     //AHB data bus - outgoing checksum
     output logic[5:0] s_d_hparity_o,        //AHB data bus - outgoing parity
 
-    output logic s_hrdmax_rst_o             //discrepancy between lockstepped cores
+    output logic s_unrec_err_o              //discrepancy between lockstepped cores
 );
 
 logic[5:0] s_i_hparity[2], s_d_hparity[2];
@@ -87,7 +87,7 @@ logic s_rdbus_hwrite[2][1], s_rdbus_hready[2][1], s_rdbus_hresp[2][1];
 logic[1:0] s_rdbus_htrans[2][1];
 logic[2:0] s_rdbus_hsize[2][1];
 
-logic s_hrdmax_rst[2], s_i_discrepancy[3], s_d_discrepancy[3], s_wdiscrepancy[3], s_rdiscrepancy[3], s_tmr_discrepancy[1],
+logic s_unrec_err[2], s_i_discrepancy[3], s_d_discrepancy[3], s_wdiscrepancy[3], s_rdiscrepancy[3], s_tmr_discrepancy[1],
       s_wdbus_dphase[3], s_rdbus_dphase[3], s_resetn[2][1], s_int_meip[2][1], s_int_mtip[2][1];
 
 seu_ff_rst #(.LABEL("DISCREPANCY"),.W(1),.N(3)) m_discr (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_d_i(s_wdiscrepancy),.s_q_o(s_rdiscrepancy));
@@ -95,7 +95,7 @@ seu_ff_rst #(.LABEL("DBUS_DPHASE"),.W(1),.N(3)) m_dbusd (.s_c_i(s_clk_i),.s_r_i(
 
 tmr_comb #(.OUT_REPS(1),.W(1)) m_tmr_discrepancy (.s_d_i(s_rdiscrepancy),.s_d_o(s_tmr_discrepancy));
 
-assign s_hrdmax_rst_o   = s_tmr_discrepancy[0];
+assign s_unrec_err_o    = s_tmr_discrepancy[0];
 
 assign s_i_htrans_o     = s_i_htrans[0];
 assign s_i_haddr_o      = s_i_haddr[0];
@@ -256,7 +256,7 @@ generate
             .s_d_hwchecksum_o(s_d_hwchecksum[i]),
             .s_d_hparity_o(s_d_hparity[i]),
 
-            .s_hrdmax_rst_o(s_hrdmax_rst[i])
+            .s_unrec_err_o(s_unrec_err[i])
         );        
     end
     for (i = 0; i < 3;i++ ) begin : checker_rep

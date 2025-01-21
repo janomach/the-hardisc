@@ -20,7 +20,6 @@ import p_hardisc::*;
 module csru (
     input logic s_clk_i[PROT_3REP],                 //clock signal
     input logic s_resetn_i[PROT_3REP],              //reset signal
-    input logic[31:0] s_boot_add_i,                 //boot address
 
     input logic s_stall_i[PROT_3REP],               //stall of MA stage
     input logic s_flush_i[PROT_3REP],               //flush of MA stage
@@ -28,7 +27,6 @@ module csru (
     input logic s_int_meip_i,                       //external interrupt
     input logic s_int_mtip_i,                       //timer interrupt
     input logic s_int_msip_i,                       //software interrupt
-    input logic s_int_uce_i,                        //uncorrectable error in register-file
     input logic s_int_lcer_i[PROT_3REP],            //correctable error on load interface
     input logic s_int_fcer_i,                       //fetch correctable error
     input logic s_nmi_luce_i[PROT_3REP],            //uncorrectable error on load interface
@@ -36,32 +34,29 @@ module csru (
     input logic s_hresp_i[PROT_3REP],               //registered hresp signal
     input imiscon s_imiscon_i[PROT_3REP],           //instruction misconduct indicator
     input logic s_rstpp_i[PROT_3REP],               //pipeline reset
-    input logic[31:0] s_newrst_point_i[PROT_3REP],  //new reset-point address
     input logic s_interrupted_i[PROT_3REP],         //interrupt approval
 
     input ictrl s_ictrl_i[PROT_3REP],               //instruction control indicator
     input f_part s_function_i[PROT_3REP],           //instruction function
     input logic[11:0] s_payload_i[PROT_3REP],       //instruction payload information
     input logic[31:0] s_val_i[PROT_3REP],           //result from EX stage
+    input logic[31:0] s_pc_i[PROT_3REP],            //program counter address
     output logic[31:0] s_csr_r_o[PROT_3REP],        //value read from requested CSR
     output logic[31:0] s_exc_trap_o[PROT_3REP],     //exception trap-handler address
     output logic[31:0] s_int_trap_o[PROT_3REP],     //interrupt trap-handler address
-    output logic[31:0] s_rst_point_o[PROT_3REP],    //reset-point address
     output logic[31:0] s_mepc_o[PROT_3REP],         //address saved in MEPC CSR
     output logic s_treturn_o[PROT_3REP],            //return from trap-handler
     output logic s_int_pending_o[PROT_3REP],        //pending interrupt
     output logic s_exception_o[PROT_3REP],          //exception
     output logic s_ibus_rst_en_o[PROT_3REP],        //enables the repetition of transfer that resulted in a instruction bus error
     output logic s_dbus_rst_en_o[PROT_3REP],        //enables the repetition of transfer that resulted in a data bus error
-    output logic s_initialize_o[PROT_3REP],         //core has been reseted, jump to the reset point
-    output logic s_pred_disable_o,                  //disable any predictions
-    output logic[1:0] s_acm_settings_o,             //acm settings - PROT_PIPE only
-    output logic s_hrdmax_rst_o                     //max consecutive pipeline restarts reached
+    output logic s_initialize_o[PROT_3REP],         //core has been reseted, jump to the program counter
+    output logic[31:0] s_mhrdctrl0_o[PROT_3REP]     //settings
 );
     logic[31:0] s_mcsr_r_val[PROT_3REP], s_read_val[PROT_3REP], s_csr_w_val[PROT_3REP], s_int_vectored[PROT_3REP], s_exc_trap[PROT_3REP], s_int_trap[PROT_3REP];
     logic s_machine_csr[PROT_3REP], s_write_machine[PROT_3REP], s_csr_op[PROT_3REP], s_csr_fun[PROT_3REP], s_uadd_00[PROT_3REP], s_uadd_01[PROT_3REP], s_uadd_10[PROT_3REP], s_mret[PROT_3REP], s_exc_active[PROT_3REP], s_int_exc[PROT_3REP], 
           s_mtval_zero[PROT_3REP], s_interrupt[PROT_3REP], s_int_pending[PROT_3REP], s_commit[PROT_3REP], s_exception[PROT_3REP], s_execute[PROT_3REP], s_max_reached[PROT_3REP], s_transfer_misaligned[PROT_3REP], 
-          s_pma_violation[PROT_3REP], s_csr_refresh[PROT_3REP];
+          s_pma_violation[PROT_3REP], s_csr_refresh[PROT_3REP], s_livelock[PROT_3REP], s_livelock_int[PROT_3REP], s_pc_uce[PROT_3REP];
     logic[63:0] s_mcycle_counter[PROT_3REP], s_minstret_counter[PROT_3REP];
     logic[4:0] s_int_code[PROT_3REP], s_csr_add[PROT_3REP], s_exc_code[PROT_3REP];
     logic[1:0] s_nmi[PROT_3REP];
@@ -70,20 +65,18 @@ module csru (
     logic[7:0] s_wmstatus[PROT_3REP], s_rmstatus[PROT_3REP], s_mstatus[PROT_3REP];
     logic[14:0]s_wmie[PROT_3REP], s_rmie[PROT_3REP], s_wmip[PROT_3REP], s_rmip[PROT_3REP],s_mie[PROT_3REP], s_mip[PROT_3REP];
     logic[31:0]s_wmscratch[PROT_3REP],s_wminstret[PROT_3REP],s_wminstreth[PROT_3REP],s_wmcycle[PROT_3REP],s_wmcycleh[PROT_3REP],
-                s_wmtvec[PROT_3REP],s_wmepc[PROT_3REP],s_wmcause[PROT_3REP],s_wmtval[PROT_3REP],s_wmhrdctrl0[PROT_3REP], s_wrstpoint[PROT_3REP],
+                s_wmtvec[PROT_3REP],s_wmepc[PROT_3REP],s_wmcause[PROT_3REP],s_wmtval[PROT_3REP],s_wmhrdctrl0[PROT_3REP],
                 s_rmscratch[PROT_3REP],s_rminstret[PROT_3REP],s_rminstreth[PROT_3REP],s_rmcycle[PROT_3REP],s_rmcycleh[PROT_3REP],
-                s_rmtvec[PROT_3REP],s_rmepc[PROT_3REP],s_rmcause[PROT_3REP],s_rmtval[PROT_3REP],s_rmhrdctrl0[PROT_3REP], s_rrstpoint[PROT_3REP], 
+                s_rmtvec[PROT_3REP],s_rmepc[PROT_3REP],s_rmcause[PROT_3REP],s_rmtval[PROT_3REP],s_rmhrdctrl0[PROT_3REP], 
                 s_mscratch[PROT_3REP],s_minstret[PROT_3REP],s_minstreth[PROT_3REP],s_mcycle[PROT_3REP],s_mcycleh[PROT_3REP],
-                s_mtvec[PROT_3REP],s_mepc[PROT_3REP],s_mcause[PROT_3REP],s_mtval[PROT_3REP],s_mhrdctrl0[PROT_3REP], s_rstpoint[PROT_3REP];
-    logic s_rstpoint_we[PROT_3REP], s_mstatus_we[PROT_3REP], s_minstret_we[PROT_3REP], s_minstreth_we[PROT_3REP], s_mcycle_we[PROT_3REP], s_mcycleh_we[PROT_3REP],
+                s_mtvec[PROT_3REP],s_mepc[PROT_3REP],s_mcause[PROT_3REP],s_mtval[PROT_3REP],s_mhrdctrl0[PROT_3REP];
+    logic s_mstatus_we[PROT_3REP], s_minstret_we[PROT_3REP], s_minstreth_we[PROT_3REP], s_mcycle_we[PROT_3REP], s_mcycleh_we[PROT_3REP],
           s_mscratch_we[PROT_3REP], s_mtvec_we[PROT_3REP], s_mepc_we[PROT_3REP], s_mcause_we[PROT_3REP], s_mtval_we[PROT_3REP], s_mie_we[PROT_3REP], s_mip_we[PROT_3REP], s_mhrdctrl0_we[PROT_3REP];
 `ifdef PROT_INTF
     logic s_mcsr_addr_free[PROT_3REP], s_maddrerr_we[PROT_3REP];
     logic[31:0]s_wmaddrerr[PROT_3REP],s_rmaddrerr[PROT_3REP], s_maddrerr[PROT_3REP];
 `endif
 
-    //Reset point
-    seu_ff_we_rsts #(.LABEL("RSTPOINT"),.N(PROT_3REP)) m_rstpoint (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_rstpoint_we),.s_rs_i(s_boot_add_i),.s_d_i(s_wrstpoint),.s_q_o(s_rrstpoint));
     //CSR registers
     seu_ff_we_rst #(.LABEL("CSR_MSTATUS"),.W(8),.N(PROT_3REP)) m_mstatus (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mstatus_we),.s_d_i(s_wmstatus),.s_q_o(s_rmstatus));
     seu_ff_we_rst #(.LABEL("CSR_MINSTRET"),.N(PROT_3REP)) m_minstret (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_minstret_we),.s_d_i(s_wminstret),.s_q_o(s_rminstret));
@@ -97,7 +90,7 @@ module csru (
     seu_ff_we_rst #(.LABEL("CSR_MTVAL"),.N(PROT_3REP)) m_mtval (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mtval_we),.s_d_i(s_wmtval),.s_q_o(s_rmtval));
     seu_ff_we_rst #(.LABEL("CSR_MIE"),.W(15),.N(PROT_3REP)) m_mie (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mie_we),.s_d_i(s_wmie),.s_q_o(s_rmie));
     seu_ff_we_rst #(.LABEL("CSR_MIP"),.W(15),.N(PROT_3REP)) m_mip (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mip_we),.s_d_i(s_wmip),.s_q_o(s_rmip));
-    seu_ff_we_rst #(.LABEL("CSR_MHRDCTRL0"),.N(PROT_3REP),.RSTVAL(32'h1493)) m_mhrdctrl0 (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mhrdctrl0_we),.s_d_i(s_wmhrdctrl0),.s_q_o(s_rmhrdctrl0));
+    seu_ff_we_rst #(.LABEL("CSR_MHRDCTRL0"),.N(PROT_3REP),.RSTVAL(32'h14A2)) m_mhrdctrl0 (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mhrdctrl0_we),.s_d_i(s_wmhrdctrl0),.s_q_o(s_rmhrdctrl0));
 `ifdef PROT_INTF
     seu_ff_we_rst #(.LABEL("CSR_MADDRERR"),.N(PROT_3REP)) m_maddrerr (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_maddrerr_we),.s_d_i(s_wmaddrerr),.s_q_o(s_rmaddrerr));
 `endif
@@ -114,7 +107,6 @@ module csru (
     tmr_comb m_tmr_mcause (.s_d_i(s_rmcause),.s_d_o(s_mcause));
     tmr_comb m_tmr_mtval (.s_d_i(s_rmtval),.s_d_o(s_mtval));
     tmr_comb m_tmr_mhrdctrl0 (.s_d_i(s_rmhrdctrl0),.s_d_o(s_mhrdctrl0));
-    tmr_comb m_tmr_rstpoint (.s_d_i(s_rrstpoint),.s_d_o(s_rstpoint));
     tmr_comb #(.W(15)) m_tmr_mie (.s_d_i(s_rmie),.s_d_o(s_mie));
     tmr_comb #(.W(15)) m_tmr_mip (.s_d_i(s_rmip),.s_d_o(s_mip));
     tmr_comb m_tmr_maddrerr (.s_d_i(s_rmaddrerr),.s_d_o(s_maddrerr));
@@ -130,7 +122,6 @@ module csru (
     assign s_mcause     = s_rmcause;
     assign s_mtval      = s_rmtval;
     assign s_mhrdctrl0  = s_rmhrdctrl0;
-    assign s_rstpoint   = s_rrstpoint;
     assign s_mie        = s_rmie;
     assign s_mip        = s_rmip;
 `ifdef PROT_INTF
@@ -138,9 +129,7 @@ module csru (
 `endif
 `endif
 
-    assign s_pred_disable_o = s_mhrdctrl0[0][3];
-    assign s_hrdmax_rst_o   = s_mhrdctrl0[0][2];
-    assign s_acm_settings_o = s_mhrdctrl0[0][5:4];
+    assign s_mhrdctrl0_o    = s_mhrdctrl0;
     assign s_int_pending_o  = s_int_pending; 
     assign s_exception_o    = s_exception;
     assign s_csr_r_o        = s_read_val;  
@@ -148,7 +137,6 @@ module csru (
     assign s_mepc_o         = s_mepc;
     assign s_exc_trap_o     = s_exc_trap;
     assign s_int_trap_o     = s_int_trap;  
-    assign s_rst_point_o    = s_rstpoint;
 
     genvar i;
     generate
@@ -343,7 +331,7 @@ module csru (
             always_comb begin : mepc_writer
                 s_wmepc[i]   = s_mepc[i];
                 if(s_int_exc[i]) begin
-                    s_wmepc[i]   = s_rstpoint[i];
+                    s_wmepc[i]   = s_pc_i[i];
                 end else if (s_write_machine[i] & (s_csr_add[i] == MCSR_EPC) & s_uadd_00[i]) begin
                     s_wmepc[i]   = s_csr_w_val[i];
                 end
@@ -384,7 +372,7 @@ module csru (
                 s_wmip[i][14:13]  = 2'b0;
 `endif
 `ifdef PROT_PIPE
-                s_wmip[i][12]     = s_int_uce_i  | s_mip[i][12];
+                s_wmip[i][12]     = s_livelock_int[i]  | s_mip[i][12];
 `else
                 s_wmip[i][12]     = 1'b0;
 `endif
@@ -414,8 +402,19 @@ module csru (
                 end
             end
 
-            //Signalize reaching of maximum number of consecutive restarts
+`ifdef PROT_PIPE
+            // If all three replicas are distinct, signalize unrecoverable error
+            assign s_pc_uce[i]      = (s_pc_i[i] != s_pc_i[(i+1)%3]) && (s_pc_i[i] != s_pc_i[(i+2)%3]);
+            // Signalize reaching of maximum number of consecutive restarts
             assign s_max_reached[i] = s_mhrdctrl0[i][19:16] == s_mhrdctrl0[i][11:8];
+            assign s_livelock[i]    = s_max_reached[i] && s_mhrdctrl0[i][20] && (s_mhrdctrl0[i][3] || ~s_mhrdctrl0[i][1]);
+            assign s_livelock_int[i]= s_livelock[i] && s_mhrdctrl0[i][0] && !s_execute[i];
+`else
+            assign s_pc_uce[i]      = 1'b0;
+            assign s_max_reached[i] = 1'b0;
+            assign s_livelock[i]    = 1'b0;
+            assign s_livelock_int[i]= 1'b0;
+`endif      
 
             /*  HRDCTRL0
                 31: core active (1) - not writtable
@@ -428,14 +427,14 @@ module csru (
                 13-12: CSR refresh rate
                 11-08: maximum number of consecutive restarts
                 07: enable automatic pipeline restart after the first bus error
-                06: reserved
+                06: enable error correction code in the register file
                 05-04: acm settings
                      - bit 0 : proactive error search - read address increments whenever possible
                      - bit 1 : proactive checksum analysis - even if error is not detected in data 
                 03: disable predictor
-                02: max consecutive restarts reached
+                02: unrecoverable system error - sticky
                 01: after the max number of consecutive restarts, try to disable the predictor at first
-                00: enable monitoring of consecutive restarts          
+                00: fire interrupt on livelock instead of signalization of unrecoverable error         
             */
             assign s_mhrdctrl0_we[i] = 1'b1;
             always_comb begin : mrhdctrl0_writer
@@ -449,9 +448,10 @@ module csru (
                     s_wmhrdctrl0[i][13:12]  = s_csr_w_val[i][13:12];
                     s_wmhrdctrl0[i][11:8]   = s_csr_w_val[i][11:8];
                     s_wmhrdctrl0[i][7]      = s_csr_w_val[i][7];
-                    s_wmhrdctrl0[i][6]      = 1'b0;                 //reserved
+                    s_wmhrdctrl0[i][6]      = s_csr_w_val[i][6];
                     s_wmhrdctrl0[i][5:0]    = s_csr_w_val[i][5:0];
                 end else begin
+                    s_wmhrdctrl0[i][22:0]   = s_mhrdctrl0[i][22:0];
                     if(s_rstpp_i[i] & s_mhrdctrl0[i][7] & (s_exceptions[i][EXC_LSACCESS] | s_exceptions[i][EXC_IACCESS]))begin
                         //save bus-error indicator
                         s_wmhrdctrl0[i][22] = s_exceptions[i][EXC_LSACCESS];
@@ -459,8 +459,6 @@ module csru (
                     end else if(s_execute[i] & s_mhrdctrl0[i][7])begin
                         //clear bus-error indicator
                         s_wmhrdctrl0[i][22:21] = 2'b0;
-                    end else begin
-                        s_wmhrdctrl0[i][22:21] = s_mhrdctrl0[i][22:21];
                     end
                     if(s_execute[i])begin
                         //stop counting
@@ -468,8 +466,6 @@ module csru (
                     end else if(s_rstpp_i[i])begin
                         //start/countinue counting
                         s_wmhrdctrl0[i][20] = 1'b1;
-                    end else begin
-                        s_wmhrdctrl0[i][20] = s_mhrdctrl0[i][20];
                     end
                     if(s_execute[i] | (s_mhrdctrl0[i][20] & s_mhrdctrl0[i][1] & ~s_mhrdctrl0[i][3] & s_max_reached[i]))begin
                         //reset counter on valid instruction, or at a try to disable the predictor
@@ -477,33 +473,24 @@ module csru (
                     end else if(s_mhrdctrl0[i][20] & (s_mhrdctrl0[i][19:16] != s_mhrdctrl0[i][11:8]) & s_rstpp_i[i])begin
                         //continue counting until the maximum number of restarts is reached
                         s_wmhrdctrl0[i][19:16] = s_mhrdctrl0[i][19:16] + 4'b1;
-                    end else begin
-                        s_wmhrdctrl0[i][19:16] = s_mhrdctrl0[i][19:16];
                     end
                     if(s_mhrdctrl0[i][20] & s_mhrdctrl0[i][1] & s_max_reached[i])begin
                         //try to disable the predictor at first
                         s_wmhrdctrl0[i][3] = 1'b1;
-                    end else begin
-                        s_wmhrdctrl0[i][3] = s_mhrdctrl0[i][3];
                     end
-                    if(s_execute[i])begin
-                        //signalize normal operation / recovery
-                        s_wmhrdctrl0[i][2] = 1'b0;
-                    end else if(s_mhrdctrl0[i][20] & s_mhrdctrl0[i][0] & (s_mhrdctrl0[i][3] | ~s_mhrdctrl0[i][1]) & s_max_reached[i])begin
-                        //signalize lock-up / unrecoverable error
-                        s_wmhrdctrl0[i][2] = 1'b1;
-                    end else begin
-                        s_wmhrdctrl0[i][2] = s_mhrdctrl0[i][2];
+                    if(!s_mhrdctrl0[i][2])begin
+                        s_wmhrdctrl0[i][2] = s_pc_uce[i];
+                        if(!s_execute[i] && s_livelock[i] && !s_mhrdctrl0[i][0])begin
+                            //signalize lock-up / unrecoverable error
+                            s_wmhrdctrl0[i][2] = 1'b1;
+                        end
                     end
-                    s_wmhrdctrl0[i][1:0]    = s_mhrdctrl0[i][1:0];
-                    s_wmhrdctrl0[i][15:4]   = s_mhrdctrl0[i][15:4];
-                    s_wmhrdctrl0[i][22]     = s_mhrdctrl0[i][22];
+                    if(!s_execute[i] && s_livelock[i])begin
+                        //automatic clear of the livelock interrupt enable
+                        s_wmhrdctrl0[i][0] = 1'b1;
+                    end
                 end                
             end
-
-            //Reset point
-            assign s_rstpoint_we[i] = (s_execute[i] & ~s_stall_i[i]) | s_interrupted_i[i];
-            assign s_wrstpoint[i]   = s_newrst_point_i[i];
 
 `ifdef PROT_INTF            
             //CSR_ADDRERR is free to receive data if neither FCER nor LCER interrupt is pending
@@ -515,7 +502,7 @@ module csru (
                 s_wmaddrerr[i] = s_maddrerr[i];
                 if(s_mcsr_addr_free[i] & s_int_fcer_i & s_mie[i][13])begin
                     //Save address of instruction with correctable error
-                    s_wmaddrerr[i] = {s_rstpoint[i][31:2],2'b0};
+                    s_wmaddrerr[i] = {s_pc_i[i][31:2],2'b0};
                 end else if(s_mcsr_addr_free[i] & s_mie[i][14] & s_ictrl_i[i][ICTRL_UNIT_LSU])begin
                     //Save address of LSU transfer
                     s_wmaddrerr[i] = {s_val_i[i][31:2],2'b0};

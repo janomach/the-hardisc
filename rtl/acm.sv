@@ -31,8 +31,7 @@ module acm
     input logic[31:0] s_r_p1_val_i[2],  //value read through port 1
     input logic[31:0] s_r_p2_val_i[2],  //value read through port 1
 
-    input logic[1:0] s_acm_settings_i,
-    output logic s_uce_o[2],            //uncorrectable error
+    input logic[31:0] s_mhrdctrl0_i[3], //settings
 
     output logic[31:0] s_val_o[2],      //write value
     output rf_add s_add_o[2],           //write address
@@ -47,8 +46,9 @@ module acm
     rf_add s_file_w_add[2], s_w_address[2], s_wacm_add[2], s_racm_add[2], s_repair_add[2];
     logic s_rs1_repreq[2], s_rs2_repreq[2], s_rs2_repair[2], s_rs1_repair[2];
     logic s_acm_neq[2], s_repair[2], s_fix_ce[2], s_acm_val_neq[2], s_acm_chs_eq[2];
-    logic s_clk_prw[2], s_resetn_prw[2];
+    logic s_clk_prw[2], s_resetn_prw[2], s_rf0_we, s_rf1_we;
     logic s_acm_we[2], s_corr[2], s_write[2], s_acm_ce[2], s_acm_error[2];
+    logic s_ecc_enabled[2];
 
     seu_ff_we #(.LABEL("ACM_ADD"),.W(5),.N(2))   m_acm_add (.s_c_i(s_clk_prw),.s_we_i(s_acm_we),.s_d_i(s_wacm_add),.s_q_o(s_racm_add));
     seu_ff_we #(.LABEL("ACM_VAL"),.N(2))   m_acm_val (.s_c_i(s_clk_prw),.s_we_i(s_acm_we),.s_d_i(s_wacm_val),.s_q_o(s_racm_val));
@@ -60,25 +60,27 @@ module acm
     
     genvar i;
     generate
-        /* Automatic Correction Mechanism*/
+        /* Automatic Correction Module*/
         for (i = 0; i<2 ; i++ ) begin : acm_replicator
             assign s_clk_prw[i]     = s_clk_i[i];
             assign s_resetn_prw[i]  = s_resetn_i[i];
             
             //repair request - correctable errors, which cannot be forwarded   
             assign s_rs1_repreq[i]  = (s_r_p1_val_i[0] != s_r_p1_val_i[1]);  
-            assign s_rs2_repreq[i]  = ((s_r_p2_val_i[0] != s_r_p2_val_i[1]) || s_acm_settings_i[1]);
+            assign s_rs2_repreq[i]  = ((s_r_p2_val_i[0] != s_r_p2_val_i[1]) || s_mhrdctrl0_i[i][5]);
 
             //repair request is valid, if no write to the faulty register is ongoing
             assign s_rs1_repair[i]  = (s_r_p1_add_i[i] != 5'b0) && (s_rs1_repreq[i] & (~s_file_we[i] | (s_file_w_add[i] != s_r_p1_add_i[i])));
             assign s_rs2_repair[i]  = (s_r_p2_add_i[i] != 5'b0) && (s_rs2_repreq[i] & (~s_file_we[i] | (s_file_w_add[i] != s_r_p2_add_i[i])));
 
+            //ecc settings
+            assign s_ecc_enabled[i] = (s_mhrdctrl0_i[i][5:4] != 2'b00);
             //selects address - rs1 has priority
             assign s_repair_add[i]  = (s_rs1_repair[i]) ? s_r_p1_add_i[i] : s_r_p2_add_i[i];
             //selects value and checksum for the correction
             assign s_repair_val[i]  = (s_rs1_repair[i]) ? s_r_p1_val_i[i] : s_r_p2_val_i[i];
             //save repair flag
-            assign s_repair[i]      = (s_rs1_repair[i] | s_rs2_repair[i]);
+            assign s_repair[i]      = (s_rs1_repair[i] | s_rs2_repair[i]) && s_ecc_enabled[i];
 
             assign s_acm_we[i]      = (s_racm_fsm[i] != ACM_IDLE) | s_repair[i];
 
@@ -118,9 +120,6 @@ module acm
             //determine correctability
             assign s_acm_repair[i] = s_corr[0] && s_corr[1] && (s_acm_val_neq[i] || !s_acm_chs_eq[i]);
 
-            //signalize uncorrectable error
-            assign s_uce_o[i]      = (s_racm_fsm[i] == ACM_CHECK) && ~s_acm_neq[i] && s_acm_val_neq[i] && ~s_acm_repair[i];
-
             //write request by ACM
             assign s_fix_ce[i]     = (s_racm_fsm[i] == ACM_CORRECT) & ~s_acm_neq[i] & ~s_acm_val_neq[i];
             //write enable signal for the register file
@@ -147,10 +146,13 @@ module acm
     assign s_rp_checksum[0] = s_rf0_checksum[0];
     assign s_rp_checksum[1] = s_rf1_checksum[0];
 
+    assign s_rf0_we = s_file_we[0] && s_ecc_enabled[0];
+    assign s_rf1_we = s_file_we[1] && s_ecc_enabled[1];
+
     seu_ff_file #(.LABEL("RFACM0"),.W(7),.N(32),.RP(1)) m_rf0_acm 
     (
         .s_c_i(s_clk_i[0]),
-        .s_we_i(s_file_we[0]),
+        .s_we_i(s_rf0_we),
         .s_wa_i(s_file_w_add[0]),
         .s_d_i(s_w_checksum[0]),
         .s_ra_i({s_racm_add[0]}),
@@ -160,12 +162,12 @@ module acm
     seu_ff_file #(.LABEL("RFACM1"),.W(7),.N(32),.RP(1)) m_rf1_acm 
     (
         .s_c_i(s_clk_i[1]),
-        .s_we_i(s_file_we[1]),
+        .s_we_i(s_rf1_we),
         .s_wa_i(s_file_w_add[1]),
         .s_d_i(s_w_checksum[1]),
         .s_ra_i({s_racm_add[1]}),
         .s_q_o(s_rf1_checksum)
-    ); 
+    );
 
 endmodule
 

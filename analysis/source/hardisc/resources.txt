@@ -256,7 +256,7 @@
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_5_ma/m_mawb_ictrl/r_data 3 7
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_5_ma/m_mawb_ldinfo/r_data 3 5
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_5_ma/m_mawb_err/r_data 3 2
-/tb_mh_wrapper/dut/rep[0]/core/m_pipe_5_ma/m_csru/m_rstpoint/r_data 3 32
+/tb_mh_wrapper/dut/rep[0]/core/m_pipe_5_ma/m_csru/m_pc/r_data 3 32
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_5_ma/m_csru/m_mstatus/r_data 3 8
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_5_ma/m_csru/m_minstret/r_data 3 32
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_5_ma/m_csru/m_minstreth/r_data 3 32

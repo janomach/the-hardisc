@@ -62,7 +62,7 @@ module system_tcls #(
     output logic[6:0] s_d_hwchecksum_o,     //AHB data bus - outgoing checksum
     output logic[5:0] s_d_hparity_o,        //AHB data bus - outgoing parity
 
-    output logic s_hrdmax_rst_o             //discrepancy between lockstepped cores
+    output logic s_unrec_err_o              //discrepancy between lockstepped cores
 );
 
 logic[5:0] s_i_hparity[3], s_d_hparity[3], s_tmri_hparity[1], s_tmrd_hparity[1];
@@ -73,7 +73,7 @@ logic[1:0] s_i_htrans[3], s_d_htrans[3], s_tmri_htrans[3], s_tmrd_htrans[3];
 logic[2:0] s_i_hsize[3], s_i_hburst[3], s_d_hsize[3], s_d_hburst[3], s_tmrd_hsize[1];
 logic[3:0] s_i_hprot[3], s_d_hprot[3];
 
-logic s_hrdmax_rst[3], s_i_discrepancy[3], s_d_discrepancy[3], s_wdiscrepancy[3], s_rdiscrepancy[3], s_tmr_discrepancy[1], s_wdbus_dphase[3], s_rdbus_dphase[3];
+logic s_unrec_err[3], s_i_discrepancy[3], s_d_discrepancy[3], s_wdiscrepancy[3], s_rdiscrepancy[3], s_tmr_discrepancy[1], s_wdbus_dphase[3], s_rdbus_dphase[3];
 
 seu_ff_rst #(.LABEL("DISCREPANCY"),.W(1),.N(3)) m_discr (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_d_i(s_wdiscrepancy),.s_q_o(s_rdiscrepancy));
 seu_ff_rst #(.LABEL("DBUS_DPHASE"),.W(1),.N(3)) m_dbusd (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_d_i(s_wdbus_dphase),.s_q_o(s_rdbus_dphase));
@@ -95,7 +95,7 @@ tmr_comb #(.OUT_REPS(3),.W(1))  m_tmr_i_hresp (.s_d_i(s_i_hresp_i),.s_d_o(s_tmri
 tmr_comb #(.OUT_REPS(3),.W(1))  m_tmr_d_hready (.s_d_i(s_d_hready_i),.s_d_o(s_tmrd_hready));
 tmr_comb #(.OUT_REPS(3),.W(1))  m_tmr_d_hresp (.s_d_i(s_d_hresp_i),.s_d_o(s_tmrd_hresp));
 
-assign s_hrdmax_rst_o   = s_tmr_discrepancy[0];
+assign s_unrec_err_o    = s_tmr_discrepancy[0];
 
 assign s_i_htrans_o     = s_tmri_htrans[0];
 assign s_i_haddr_o      = s_tmri_haddr[0];
@@ -162,7 +162,7 @@ generate
             .s_d_hwchecksum_o(s_d_hwchecksum[i]),
             .s_d_hparity_o(s_d_hparity[i]),
 
-            .s_hrdmax_rst_o(s_hrdmax_rst[i])
+            .s_unrec_err_o(s_unrec_err[i])
         );  
         always_comb begin
             s_i_discrepancy[i] = 1'b0;

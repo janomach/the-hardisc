@@ -55,7 +55,7 @@ module seu_ff_rst #(
     endgenerate
 endmodule
 
-module seu_ff_we_rsts #(
+module seu_ff_rsts #(
     parameter W=32,
     parameter N=3,
     parameter GROUP=0,
@@ -63,7 +63,6 @@ module seu_ff_we_rsts #(
 )(
     input logic s_c_i[N],
     input logic s_r_i[N],
-    input logic s_we_i[N],
     input logic[W-1:0] s_rs_i,
     input logic[W-1:0] s_d_i[N],
     output logic[W-1:0] s_q_o[N]
@@ -82,13 +81,11 @@ module seu_ff_we_rsts #(
             always_ff @( posedge s_c_i[i] or negedge s_r_i[i] ) begin
                 if(s_r_i[i] == 1'b0)begin
                     r_data[i]  <= s_rs_i;
-                end else if(s_we_i[i] == 1'b1) begin
-`ifndef SEE_TESTING
-                    r_data[i]  <= s_d_i[i];
-`else 
-                    r_data[i]  <= s_d_i[i] ^ s_upset[i];
                 end else begin
-                    r_data[i]  <= r_data[i] ^ s_upset[i];
+`ifdef SEE_TESTING 
+                    r_data[i]  <= s_d_i[i] ^ s_upset[i];
+`else
+                    r_data[i]  <= s_d_i[i];
 `endif
                 end
             end

@@ -27,7 +27,7 @@ module executor (
     input logic[31:0] s_operand2_i,     //operand 2
     input logic[20:0] s_payload_i,      //instruction payload information
     input logic[30:0] s_ma_tadd_i,      //target address saved in MA stage
-    input logic[30:0] s_rstpoint_i,     //reset point
+    input logic[30:0] s_pc_i,           //program counter
     input logic[1:0] s_pc_incr_i,       //indicates how much the address should be incremented in the ALU
     input logic s_ma_taken_i,           //MA stage contains instruction, which performs TOC
     input f_part s_function_i,          //instruction function
@@ -58,7 +58,7 @@ module executor (
         .s_pc_offset_i(s_pc_offset),
         .s_ma_tadd_i(s_ma_tadd_i),
         .s_ma_taken_i(s_ma_taken_i),
-        .s_rstpoint_i(s_rstpoint_i),
+        .s_pc_i(s_pc_i),
         .s_bru_i(s_ictrl_i[ICTRL_UNIT_BRU]),
         .s_pc_incr_i(s_pc_incr_i),
         .s_result_o(s_alu_result)

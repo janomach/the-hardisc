@@ -99,7 +99,7 @@ package p_hardisc;
                 //reserved
                 FETCH_INUCE     = 3'd4, //fetch interface uncorrectable error
                 //reserved
-                //reserved
+                FETCH_DSCR      = 3'd6, //fetch discrepancy
                 FETCH_INCER     = 3'd7; //fetch interface correctable error
     parameter [1:0]
                 //LEVEL_USER      = 2'b00,
