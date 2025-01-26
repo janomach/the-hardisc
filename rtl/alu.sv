@@ -24,7 +24,7 @@ module alu (
     input logic[31:0] s_op2_i,          //operand 2
     input logic[30:0] s_pc_offset_i,    //offset from instruction address
     input logic[30:0] s_ma_tadd_i,      //target address saved in MA stage
-    input logic[30:0] s_rstpoint_i,     //reset point   
+    input logic[30:0] s_pc_i,           //program counter   
     input logic[1:0] s_pc_incr_i,       //indicates how much the address should be incremented
     output logic[31:0] s_result_o       //combinatorial result
 );
@@ -51,9 +51,9 @@ module alu (
     /*  If the MA stage contains instruction, which performs a TOC, 
         takes the generated target address as a PC. This can happen 
         only if the prediction was made from the MA-stage instruction. */  
-    assign s_pc_op[0]   = s_ma_taken_i ? s_ma_tadd_i : s_rstpoint_i;
+    assign s_pc_op[0]   = s_ma_taken_i ? s_ma_tadd_i : s_pc_i;
     assign s_pc_op[1]   = s_pc_offset_i;
-    /*  The reset point address must by incremented by:
+    /*  The program counter address must by incremented by:
         a) 0 if the MA stage does not contain an instruction - prepared outside of the Executor
         b) 2 if the MA stage contains RVC an instruction
         c) 4 if the MA stage contains RVI an instruction 

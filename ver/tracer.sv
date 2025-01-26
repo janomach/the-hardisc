@@ -62,7 +62,7 @@ module tracer
 );
     int fd, logging,i;
     string logfile;
-    instruction_s commited_instruction, decoder_instruction;
+    instruction_s s_wb_instruction, s_id_instruction;
     string i_resinfo, i_result;
     initial begin
         fd = 0;
@@ -73,20 +73,29 @@ module tracer
             fd = $fopen(logfile,"w");
         end
     end
+
+    always_comb begin
+        if(s_dec_instr_i[1:0] == 2'b11)begin
+            s_id_instruction = instr_i(s_dec_instr_i);
+        end else begin
+            s_id_instruction = instr_c(s_dec_instr_i);
+        end
+        if(s_wb_instr_i[1:0] == 2'b11)begin
+            s_wb_instruction = instr_i(s_wb_instr_i);
+        end else begin
+            s_wb_instruction = instr_c(s_wb_instr_i);
+        end    
+    end
+
     always_ff @( posedge s_clk_i ) begin 
         if(s_resetn_i & (logging >= 1))begin
-            if(s_dec_instr_i[1:0] == 2'b11)begin
-                decoder_instruction = instr_i(s_dec_instr_i);
-            end else begin
-                decoder_instruction = instr_c(s_dec_instr_i);
-            end
             $write ("[%6d, %6d, %1.3f] FA: %8x | FD: %8x | ID: (%2x) %-30s | OP: %2x | EX: %2x | MA: %2x | WB: %2x ~ %8x, %c", 
                 s_dut_mcycle_i, s_dut_minstret_i, 
                 (s_dut_mcycle_i == 32'b0) ? $bitstoreal(0) : ($bitstoreal({32'b0,s_dut_minstret_i})/$bitstoreal({32'b0,s_dut_mcycle_i})),
                 s_dut_fe0_utd_i ? {s_dut_fe0_add_i,1'b0} : 32'd0, 
                 s_dut_fe1_utd_i ? {s_dut_fe1_add_i,1'b0} : 32'd0,
                 s_dut_aligner_nop_i ? 0 : s_dut_id_ictrl_i, 
-                s_dut_aligner_nop_i ? "" : ((s_dec_instr_i[1:0] == 2'b11) ? decoder_instruction.text : {"c.",decoder_instruction.text}),
+                s_dut_aligner_nop_i ? "" : ((s_dec_instr_i[1:0] == 2'b11) ? s_id_instruction.text : {"c.",s_id_instruction.text}),
                 s_dut_op_ictrl_i, s_dut_ex_ictrl_i,s_dut_ma_ictrl_i, s_dut_wb_ictrl_i,
                 s_wb_pc_i, (|s_dut_wb_ictrl_i[4:0])? 8'd86 : 8'd32 );                
             if(s_dut_rfc_we_i) $write(" %x -> R%2d",s_dut_rfc_wval_i,s_dut_rfc_wadd_i);
@@ -95,12 +104,6 @@ module tracer
     end
     always_ff @( posedge s_clk_i ) begin
         if(s_resetn_i & (s_dut_wb_ictrl_i != 7'b0) & fd != 0)begin
-            if(s_wb_instr_i[1:0] == 2'b11)begin
-                commited_instruction = instr_i(s_wb_instr_i);
-            end else begin
-                commited_instruction = instr_c(s_wb_instr_i);
-            end
-
             if(s_dut_rfc_we_i)begin
                     i_result = $sformatf("x%2d 0x%8x",s_dut_rfc_wadd_i, s_dut_rfc_wval_i);
             end else begin 
@@ -111,7 +114,7 @@ module tracer
             else
                 i_resinfo = $sformatf("core   0: 3 0x%8x (0x%8x)",s_wb_pc_i,s_wb_instr_i);
 
-            $fwrite(fd,"core   0: 0x%8x (0x%8x) %s\n",s_wb_pc_i,s_wb_instr_i,(s_wb_instr_i[1:0] == 2'b11) ? commited_instruction.text : {"c.",commited_instruction.text});
+            $fwrite(fd,"core   0: 0x%8x (0x%8x) %s\n",s_wb_pc_i,s_wb_instr_i,(s_wb_instr_i[1:0] == 2'b11) ? s_wb_instruction.text : {"c.",s_wb_instruction.text});
             $fwrite(fd,"%s %s\n",i_resinfo,i_result);
         end
     end
@@ -484,14 +487,16 @@ module tracer
                         instr_c.source = (instr[12] & instr[11:2] == 10'b0) ? {5'd0,5'd0,1'b0,1'b0} : 
                                          (instr[12] & ~s_shamtzr) ? {instr[11:7],instr[6:2],1'b1,1'b1} : 
                                          (~instr[12] & ~s_shamtzr) ? {5'd0,instr[6:2],1'b1,1'b1} : {instr[11:7],5'd0,1'b1,1'b0} ;
-                        instr_c.dest = {instr[11:7],~(instr[12] & instr[11:2] == 10'b0)};
+                        instr_c.dest = (instr[12] & instr[11:2] == 10'b0) ? {5'd0,1'b0} : 
+                                       (~s_shamtzr) ? {instr[11:7],1'b1} : 
+                                       (~instr[12]) ? {5'd0,1'b1} : {5'd1,1'b1};
                         instr_c.itype = (instr[12] & instr[11:2] == 10'b0) ? CSR : 
                                          (~s_shamtzr) ? BASE : JALR;
                     end
                     3'd6:begin
-                        instr_c.text = {"swsp ",name11to7,", ",$sformatf("%1d",s_uimm8swsp),"(sp)"};
-                        instr_c.source = {5'd2,instr[11:7],1'b1,1'b1};
-                        instr_c.dest = {instr[11:7],1'b1};
+                        instr_c.text = {"swsp ",name6to2,", ",$sformatf("%1d",s_uimm8swsp),"(sp)"};
+                        instr_c.source = {5'd2,instr[6:2],1'b1,1'b1};
+                        instr_c.dest = {instr[6:2],1'b0};
                         instr_c.itype = STORE;
                     end
                     default: begin

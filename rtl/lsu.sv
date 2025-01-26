@@ -48,6 +48,7 @@ module lsu (
     input logic[31:0] s_dp_address_i[PROT_3REP],//data phase address  
     output logic s_dp_ready_o[PROT_3REP],       //data phase stall signal
     output logic s_dp_hresp_o[PROT_3REP],       //data phase bus error
+    output logic s_dp_save_o[PROT_3REP],        //data phase save data
     output logic[31:0] s_dp_data_o,             //data phase read data
 
     //Fix data
@@ -57,16 +58,16 @@ module lsu (
 );
     logic s_ap_active[PROT_3REP], s_whresp[PROT_3REP], s_rhresp[PROT_3REP], s_data_we[PROT_3REP];
     logic[31:0] s_wwdata[PROT_3REP], s_rwdata[PROT_3REP];
-    logic[2:0] s_hsize[PROT_2REP];
-    logic[1:0] s_htrans[PROT_2REP];
-    logic[31:0] s_haddr[PROT_2REP];
-    logic s_hwrite[PROT_2REP];
+    logic[2:0] s_hsize[PROT_2REP], s_size[PROT_3REP];
+    logic[1:0] s_htrans[PROT_2REP], s_trans[PROT_3REP];
+    logic[31:0] s_haddr[PROT_2REP], s_addr[PROT_3REP];
+    logic s_hwrite[PROT_2REP], s_write[PROT_3REP];
 `ifdef PROT_INTF
     logic s_error[PROT_3REP], s_rchecksynd[PROT_3REP], s_wchecksynd[PROT_3REP], s_syndrome_we[PROT_3REP]; 
-    logic rmw_activate[PROT_3REP], s_ce[PROT_3REP];
+    logic s_rmw_activate[PROT_3REP], s_ce[PROT_3REP];
     logic[31:0] s_data_merged[PROT_3REP], s_data_fixed[PROT_3REP], s_wdata[1];
     logic[6:0] s_achecksum[PROT_3REP], s_wlsyndrome[PROT_3REP], s_rlsyndrome[PROT_3REP], s_checksum[PROT_3REP], s_wchecksum[1];
-    logic[1:0] s_wfsm[PROT_3REP], s_rfsm[PROT_3REP], s_fsm[PROT_3REP];
+    logic[1:0] s_wfsm[PROT_3REP], s_rfsm[PROT_3REP];
 `endif
 
     //Data for write
@@ -113,15 +114,20 @@ module lsu (
     assign s_dp_hresp_o     = s_rhresp;
 
 `ifdef PROT_PIPE
-    //Majority voting for state of internal FSM - WARNING: potential single point of failure
-    tmr_comb #(.W(2)) m_tmr_fsm (.s_d_i(s_rfsm),.s_d_o(s_fsm));
-    //Majority voting prevents save of corrupted data
+    //Majority voting to select address-phase bus signals
+    tmr_comb #(.W(1),.OUT_REPS(2)) m_tmr_hwrite (.s_d_i(s_write),.s_d_o(s_hwrite));
+    tmr_comb #(.W(2),.OUT_REPS(2)) m_tmr_htrans (.s_d_i(s_trans),.s_d_o(s_htrans));
+    tmr_comb #(.W(3),.OUT_REPS(2)) m_tmr_hsize (.s_d_i(s_size),.s_d_o(s_hsize));
+    tmr_comb #(.W(32),.OUT_REPS(2)) m_tmr_haddr (.s_d_i(s_addr),.s_d_o(s_haddr));
+    //Majority voting to select data-phase bus signals
     tmr_comb #(.OUT_REPS(1)) m_tmr_sval (.s_d_i(s_rwdata),.s_d_o(s_wdata));
-    //Majority voting prevents save of corrupted checksum 
     tmr_comb #(.OUT_REPS(1),.W(7)) m_tmr_schecksum (.s_d_i(s_checksum),.s_d_o(s_wchecksum));
 `else
+    assign s_hwrite[0]      = s_write[0];
+    assign s_htrans[0]      = s_trans[0];
+    assign s_hsize[0]       = s_size[0];
+    assign s_haddr[0]       = s_addr[0];    
 `ifdef PROT_INTF
-    assign s_fsm[0]         = s_rfsm[0];
     assign s_wdata[0]       = s_rwdata[0];
     assign s_wchecksum[0]   = s_checksum[0];
 `endif
@@ -129,33 +135,31 @@ module lsu (
 
     genvar i;
     generate
-        for (i = 0; i<PROT_2REP ;i++ ) begin : interface_replicator
+        for (i = 0; i<PROT_3REP ;i++ ) begin : lsu_replicator
             always_comb begin : request_control
-                s_hsize[i]  = {1'b0,s_opex_f_i[i][1:0]};
-                s_hwrite[i] = s_opex_f_i[i][3]; 
-                s_haddr[i]  = s_ap_address_i[i];
-                s_htrans[i] = {s_ap_active[i],1'b0};
+                s_size[i]  = {1'b0,s_opex_f_i[i%2][1:0]};
+                s_write[i] = s_opex_f_i[i%2][3]; 
+                s_addr[i]  = s_ap_address_i[i%2];
+                s_trans[i] = {s_ap_active[i],1'b0};
 `ifdef PROT_INTF
-                if(rmw_activate[i])begin
+                if(s_rmw_activate[i])begin
                     //at the beggining of the RMW sequence is always a load from from aligned address 
-                    s_hsize[i][1:0] = 2'b10;
-                    s_hwrite[i]     = 1'b0;
-                    s_haddr[i][1:0] = 2'b00;
-                end else if(s_fsm[i] == LSU_RMW_WRITE)begin
+                    s_size[i][1:0] = 2'b10;
+                    s_write[i]     = 1'b0;
+                    s_addr[i][1:0] = 2'b00;
+                end else if(s_rfsm[i] == LSU_RMW_WRITE)begin
                     //the original transfer is performed in the write phase
-                    s_hsize[i][1:0] = s_exma_f_i[i][1:0];
-                    s_hwrite[i]     = 1'b1;
-                    s_haddr[i]      = s_dp_address_i[i];
-                    s_htrans[i]     = 2'b10;
-                end else if(!s_opex_f_i[i][3])begin
+                    s_size[i][1:0] = s_exma_f_i[i][1:0];
+                    s_write[i]     = 1'b1;
+                    s_addr[i]      = s_dp_address_i[i];
+                    s_trans[i]     = 2'b10;
+                end else if(!s_opex_f_i[i%2][3])begin
                     //narrower read requests are transformed to reading the whole word so the core can check the checksum
-                    s_hsize[i][1:0] = 2'b10;
-                    s_haddr[i][1:0] = 2'b00;
+                    s_size[i][1:0] = 2'b10;
+                    s_addr[i][1:0] = 2'b00;
                 end
 `endif
             end
-        end
-        for (i = 0; i<PROT_3REP ;i++ ) begin : lsu_replicator
             //Save data that will be send through the bus
             always_comb begin : lsu_wdata
                 s_wwdata[i] = s_wdata_i[i];
@@ -168,7 +172,7 @@ module lsu (
                     s_wwdata[i][31:24] = s_wdata_i[i][7:0];
                 end
 `ifdef PROT_INTF
-                if(s_fsm[i] == LSU_RMW_WRITE) begin
+                if(s_rfsm[i] == LSU_RMW_WRITE) begin
                     //Save merged data, that will be send in the following cycle
                     s_wwdata[i] = s_data_merged[i];
                 end
@@ -184,23 +188,22 @@ module lsu (
             assign s_fixed_data_o[i]= 32'b0;
             assign s_einfo_o[i]     = 2'b0;
             assign s_ap_busy_o[i]   = 1'b0;
+            assign s_dp_save_o[i]   = !s_exma_f_i[i][3];
 `else
             //Save bus responses - ignored if it happens without an intended bus request
-            assign s_whresp[i]      = ~s_hready_i[i] & s_hresp_i[i] & (s_fsm[i] != LSU_RMW_WRITE);
-            assign s_data_we[i]     = s_hready_i[i] & ((s_ap_active[i] & s_opex_f_i[i%2][3]) | (s_fsm[i] == LSU_RMW_WRITE));
+            assign s_whresp[i]      = ~s_hready_i[i] & s_hresp_i[i] & (s_rfsm[i] != LSU_RMW_WRITE);
+            assign s_data_we[i]     = s_hready_i[i] & ((s_ap_active[i] & s_opex_f_i[i%2][3]) | (s_rfsm[i] == LSU_RMW_WRITE));
 
             //The RMW sequence begins if a non-word-wide store operation is requested
-            assign rmw_activate[i]  = (s_fsm[i] == LSU_RMW_IDLE) & s_opex_f_i[i%2][3] & (s_opex_f_i[i%2][1:0] != 2'b10) & s_idempotent_i[i];
+            assign s_rmw_activate[i]= (s_rfsm[i] == LSU_RMW_IDLE) & s_opex_f_i[i%2][3] & (s_opex_f_i[i%2][1:0] != 2'b10) & s_idempotent_i[i];
             
             //The RMW sequence finite stat emachine control
             always_comb begin : rmw_control
-                if(s_rhresp[i])begin
-                    s_wfsm[i]   = LSU_RMW_IDLE;
-                end else if(~s_hready_i[i]) begin
-                    s_wfsm[i]   = s_fsm[i];
-                end else if(rmw_activate[i] & s_ap_active[i]) begin
+                if(~s_hready_i[i]) begin
+                    s_wfsm[i]   = s_rfsm[i];
+                end else if(s_rmw_activate[i] & s_ap_active[i]) begin
                     s_wfsm[i]   = LSU_RMW_READ;
-                end else if(s_fsm[i] == LSU_RMW_READ) begin
+                end else if(!s_rhresp[i] & (s_rfsm[i] == LSU_RMW_READ)) begin
                     s_wfsm[i]   = LSU_RMW_WRITE;
                 end else begin
                     s_wfsm[i]   = LSU_RMW_IDLE;
@@ -212,7 +215,7 @@ module lsu (
                 if(s_hready_i[i] && (s_htrans[i%2] != 2'b0) && !s_hwrite[i%2]) begin
                     //check syndrome after each load transfer
                     s_wchecksynd[i] = 1'b1;
-                end else if(s_hready_i[i] && (s_fsm[i] == LSU_RMW_IDLE)) begin
+                end else if(s_hready_i[i] && (s_rfsm[i] == LSU_RMW_IDLE)) begin
                     s_wchecksynd[i] = 1'b0;
                 end else begin
                     //preserve the syndrome checking until the RMW finishes
@@ -226,7 +229,7 @@ module lsu (
             //Calculate syndrome directly from the incoming data and checksum
             secded_encode m_encode   (.s_data_i(s_hrdata_i),.s_checksum_o(s_achecksum[i]));
            
-            assign s_syndrome_we[i] = (s_hready_i[i] && (((s_fsm[i] == LSU_RMW_IDLE) && !s_exma_f_i[i][3]) || (s_fsm[i] == LSU_RMW_READ))) ||
+            assign s_syndrome_we[i] = (s_hready_i[i] && (((s_rfsm[i] == LSU_RMW_IDLE) && !s_exma_f_i[i][3]) || (s_rfsm[i] == LSU_RMW_READ))) ||
                                       (!s_rchecksynd[i] && (s_rlsyndrome[i] != 7'b0));
 
             /* Save syndrome for the analysis in the next clock cycle. EDAC errors detected during the RMW sequence 
@@ -256,7 +259,9 @@ module lsu (
             assign s_fixed_data_o[i]= s_data_fixed[i];
             assign s_einfo_o[i]     = {s_ce[i], s_error[i]};
             //The LSU cannot accept a new transfer during RMW sequence
-            assign s_ap_busy_o[i]   = (s_fsm[i] != LSU_RMW_IDLE) && !s_rhresp[i];
+            assign s_ap_busy_o[i]   = (s_rfsm[i] != LSU_RMW_IDLE) && !s_rhresp[i];
+            //Signalize when the data from the bus should be saved
+            assign s_dp_save_o[i]   = ((s_rfsm[i] == LSU_RMW_IDLE) && !s_exma_f_i[i][3]) || (s_rfsm[i] == LSU_RMW_READ);
 `endif
         end
     endgenerate

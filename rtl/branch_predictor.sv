@@ -20,7 +20,8 @@ module branch_predictor
 #(
     parameter ENTRIES = 16,             //number of entries in BTB
     parameter HENTRIES = 16,            //number of entries in BHT
-    parameter SHARED = 8                //count of shared bits
+    parameter SHARED = 8,               //count of shared bits
+    parameter RESET_BHT = 0             //reset branch history table
 )
 (
     input logic s_clk_i,                //clock signal
@@ -68,15 +69,30 @@ module branch_predictor
         .s_q_o(s_btb_entry)
     );
     
-    seu_ff_file #(.LABEL("BHT"),.GROUP(SEEGR_PREDICTOR),.W(2),.N(HENTRIES),.RP(2)) m_bht 
-    (
-        .s_c_i(s_clk_i),
-        .s_we_i(s_branch_update_i),
-        .s_wa_i(s_bht_radd[1]),
-        .s_d_i(s_update_pred),
-        .s_ra_i(s_bht_radd),
-        .s_q_o(s_bht_val)
-    );
+    generate
+        if(RESET_BHT == 1)begin : bht_sel
+            seu_ff_file_rst #(.LABEL("BHT"),.GROUP(SEEGR_PREDICTOR),.W(2),.N(HENTRIES),.RP(2)) m_bht 
+            (
+                .s_c_i(s_clk_i),
+                .s_r_i({s_resetn_i}),
+                .s_we_i(s_branch_update_i),
+                .s_wa_i(s_bht_radd[1]),
+                .s_d_i(s_update_pred),
+                .s_ra_i(s_bht_radd),
+                .s_q_o(s_bht_val)
+            );
+        end else begin : bht_sel
+            seu_ff_file #(.LABEL("BHT"),.GROUP(SEEGR_PREDICTOR),.W(2),.N(HENTRIES),.RP(2)) m_bht 
+            (
+                .s_c_i(s_clk_i),
+                .s_we_i(s_branch_update_i),
+                .s_wa_i(s_bht_radd[1]),
+                .s_d_i(s_update_pred),
+                .s_ra_i(s_bht_radd),
+                .s_q_o(s_bht_val)
+            );        
+        end
+    endgenerate
 
     //Prediction
     assign s_branchp_index[0]   = s_fetch_add_i[TAG_WIDTH:1];

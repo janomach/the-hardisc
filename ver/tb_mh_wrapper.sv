@@ -21,7 +21,7 @@ import edac::*;
 `ifdef PROT_INTF
     `define MEMORY_IFP 1
     `define INTF_REPS  3 
-    `define SYSTEM system_hardisc //available systems: system_hardisc, system_dcls, system_tcls
+    `define SYSTEM system_hardisc //available systems: system_hardisc, system_dcls
 `else
     `define MEMORY_IFP 0
     `define INTF_REPS  1
@@ -64,7 +64,7 @@ logic[6:0] s_shrchecksum[SUBORDINATES];
 logic[31:0] s_ahb_sbase[SUBORDINATES], s_ahb_smask[SUBORDINATES], s_shrdata[SUBORDINATES];
 logic s_shready[SUBORDINATES], s_shresp[SUBORDINATES], s_shsel[SUBORDINATES];
 
-logic s_int_meip, s_int_mtip, s_hrdmax_rst;
+logic s_int_meip, s_int_mtip, s_unrec_err[2];
 logic[31:0] r_timeout;
 
 logic s_halt, s_sim_timeout;
@@ -121,9 +121,15 @@ always #(r_clk_time) r_ver_clk = ~r_ver_clk;
 
 // WB PC extraction
 logic[31:0] s_wb_pc, r_last_rp;
+ictrl s_mawb_ctrl[1];
+`ifdef PROT_PIPE
+tmr_comb #(.W($size(ictrl)),.OUT_REPS(1)) m_tmr_ictrl (.s_d_i(dut.rep[0].core.s_mawb_ictrl),.s_d_o(s_mawb_ctrl));
+`else
+assign s_mawb_ctrl[0] = dut.rep[0].core.s_mawb_ictrl[0];
+`endif
 
-assign s_wb_pc = ((|dut.rep[0].core.s_mawb_ictrl[0][4:0])) ? r_last_rp : 32'd0;
-always_ff @(posedge r_ver_clk) r_last_rp <= dut.rep[0].core.s_rst_point[0];
+assign s_wb_pc = ((|s_mawb_ctrl[0][4:0])) ? r_last_rp : 32'd0;
+always_ff @(posedge r_ver_clk) r_last_rp <= dut.rep[0].core.m_pipe_5_ma.s_pc[0];
 /////////////////////
 
 //GET INSTRUCTION OUT OF MEMORY
@@ -138,10 +144,10 @@ always_comb begin : wb_instr_find
         end else begin
             s_wb_instr[15:0] = m_memory.ahb_dmem.r_memory[s_mem_pc][15:0];
         end
-        if(s_wb_pc[1] & ~dut.rep[0].core.s_mawb_ictrl[0][ICTRL_RVC])begin
+        if(s_wb_pc[1] & ~s_mawb_ctrl[0][ICTRL_RVC])begin
             s_wb_instr[31:16] = m_memory.ahb_dmem.r_memory[s_mem_pc + 1][15:0];
         end else begin
-            s_wb_instr[31:16] = (s_wb_pc[1] | dut.rep[0].core.s_mawb_ictrl[0][ICTRL_RVC]) ? 16'b0 : m_memory.ahb_dmem.r_memory[s_mem_pc][31:16]; 
+            s_wb_instr[31:16] = (s_wb_pc[1] | s_mawb_ctrl[0][ICTRL_RVC]) ? 16'b0 : m_memory.ahb_dmem.r_memory[s_mem_pc][31:16]; 
         end
     end else begin
         s_wb_instr = 32'b0;
@@ -168,7 +174,7 @@ tracer m_tracer(
     .s_dut_op_ictrl_i(dut.rep[0].core.m_pipe_3_op.s_idop_ictrl_i[0]),
     .s_dut_ex_ictrl_i(dut.rep[0].core.m_pipe_4_ex.s_opex_ictrl_i[0]),
     .s_dut_ma_ictrl_i(dut.rep[0].core.m_pipe_5_ma.s_exma_ictrl_i[0]),
-    .s_dut_wb_ictrl_i(dut.rep[0].core.s_mawb_ictrl[0]),
+    .s_dut_wb_ictrl_i(s_mawb_ctrl[0]),
     .s_dut_rfc_we_i(dut.rep[0].core.m_rfc.s_rf_we[0]),
     .s_dut_rfc_wval_i(dut.rep[0].core.m_rfc.s_rf_w_val[0]),
     .s_dut_rfc_wadd_i(dut.rep[0].core.m_rfc.s_rf_w_add[0])
@@ -216,7 +222,7 @@ assign s_int_meip = 1'b0;
     .s_d_hwchecksum_o(s_d_hwchecksum[0]),
     .s_d_hparity_o(s_d_hparity[0]),
 
-    .s_hrdmax_rst_o(s_hrdmax_rst)
+    .s_unrec_err_o(s_unrec_err)
 );
 
 ahb_interconnect #(.SLAVES(SUBORDINATES)) data_interconnect
@@ -243,7 +249,7 @@ ahb_interconnect #(.SLAVES(SUBORDINATES)) data_interconnect
     .s_shresp_o(s_d_hresp[0])
 );
 
-assign s_halt = r_ver_rstn & ((m_control.s_we & (m_control.r_address[2:0] == 3'd4)) | s_hrdmax_rst | s_sim_timeout/*| dut.rep[0].core.m_pipe_5_ma.m_csru.s_rmcause[0] == EXC_ECALL_M_VAL*/);
+assign s_halt = r_ver_rstn & ((m_control.s_we & (m_control.r_address[2:0] == 3'd4)) | s_unrec_err[0] | s_unrec_err[1] | s_sim_timeout/*| dut.rep[0].core.m_pipe_5_ma.m_csru.s_rmcause[0] == EXC_ECALL_M_VAL*/);
 always_ff @( posedge s_halt ) begin : halt_execution
     $finish;
 end
