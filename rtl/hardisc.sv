@@ -62,7 +62,7 @@ module hardisc #(
     output logic[6:0] s_d_hwchecksum_o,     //AHB data bus - outgoing checksum
     output logic[5:0] s_d_hparity_o,        //AHB data bus - outgoing parity
 
-    output logic s_unrec_err_o              //unrecoverable error
+    output logic s_unrec_err_o[PROT_2REP]   //unrecoverable error
 );
 
     logic[4:0] s_stall[PROT_3REP];
@@ -91,9 +91,10 @@ module hardisc #(
     logic[1:0] s_lsu_einfo[PROT_3REP];
 
 `ifdef PROT_PIPE
-    assign s_unrec_err_o   = s_mhrdctrl0[0][2] | s_mhrdctrl0[1][2] | s_mhrdctrl0[2][2];
+    assign s_unrec_err_o[0]   = s_mhrdctrl0[0][2];
+    assign s_unrec_err_o[1]   = s_mhrdctrl0[1][2];
 `else                        
-    assign s_unrec_err_o   = 1'b0;                   
+    assign s_unrec_err_o[0]   = 1'b0;                   
 `endif
     
     //AHB instruction bus - hardwired signals

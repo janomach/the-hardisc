@@ -21,7 +21,7 @@ import edac::*;
 `ifdef PROT_INTF
     `define MEMORY_IFP 1
     `define INTF_REPS  3 
-    `define SYSTEM system_hardisc //available systems: system_hardisc, system_dcls, system_tcls
+    `define SYSTEM system_hardisc //available systems: system_hardisc, system_dcls
 `else
     `define MEMORY_IFP 0
     `define INTF_REPS  1
@@ -64,7 +64,7 @@ logic[6:0] s_shrchecksum[SUBORDINATES];
 logic[31:0] s_ahb_sbase[SUBORDINATES], s_ahb_smask[SUBORDINATES], s_shrdata[SUBORDINATES];
 logic s_shready[SUBORDINATES], s_shresp[SUBORDINATES], s_shsel[SUBORDINATES];
 
-logic s_int_meip, s_int_mtip, s_unrec_err;
+logic s_int_meip, s_int_mtip, s_unrec_err[2];
 logic[31:0] r_timeout;
 
 logic s_halt, s_sim_timeout;
@@ -249,7 +249,7 @@ ahb_interconnect #(.SLAVES(SUBORDINATES)) data_interconnect
     .s_shresp_o(s_d_hresp[0])
 );
 
-assign s_halt = r_ver_rstn & ((m_control.s_we & (m_control.r_address[2:0] == 3'd4)) | s_unrec_err | s_sim_timeout/*| dut.rep[0].core.m_pipe_5_ma.m_csru.s_rmcause[0] == EXC_ECALL_M_VAL*/);
+assign s_halt = r_ver_rstn & ((m_control.s_we & (m_control.r_address[2:0] == 3'd4)) | s_unrec_err[0] | s_unrec_err[1] | s_sim_timeout/*| dut.rep[0].core.m_pipe_5_ma.m_csru.s_rmcause[0] == EXC_ECALL_M_VAL*/);
 always_ff @( posedge s_halt ) begin : halt_execution
     $finish;
 end

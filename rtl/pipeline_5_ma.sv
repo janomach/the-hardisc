@@ -112,6 +112,8 @@ module pipeline_5_ma (
 `endif
 `ifdef PROT_PIPE
     tmr_comb m_tmr_pc (.s_d_i(s_rpc),.s_d_o(s_pc));
+`else
+    assign s_pc[0] = s_rpc[0];
 `endif
 
     //program counter output for lower stages

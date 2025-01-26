@@ -14,16 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - LSU Address-Phase TMR - improved protection
  - Removed TMR from EXMA and MAWB registers - not necessary anymore
  - Fault Injection Groups and Targets
+ - Full-Feature DCLS with stages for temporal redundancy and timing relaxation 
 
 ### Changed
  - Reset Point register renamed to Program Counter and moved out of CSRU
- - Port s_hrdmax_rst_o renamed to s_unrec_error_o
+ - Port s_hrdmax_rst_o renamed to s_unrec_error_o and duplicated
 
 ### Fixed
  - Correction of trace discrepancies
 
 ### Removed
  - Possibility to directly fire interrupt on UCE in register file
+ - TCLS system
 
 ## [1.6.0] - 2024-11-17
 

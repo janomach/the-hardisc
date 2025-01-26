@@ -123,11 +123,11 @@ module lsu (
     tmr_comb #(.OUT_REPS(1)) m_tmr_sval (.s_d_i(s_rwdata),.s_d_o(s_wdata));
     tmr_comb #(.OUT_REPS(1),.W(7)) m_tmr_schecksum (.s_d_i(s_checksum),.s_d_o(s_wchecksum));
 `else
-`ifdef PROT_INTF
     assign s_hwrite[0]      = s_write[0];
     assign s_htrans[0]      = s_trans[0];
     assign s_hsize[0]       = s_size[0];
     assign s_haddr[0]       = s_addr[0];    
+`ifdef PROT_INTF
     assign s_wdata[0]       = s_rwdata[0];
     assign s_wchecksum[0]   = s_checksum[0];
 `endif

@@ -62,7 +62,7 @@ module system_hardisc #(
     output logic[6:0] s_d_hwchecksum_o,     //AHB data bus - outgoing checksum
     output logic[5:0] s_d_hparity_o,        //AHB data bus - outgoing parity
 
-    output logic s_unrec_err_o              //discrepancy between lockstepped cores
+    output logic s_unrec_err_o[2]           //discrepancy between lockstepped cores
 );
 
 genvar i;
