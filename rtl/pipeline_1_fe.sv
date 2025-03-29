@@ -18,8 +18,8 @@
 import p_hardisc::*;
 
 module pipeline_1_fe #(
-    parameter PMA_REGIONS = 1,
-    parameter pma_cfg_t PMA_CFG[PMA_REGIONS-1:0] = '{default:PMA_DEFAULT}
+    parameter PMA_REGIONS = 3,
+    parameter pma_cfg_t PMA_CFG[PMA_REGIONS-1:0] = PMA_DEFAULT
 )(
     input logic s_clk_i[PROT_3REP],                 //clock signal
     input logic s_resetn_i[PROT_3REP],              //reset signal

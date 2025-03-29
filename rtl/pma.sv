@@ -20,8 +20,8 @@ import p_hardisc::*;
 module pma #(
     parameter FETCH = 0,
     parameter PMA_ALIGN = 10,
-    parameter PMA_REGIONS = 1,
-    parameter pma_cfg_t PMA_CFG[PMA_REGIONS-1:0] = '{default:PMA_DEFAULT}
+    parameter PMA_REGIONS = 3,
+    parameter pma_cfg_t PMA_CFG[PMA_REGIONS-1:0] = PMA_DEFAULT
 )(
     input logic[31:0] s_address_i,  //transfer address
     input logic s_write_i,          //transfer is write
