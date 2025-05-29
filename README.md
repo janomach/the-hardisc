@@ -1,20 +1,14 @@
 # Hardisc - hardened RISC-V IP core
-The Hardisc is a 32-bit **RISC-V** IP core for application in harsh environments, where phenomenons like random bit-flips caused by the **soft errors** are a concern. 
-It contains an in-order 6-stage pipeline with AMBA 3 AHB-Lite instruction/data bus interfaces. 
-The protection is based on a selective replication of resources in the pipeline with a focus on high operational frequency and low area and power consumption.
+The Hardisc is a 32-bit [RISC-V](https://en.wikipedia.org/wiki/RISC-V) IP core for use in safety/mission-critical environments, where random hardware faults, like bit flips caused by [soft errors](https://en.wikipedia.org/wiki/Soft_error), are a concern. 
+The core contains an in-order 6-stage pipeline with AMBA 3 AHB-Lite instruction/data bus interfaces.
 
-**The development of the Hardisc is part of the research effort to provide reliable and efficient CPUs for automotive and space applications. Please consider citing the following research papers in your publications.**
+The Hardisc's protection is based on a selective replication of resources inside the execution pipeline, complemented by ECCs and bus-interface protection.
+It provides **fault-tolerance** with minimal area and power consumtion overhead when compared to industry-standard Dual-Core Lockstep (DCLS) systems.
 
-* [Lockstep Replacement: Fault-Tolerant Design](https://doi.org/10.1109/ACCESS.2025.3573684)
-* [Integrating Data Protection at Interface of RISC-V Processor Core](https://doi.org/10.1109/PACET60398.2024.10497010)
-* [Interface Protection Against Transient Faults](https://doi.org/10.1109/DDECS60919.2024.10508928)
-* [Lockstep Vs Microarchitecture: A Comparison](https://doi.org/10.1109/SOCC62300.2024.10737833)
-* [Influence of Structural Units on Vulnerability of Systems with Distinct Protection Approaches](https://doi.org/10.1109/DSD64264.2024.00019)
-* [In-Pipeline Processor Protection against Soft Errors](https://www.mdpi.com/2287290)
-* [On-Chip Bus Protection against Soft Errors](https://www.mdpi.com/2566434)
+> [!TIP] 
+> More information about the protection, fault-injection campaigns, and synthesis results can be found in the open-access research article: [Lockstep Replacement: Fault-Tolerant Design](https://doi.org/10.1109/ACCESS.2025.3573684)
 
-## Documentation
-Refer to the [Wiki](https://github.com/janomach/the-hardisc/wiki) pages for a detailed explanation of the architecture, examples, and more.
+![Hardisc](https://github.com/janomach/the-hardisc/raw/main/doc/hardisc_pcb.jpg)
 
 ## Verification
 The Hardisc was tested with the [riscv-dv](https://github.com/chipsalliance/riscv-dv) random instruction generator, and the log files were compared with the RISC-V [Spike](https://github.com/riscv-software-src/riscv-isa-sim) golden model.
