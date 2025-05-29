@@ -6,7 +6,7 @@ The Hardisc's protection is based on a selective replication of resources inside
 It provides **fault-tolerance** with minimal area and power consumtion overhead when compared to industry-standard Dual-Core Lockstep (DCLS) systems.
 
 > [!TIP] 
-> More information about the protection, fault-injection campaigns, and synthesis results can be found in the open-access research article: [Lockstep Replacement: Fault-Tolerant Design](https://doi.org/10.1109/ACCESS.2025.3573684)
+> More information about the protection, as well as results from the fault-injection experiments and physical synthesis, can be found in the open-access research article: [Lockstep Replacement: Fault-Tolerant Design](https://doi.org/10.1109/ACCESS.2025.3573684)
 
 ![Hardisc](https://github.com/janomach/the-hardisc/raw/main/doc/hardisc_pcb.jpg)
 
