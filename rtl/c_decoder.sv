@@ -89,8 +89,8 @@ module c_decoder (
     assign s_lui        = s_funct3[3] & s_quad[1] & ~s_rdsp & ~s_nzimm6bzr;
     assign s_addi16sp   = s_funct3[3] & s_quad[1] & s_rdsp & ~s_nzimm6bzr;
     assign s_andi       = s_funct3[4] & s_quad[1] & s_instr_i[11:10] == 2'b10;
-    assign s_srli       = s_funct3[4] & s_quad[1] & s_instr_i[11:10] == 2'b00 & ~s_shamtzr;
-    assign s_srai       = s_funct3[4] & s_quad[1] & s_instr_i[11:10] == 2'b01 & ~s_shamtzr;
+    assign s_srli       = s_funct3[4] & s_quad[1] & s_instr_i[11:10] == 2'b00;
+    assign s_srai       = s_funct3[4] & s_quad[1] & s_instr_i[11:10] == 2'b01;
     assign s_sub        = s_funct3[4] & s_quad[1] & ~s_instr_i[12] & s_instr_i[11:10] == 2'b11 & s_instr_i[6:5] == 2'b00;
     assign s_xor        = s_funct3[4] & s_quad[1] & ~s_instr_i[12] & s_instr_i[11:10] == 2'b11 & s_instr_i[6:5] == 2'b01;
     assign s_or         = s_funct3[4] & s_quad[1] & ~s_instr_i[12] & s_instr_i[11:10] == 2'b11 & s_instr_i[6:5] == 2'b10;
@@ -103,7 +103,7 @@ module c_decoder (
     assign s_ebreak     = s_funct3[4] & s_instr_i[12] & s_quad[2] & s_instr_i[11:2] == 10'b0;
     assign s_jr         = s_funct3[4] & ~s_instr_i[12] & s_quad[2] & ~s_rs1zero & s_shamtzr;
     assign s_jalr       = s_funct3[4] & s_instr_i[12] & s_quad[2] & ~s_rs1zero & s_shamtzr;
-    assign s_slli       = s_funct3[0] & ~s_instr_i[12] & s_quad[2] & ~s_rs1zero & ~s_shamtzr;
+    assign s_slli       = s_funct3[0] & ~s_instr_i[12] & s_quad[2];
     assign s_add        = s_funct3[4] & s_instr_i[12] & s_quad[2] & ~s_shamtzr;
     assign s_mv         = s_funct3[4] & ~s_instr_i[12] & s_quad[2] & ~s_shamtzr;
     assign s_lwsp       = s_funct3[2] & s_quad[2] & ~s_rs1zero;

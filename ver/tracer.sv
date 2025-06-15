@@ -428,8 +428,8 @@ module tracer
                     end
                     3'd4:begin
                         instr_c.text = (instr[11:10] == 2'b10) ?  {"andi   ",name9to7,", ",offimm6}: 
-                                        (instr[11:10] == 2'b00 & ~s_shamtzr) ?  {"srli   ",name9to7,", ",$sformatf("%1d",s_imm6)}: 
-                                        (instr[11:10] == 2'b01 & ~s_shamtzr) ?  {"srai   ",name9to7,", ",$sformatf("%1d",s_imm6)}: 
+                                        (instr[11:10] == 2'b00) ?  {"srli   ",name9to7,", ",$sformatf("%1d",s_imm6)}: 
+                                        (instr[11:10] == 2'b01) ?  {"srai   ",name9to7,", ",$sformatf("%1d",s_imm6)}: 
                                         (instr[11:10] == 2'b11 & instr[6:5] == 2'b00 & ~instr[12]) ?  {"sub   ",name9to7,", ",name4to2}: 
                                         (instr[11:10] == 2'b11 & instr[6:5] == 2'b01 & ~instr[12]) ?  {"xor   ",name9to7,", ",name4to2}: 
                                         (instr[11:10] == 2'b11 & instr[6:5] == 2'b10 & ~instr[12]) ?  {"or    ",name9to7,", ",name4to2}: 
@@ -467,7 +467,7 @@ module tracer
             2'b10:begin
                 case (instr[15:13])
                     3'd0:begin
-                        instr_c.text = (~instr[12] & ~s_rs1zero & ~s_shamtzr) ? {"slli ",name11to7,", ",$sformatf("%1d",s_imm6)}: "unknown";
+                        instr_c.text = (~instr[12]) ? {"slli ",name11to7,", ",$sformatf("%1d",s_imm6)}: "unknown";
                         instr_c.source = {instr[11:7],5'd0,1'b1,1'b0};
                         instr_c.dest = {instr[11:7],1'b1};
                         instr_c.itype = BASE;
