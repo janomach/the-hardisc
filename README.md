@@ -12,7 +12,7 @@ It provides **fault-tolerance** with minimal area and power consumtion overhead 
 
 ## Verification
 The Hardisc was tested with the [riscv-dv](https://github.com/chipsalliance/riscv-dv) random instruction generator, and the log files were compared with the RISC-V [Spike](https://github.com/riscv-software-src/riscv-isa-sim) golden model.
-The verification environment and scripts will be added to the repository soon. 
+Follow the [steps](https://github.com/janomach/the-hardisc/blob/main/tests/riscv-dv/Makefile) if you want to use the flow. 
 
 ## Contributing
 We highly appreciate your intention to improve the Hardisc.
@@ -24,7 +24,4 @@ If you find any bug or a hole in the protection (also considered a bug), please 
 
 ## License
 Unless otherwise noted, everything in this repository is covered by the Apache License, Version 2.0 (see [LICENSE](https://github.com/janomach/the-hardisc/blob/main/LICENSE) for full text).
-
-
-
 

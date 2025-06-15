@@ -1,2 +1,3 @@
 example/freertos/build
 sim/
+tests/riscv-dv/work
