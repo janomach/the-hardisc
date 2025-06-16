@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
  - RISC-V Design Verification flow
- - Stop testbench on ECALL
+ - Post-compile option that enables to stop the testbench on ECALL
 
 ### Changed
 - Testbench memory map
