@@ -1,14 +1,14 @@
 ## Design Verification 
 
 This folder contains basic assembly tests that were generated using the [RISCV-DV](https://github.com/chipsalliance/riscv-dv).
-The attached Makefile can be used check whether the Hardisc executes the tests in the same way as the RISC-V Spike simulator.
+The attached [Makefile](https://github.com/janomach/the-hardisc/blob/main/tests/riscv-dv/Makefile) can be used check whether the Hardisc executes the tests in the same way as the RISC-V Spike simulator.
 
 In order to prepare the flow, follow the steps:
 
 1. Clone [RISCV-DV](https://github.com/chipsalliance/riscv-dv), checkout commit `7e54b678ab7499040336255550cdbd99ae887431`, and [install](https://github.com/chipsalliance/riscv-dv?tab=readme-ov-file#install-riscv-dv) it
 2. Configure the correct path to the cloned repository in the makefile (`RISCV_DV_DIR`)
 3. Run the makefile target `prepareRISCVDV`
-4. Change the `BOOTADD` in the testbench to `32'h80000000` and recompile the RTL
+4. Change the `BOOTADD` in the [testbench](https://github.com/janomach/the-hardisc/blob/main/ver/tb_mh_wrapper.sv) to `32'h80000000` and recompile the RTL
 
 Once it is prepared, you can use the makefile targets:
 
