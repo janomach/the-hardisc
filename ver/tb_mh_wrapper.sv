@@ -37,9 +37,9 @@ localparam MEM_SIZE = 32'h100000;
 localparam MEM_MSB  = $clog2(MEM_SIZE) - 32'h1;
 localparam BOOTADD  = 32'h10000000;
 localparam pma_cfg_t PMA_CONFIG[SUBORDINATES] = '{
-    '{base  : BOOTADD,      mask  : 32'hFFF00000, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
-    '{base  : 32'h80000000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
-    '{base  : 32'h80001000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1}
+    '{base  : BOOTADD,                mask  : 32'hFFF00000, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
+    '{base  : BOOTADD + 32'h70000000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
+    '{base  : BOOTADD + 32'h70001000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1}
 };
 
 logic[5:0] s_i_hparity[1], s_i_hparity_see[1];
@@ -67,7 +67,7 @@ logic s_shready[SUBORDINATES], s_shresp[SUBORDINATES], s_shsel[SUBORDINATES];
 logic s_int_meip, s_int_mtip, s_unrec_err[2];
 logic[31:0] r_timeout;
 
-logic s_halt, s_sim_timeout;
+logic s_halt, s_sim_timeout, s_ecall_halt, r_ecall_halt;
 
 string binfile;
 int fd,i;
@@ -83,6 +83,7 @@ initial begin
     r_ver_clk   = 1'b1;
     r_err_clk   = 1'b1;
     r_ver_rstn  = 1'b0;
+    r_ecall_halt= 1'b0;
     addr        = 32'b0;
     s_sim_timeout = 1'b0;
     if ($value$plusargs ("CLKPERIOD=%d", r_clk_time))
@@ -91,6 +92,8 @@ initial begin
         $display ("Binary file:%s", binfile);
     if ($value$plusargs ("TIMEOUT=%d", r_timeout))
         $display ("Timeout: %d", r_timeout);
+    if ($value$plusargs ("ECALLHALT=%b", r_ecall_halt))
+        $display ("ECall halt: %b", r_ecall_halt);
     fd = $fopen(binfile,"rb");
 
     if(fd) begin
@@ -249,7 +252,9 @@ ahb_interconnect #(.SLAVES(SUBORDINATES)) data_interconnect
     .s_shresp_o(s_d_hresp[0])
 );
 
-assign s_halt = r_ver_rstn & ((m_control.s_we & (m_control.r_address[2:0] == 3'd4)) | s_unrec_err[0] | s_unrec_err[1] | s_sim_timeout/*| dut.rep[0].core.m_pipe_5_ma.m_csru.s_rmcause[0] == EXC_ECALL_M_VAL*/);
+assign s_ecall_halt = r_ecall_halt & (dut.rep[0].core.m_pipe_5_ma.m_csru.s_rmcause[0] == EXC_ECALL_M_VAL);
+
+assign s_halt = r_ver_rstn & ((m_control.s_we & (m_control.r_address[2:0] == 3'd4)) | s_unrec_err[0] | s_unrec_err[1] | s_sim_timeout | s_ecall_halt);
 always_ff @( posedge s_halt ) begin : halt_execution
     $finish;
 end
