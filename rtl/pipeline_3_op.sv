@@ -93,7 +93,7 @@ module pipeline_3_op (
     //Forwarding information
     seu_ff_we #(.LABEL({"OPEX_FWD"}),.W(4),.N(PROT_2REP)) m_opex_fwd (.s_c_i(s_clk_prw),.s_we_i(s_opex_we_fwd),.s_d_i(s_wopex_fwd),.s_q_o(s_ropex_fwd));
 
-    logic s_id_misconduct[PROT_2REP], s_op_empty[PROT_2REP];
+    logic s_op_empty[PROT_2REP];
 
     genvar i;
     generate
@@ -112,7 +112,6 @@ module pipeline_3_op (
             assign s_flush_op[i]    = s_flush_i[i] | (s_bubble[i] & ~s_stall_op[i]);
 
             //The ID stage requests restart of the instruction
-            assign s_id_misconduct[i]   = (s_idop_imiscon_i[i] != IMISCON_FREE);
             assign s_op_empty[i]        = (s_idop_imiscon_i[i] == IMISCON_FREE) & (s_idop_ictrl_i[i] == 7'b0);
             assign s_opex_we_fwd[i]     = s_opex_we_aux[i] || ((s_ropex_fwd[i][3:2] != 2'b0) && s_stall_op[i]);
             //Write-enable signals for auxiliary OPEX registers
@@ -154,16 +153,8 @@ module pipeline_3_op (
                 s_wopex_f[i]        = s_idop_f_i[i];  
                 s_wopex_ictrl[i]    = s_idop_ictrl_i[i];
                 s_wopex_payload[i]  = s_idop_payload_i[i];
-                s_wopex_ictrl[i]    = 
-`ifdef PROT_INTF
-                                        (s_id_misconduct[i]) ? s_idop_ictrl_i[i] :
-`endif
-                                        s_idop_ictrl_i[i];
-                s_wopex_imiscon[i]  = 
-`ifdef PROT_INTF                                          
-                                        (s_id_misconduct[i]) ? s_idop_imiscon_i[i] :
-`endif                                      
-                                        s_idop_imiscon_i[i];
+                s_wopex_ictrl[i]    = s_idop_ictrl_i[i];
+                s_wopex_imiscon[i]  = s_idop_imiscon_i[i];
                 if(s_flush_op[i] || s_op_empty[i])begin 
                     s_wopex_ictrl[i]    = 7'b0;
                     s_wopex_imiscon[i]  = IMISCON_FREE; 
