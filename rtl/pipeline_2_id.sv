@@ -161,7 +161,7 @@ module pipeline_2_id (
             );
 
             //Indicates empty OP stage, so the IDOP register do not hold executable instruction
-            assign s_idop_empty[i]  = (s_ridop_ictrl[i] == 8'b0) & (s_ridop_imiscon[i] == 3'b0);
+            assign s_idop_empty[i]  = (s_ridop_ictrl[i] == 7'b0) & (s_ridop_imiscon[i] == IMISCON_FREE);
             //Write-enable signals for auxiliary IDOP registers
             assign s_idop_we_aux[i] = !(s_flush_id[i] || s_stall_id[i] || s_aligner_nop[i]);
             //Write-enable signals for essential IDOP registers
@@ -202,9 +202,9 @@ module pipeline_2_id (
             /* Read-Port Address Scrubbing */
 
             //The instruction in OP stage does not need read port 1
-            assign s_op_free_rp[i][0]   = (s_ridop_sctrl[i].zero1 | ~s_ridop_sctrl[i].rfrp1 | (s_ridop_ictrl[i] == IMISCON_DSCR));
+            assign s_op_free_rp[i][0]   = (s_ridop_sctrl[i].zero1 | ~s_ridop_sctrl[i].rfrp1 | (s_ridop_imiscon[i] == IMISCON_DSCR));
             //The instruction in OP stage does not need read port 1
-            assign s_op_free_rp[i][1]   = (s_ridop_sctrl[i].zero2 | ~s_ridop_sctrl[i].rfrp2 | (s_ridop_ictrl[i] == IMISCON_DSCR));
+            assign s_op_free_rp[i][1]   = (s_ridop_sctrl[i].zero2 | ~s_ridop_sctrl[i].rfrp2 | (s_ridop_imiscon[i] == IMISCON_DSCR));
 
             //Update values for IDOP read-address registers
             always_comb begin : rsx_we_add_en
