@@ -45,10 +45,10 @@ module executor (
     see_wires #(.LABEL("ALU_FIN"),.GROUP(SEEGR_CORE_WIRE),.W(1)) see_fin(.s_c_i(s_clk_i),.s_d_i(s_mdu_finished),.s_d_o(s_mdu_finished_see));
 
     //result selection
-    assign s_result[0]  = s_ictrl_i[ICTRL_UNIT_MDU] ? s_mdu_result : s_alu_result;
+    assign s_result[0]  = s_ictrl_i.mdu ? s_mdu_result : s_alu_result;
 
     //preparation of program counter offset for AUIPC and BRU instructions
-    assign s_pc_offset  = s_ictrl_i[ICTRL_UNIT_BRU] ? {{11{s_payload_i[19]}},s_payload_i[19:0]} : {s_payload_i[19:0],11'b0} ;
+    assign s_pc_offset  = s_ictrl_i.bru ? {{11{s_payload_i[19]}},s_payload_i[19:0]} : {s_payload_i[19:0],11'b0} ;
 
     alu m_alu
     (
@@ -59,7 +59,7 @@ module executor (
         .s_ma_tadd_i(s_ma_tadd_i),
         .s_ma_taken_i(s_ma_taken_i),
         .s_pc_i(s_pc_i),
-        .s_bru_i(s_ictrl_i[ICTRL_UNIT_BRU]),
+        .s_bru_i(s_ictrl_i.bru),
         .s_pc_incr_i(s_pc_incr_i),
         .s_result_o(s_alu_result)
     );
@@ -70,7 +70,7 @@ module executor (
         .s_resetn_i(s_resetn_i),
         .s_stall_i(s_stall_i),
         .s_flush_i(s_flush_i),
-        .s_compute_i(s_ictrl_i[ICTRL_UNIT_MDU]),
+        .s_compute_i(s_ictrl_i.mdu),
         .s_function_i(s_function_i),
         .s_operand1_i(s_operand1_i),
         .s_operand2_i(s_operand2_i),

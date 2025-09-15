@@ -64,25 +64,7 @@ package p_hardisc;
                 CSR_RW  = 2'b01,
                 CSR_RS  = 2'b10,
                 CSR_RC  = 2'b11;
-    parameter [1:0]
-                SCTRL_RFRP1= 2'd0,
-                SCTRL_RFRP2= 2'd1,
-                SCTRL_ZERO1= 2'd2,
-                SCTRL_ZERO2= 2'd3;
 
-    parameter [2:0]
-                ICTRL_UNIT_ALU  = 3'd0,
-                ICTRL_UNIT_BRU  = 3'd1,
-                ICTRL_UNIT_LSU  = 3'd2,
-                ICTRL_UNIT_CSR  = 3'd3,
-                ICTRL_UNIT_MDU  = 3'd4,
-                ICTRL_REG_DEST  = 3'd5,
-                ICTRL_RVC       = 3'd6;
-    parameter [6:0]
-                ICTRL_PRR_VAL   = 7'h03;     
-    parameter [7:0]
-                ICTRL_RST_VAL   = 8'h0A,
-                ICTRL_UCE_VAL   = 8'h0B;
     parameter [2:0]
                 IMISCON_FREE    = 3'd0, //no misconduct
                 IMISCON_FERR    = 3'd1, //fetch bus error
@@ -228,14 +210,28 @@ package p_hardisc;
     typedef logic[5:0]exception; 
     typedef logic[OPC_WIDTH-1:0]opcode;
     typedef logic[RF_ADD_WIDTH-1:0]rf_add;
-    typedef logic[7:0]ex_ctrl;
     typedef logic[3:0]f_part;
     typedef logic[3:0]operr;
-    typedef logic[3:0]sctrl;
-    typedef logic[6:0]ictrl;
     typedef logic[2:0]imiscon;
     typedef logic[1:0]rp_info;
     typedef logic[4:0]ld_info;
+
+    typedef struct packed {
+        logic rvc;
+        logic wrd;
+        logic mdu;
+        logic csr;
+        logic lsu;
+        logic bru;
+        logic alu;
+    } ictrl;
+
+    typedef struct packed {
+        logic zero2;
+        logic zero1;
+        logic rfrp2;
+        logic rfrp1;
+    } sctrl;
 
     // Physical Memory Attribute configuration
     typedef struct packed {

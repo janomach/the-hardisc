@@ -134,7 +134,7 @@ module hardisc #(
 
         .s_pred_base_i(s_pc[0]),
         .s_pred_offset_i(s_exma_offset),
-        .s_pred_rvc_i(s_exma_ictrl[0][ICTRL_RVC]),
+        .s_pred_rvc_i(s_exma_ictrl[0].rvc),
         .s_pred_clean_i(s_pred_clean),
         .s_pred_btbu_i(s_pred_btbu),
         .s_pred_btrue_i(s_pred_btrue),

@@ -134,7 +134,7 @@ module decoder (
                             (s_instr_i[14:12] == 3'b101) ? 3'b110 :
                             (s_instr_i[14:12] == 3'b110) ? 3'b011 : s_instr_i[14:12];
     assign s_i_f[3]     = (s_jalr | s_jal | s_fence | s_auipc | s_sub_sra | s_store | (s_branch & s_instr_i[14:12] != 3'b110 & s_instr_i[14:12] != 3'b100));
-    assign s_i_f[2:0]   = (s_instr_ctrl[ICTRL_UNIT_BRU]) ? s_brj_f: (s_lui | s_auipc) ? ((s_auipc) ? 3'b100 : 3'b000) : s_instr_i[14:12];
+    assign s_i_f[2:0]   = (s_instr_ctrl.bru) ? s_brj_f: (s_lui | s_auipc) ? ((s_auipc) ? 3'b100 : 3'b000) : s_instr_i[14:12];
 
     //CSR address compressor
     always_comb begin : machine_csr_address
@@ -167,21 +167,21 @@ module decoder (
     assign s_csr_need_rs1   = (~s_instr_i[14] & (s_instr_i[12] | s_instr_i[13]));
 
     //Instruction source specifier
-    assign s_src_ctrl[SCTRL_RFRP1]  = (s_op | s_op_imm | s_branch | s_jalr | s_store | s_load | (s_csr & s_csr_need_rs1));
-    assign s_src_ctrl[SCTRL_RFRP2]  = (s_op | s_branch | s_store); 
-    assign s_src_ctrl[SCTRL_ZERO1]  = (s_rs1 == 5'b0) | s_lui;
-    assign s_src_ctrl[SCTRL_ZERO2]  = s_rs2 == 5'b0; 
+    assign s_src_ctrl.rfrp1  = (s_op | s_op_imm | s_branch | s_jalr | s_store | s_load | (s_csr & s_csr_need_rs1));
+    assign s_src_ctrl.rfrp2  = (s_op | s_branch | s_store); 
+    assign s_src_ctrl.zero1  = (s_rs1 == 5'b0) | s_lui;
+    assign s_src_ctrl.zero2  = s_rs2 == 5'b0; 
 
     //Instruction control specifier
-    assign s_instr_ctrl[ICTRL_UNIT_ALU] = ((s_op & ~s_m_op) | s_op_imm | s_auipc | s_lui);
-    assign s_instr_ctrl[ICTRL_UNIT_BRU] = (s_branch | s_jal | s_jalr | s_fence);
-    assign s_instr_ctrl[ICTRL_UNIT_LSU] = (s_store | s_load);
-    assign s_instr_ctrl[ICTRL_UNIT_CSR] = (s_system);
-    assign s_instr_ctrl[ICTRL_UNIT_MDU] = (s_op & s_m_op);
-    assign s_instr_ctrl[ICTRL_REG_DEST] = (|s_rd) & (s_lui | s_auipc | s_jal | s_jalr | s_op | s_op_imm | s_csr | s_load);
-    assign s_instr_ctrl[ICTRL_RVC]      = 1'b0;
+    assign s_instr_ctrl.alu = ((s_op & ~s_m_op) | s_op_imm | s_auipc | s_lui);
+    assign s_instr_ctrl.bru = (s_branch | s_jal | s_jalr | s_fence);
+    assign s_instr_ctrl.lsu = (s_store | s_load);
+    assign s_instr_ctrl.csr = (s_system);
+    assign s_instr_ctrl.mdu = (s_op & s_m_op);
+    assign s_instr_ctrl.wrd = (|s_rd) & (s_lui | s_auipc | s_jal | s_jalr | s_op | s_op_imm | s_csr | s_load);
+    assign s_instr_ctrl.rvc = 1'b0;
     //Prediction is not allowed from other instructions than branch/jump
-    assign s_pred_not_allowed           = s_prediction_i & (~s_instr_ctrl[ICTRL_UNIT_BRU] | s_fence);
+    assign s_pred_not_allowed           = s_prediction_i & (~s_instr_ctrl.bru | s_fence);
     assign s_instr_miscon               = s_illegal ? IMISCON_ILLE : s_pred_not_allowed ? IMISCON_DSCR : IMISCON_FREE;
 
 endmodule

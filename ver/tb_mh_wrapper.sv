@@ -147,10 +147,10 @@ always_comb begin : wb_instr_find
         end else begin
             s_wb_instr[15:0] = m_memory.ahb_dmem.r_memory[s_mem_pc][15:0];
         end
-        if(s_wb_pc[1] & ~s_mawb_ctrl[0][ICTRL_RVC])begin
+        if(s_wb_pc[1] & ~s_mawb_ctrl[0].rvc)begin
             s_wb_instr[31:16] = m_memory.ahb_dmem.r_memory[s_mem_pc + 1][15:0];
         end else begin
-            s_wb_instr[31:16] = (s_wb_pc[1] | s_mawb_ctrl[0][ICTRL_RVC]) ? 16'b0 : m_memory.ahb_dmem.r_memory[s_mem_pc][31:16]; 
+            s_wb_instr[31:16] = (s_wb_pc[1] | s_mawb_ctrl[0].rvc) ? 16'b0 : m_memory.ahb_dmem.r_memory[s_mem_pc][31:16]; 
         end
     end else begin
         s_wb_instr = 32'b0;

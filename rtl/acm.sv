@@ -135,7 +135,7 @@ module acm
 
         for (i =0 ; i<3 ;i++ ) begin : wb_triple
             //write enable from WB stage
-            assign s_mawb_we[i] = s_mawb_ictrl_i[i][ICTRL_REG_DEST];     
+            assign s_mawb_we[i] = s_mawb_ictrl_i[i].wrd;     
         end
     endgenerate
 
@@ -167,7 +167,7 @@ module acm
         .s_d_i(s_w_checksum[1]),
         .s_ra_i({s_racm_add[1]}),
         .s_q_o(s_rf1_checksum)
-    );
+    ); 
 
 endmodule
 

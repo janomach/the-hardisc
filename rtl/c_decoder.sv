@@ -161,21 +161,21 @@ module c_decoder (
     assign s_immediate  = (s_load | s_store | s_addi4spn) ? s_uimm : s_imm;
     
     //Instruction source specifier
-    assign s_src_ctrl[SCTRL_RFRP1]  = (s_op | s_op_imm | s_branch | s_jalr | s_jr | s_store | s_load);
-    assign s_src_ctrl[SCTRL_RFRP2]  = (s_op | s_branch | s_store);
-    assign s_src_ctrl[SCTRL_ZERO1]  = (s_rs1 == 5'b0) | s_li | s_lui;
-    assign s_src_ctrl[SCTRL_ZERO2]  = s_rs2 == 5'b0; 
+    assign s_src_ctrl.rfrp1  = (s_op | s_op_imm | s_branch | s_jalr | s_jr | s_store | s_load);
+    assign s_src_ctrl.rfrp2  = (s_op | s_branch | s_store);
+    assign s_src_ctrl.zero1  = (s_rs1 == 5'b0) | s_li | s_lui;
+    assign s_src_ctrl.zero2  = s_rs2 == 5'b0; 
 
     //Instruction control specifier
-    assign s_instr_ctrl[ICTRL_UNIT_ALU] = (s_op | s_op_imm | s_lui);
-    assign s_instr_ctrl[ICTRL_UNIT_BRU] = (s_branch | s_jump);
-    assign s_instr_ctrl[ICTRL_UNIT_LSU] = (s_load | s_store);
-    assign s_instr_ctrl[ICTRL_UNIT_CSR] = (s_ebreak);
-    assign s_instr_ctrl[ICTRL_UNIT_MDU] = 1'b0;
-    assign s_instr_ctrl[ICTRL_REG_DEST] = (|s_rd) & (s_load | s_jal | s_jalr | s_li | s_lui | s_op_imm | s_op);
-    assign s_instr_ctrl[ICTRL_RVC]      = 1'b1;
+    assign s_instr_ctrl.alu = (s_op | s_op_imm | s_lui);
+    assign s_instr_ctrl.bru = (s_branch | s_jump);
+    assign s_instr_ctrl.lsu = (s_load | s_store);
+    assign s_instr_ctrl.csr = (s_ebreak);
+    assign s_instr_ctrl.mdu = 1'b0;
+    assign s_instr_ctrl.wrd = (|s_rd) & (s_load | s_jal | s_jalr | s_li | s_lui | s_op_imm | s_op);
+    assign s_instr_ctrl.rvc = 1'b1;
     //Prediction is not allowed from other instructions than branch/jump
-    assign s_pred_not_allowed           = s_prediction_i & (~s_instr_ctrl[ICTRL_UNIT_BRU]);
-    assign s_instr_miscon               = s_illegal ? IMISCON_ILLE : s_pred_not_allowed ? IMISCON_DSCR : IMISCON_FREE;
+    assign s_pred_not_allowed   = s_prediction_i & (~s_instr_ctrl.bru);
+    assign s_instr_miscon       = s_illegal ? IMISCON_ILLE : s_pred_not_allowed ? IMISCON_DSCR : IMISCON_FREE;
 
 endmodule

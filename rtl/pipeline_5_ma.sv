@@ -96,7 +96,7 @@ module pipeline_5_ma (
     assign s_read_data_o    = s_rmawb_val;
 
     //Program Counter
-    seu_ff_rsts #(.LABEL("PC"),.N(PROT_3REP)) m_pc (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_rs_i(s_boot_add_i),.s_d_i(s_wpc),.s_q_o(s_rpc));
+    seu_ff_rsts #(.LABEL("PC"),.N(PROT_3REP)) m_pc (.s_c_i(s_clk_prw),.s_r_i(s_resetn_i),.s_rs_i(s_boot_add_i),.s_d_i(s_wpc),.s_q_o(s_rpc));
 
     //Result value from the MA stage
     seu_ff_we #(.LABEL("MAWB_VAL"),.N(PROT_3REP))m_mawb_val (.s_c_i(s_clk_prw),.s_we_i(s_mawb_we_val),.s_d_i(s_wmawb_val),.s_q_o(s_rmawb_val));
@@ -119,7 +119,7 @@ module pipeline_5_ma (
     //program counter output for lower stages
     assign s_pc_o               = s_rpc;
     //Signals for the Predictor and Transfer of Control
-    assign s_bop_pop_o          = s_exma_ictrl_i[0][ICTRL_UNIT_BRU] & s_exma_payload_i[0][11];
+    assign s_bop_pop_o          = s_exma_ictrl_i[0].bru & s_exma_payload_i[0][11];
     assign s_ma_pred_clean_o    = s_exma_imiscon_i[0] == IMISCON_DSCR;
     assign s_ma_pred_btbu_o     = s_ma_pred_btbu[0];
     assign s_ma_pred_btrue_o    = s_ma_pred_btrue[0];
@@ -135,12 +135,9 @@ module pipeline_5_ma (
             assign s_resetn_prw[i]  = s_resetn_i[i];
 `ifdef PROT_PIPE
             //Only two executors are present in the EX stage, if they were used, their results must be compared
-            assign s_ex_discrepancy[i]  = (s_exma_val_i[0] != s_exma_val_i[1]) & (
-                                           s_exma_ictrl_i[i][ICTRL_UNIT_BRU] | 
-                                           s_exma_ictrl_i[i][ICTRL_UNIT_ALU] | 
-                                           s_exma_ictrl_i[i][ICTRL_UNIT_MDU] );
+            assign s_ex_discrepancy[i]  = (s_exma_val_i[0] != s_exma_val_i[1]) & (s_exma_ictrl_i[i].bru | s_exma_ictrl_i[i].alu | s_exma_ictrl_i[i].mdu);
             //Only two BOPs are present in the pipeline, if BRUs signalize distinct outcome, the execution should be restarted
-            assign s_bru_discrepancy[i] = (s_bru_toc[0] != s_bru_toc[1]) & s_exma_ictrl_i[i][ICTRL_UNIT_BRU];
+            assign s_bru_discrepancy[i] = (s_bru_toc[0] != s_bru_toc[1]) & s_exma_ictrl_i[i].bru;
 `else
             assign s_ex_discrepancy[i]  = 1'b0;
             assign s_bru_discrepancy[i] = 1'b0;
@@ -149,16 +146,16 @@ module pipeline_5_ma (
             assign s_prior_rstpp[i] = (s_exma_imiscon_i[i] == IMISCON_DSCR);
             //Reset pipeline on first occurence of bus error (if enabled in mhrdctrl0)
             assign s_trans_rst[i]   = (s_ibus_rst_en[i] & (s_exma_imiscon_i[i] == IMISCON_FERR)) | 
-                                      (s_dbus_rst_en[i] & s_lsu_hresp_i[i] & s_exma_ictrl_i[i][ICTRL_UNIT_LSU]);
+                                      (s_dbus_rst_en[i] & s_lsu_hresp_i[i] & s_exma_ictrl_i[i].lsu);
             //Reset pipeline if bus error occurred without previously intended transfer
-            assign s_berr_rst[i]    = s_lsu_hresp_i[i] & ~s_exma_ictrl_i[i][ICTRL_UNIT_LSU];
+            assign s_berr_rst[i]    = s_lsu_hresp_i[i] & ~s_exma_ictrl_i[i].lsu;
             //Gathering pipeline reset information
             assign s_rstpp[i]       = s_prior_rstpp[i] | s_wb_reset[i] | s_trans_rst[i] | s_ex_discrepancy[i] | s_bru_discrepancy[i] | s_initialize[i];
 
             //Branch/Jump unit
             bru m_bru
             (
-                .s_active_i(s_exma_ictrl_i[i][ICTRL_UNIT_BRU]),
+                .s_active_i(s_exma_ictrl_i[i].bru),
                 .s_exma_f_i(s_exma_f_i[i]),
                 .s_predicted_i(s_exma_payload_i[i][11]),
                 .s_exma_val_i(s_exma_val_i[i]),
@@ -175,45 +172,45 @@ module pipeline_5_ma (
             );
 
             //An address of the following instruction in the memory
-            assign s_pc_incr[i]     = s_exma_ictrl_i[i][ICTRL_RVC] ? 3'd2 : 3'd4;
+            assign s_pc_incr[i] = s_exma_ictrl_i[i].rvc ? 3'd2 : 3'd4;
             fast_adder m_next_pc(.s_base_val_i(s_pc[i]),.s_add_val_i({13'd0,s_pc_incr[i]}),.s_val_o(s_next_pc[i])); 
 
             //Selection of the value the program counter should be updated with
             assign s_new_pc[i]  = (s_interrupt[i]) ? s_int_trap[i] : 
-                                      (s_exception[i]) ? s_exc_trap[i] : 
-                                      (s_tereturn[i]) ? s_mepc[i] : 
-                                      (s_itaken[i]) ? s_bru_add[i] : s_next_pc[i];
+                                  (s_exception[i]) ? s_exc_trap[i] : 
+                                  (s_tereturn[i]) ? s_mepc[i] : 
+                                  (s_itaken[i]) ? s_bru_add[i] : s_next_pc[i];
 
-            assign s_wpc[i]         = (~(s_rstpp[i] | s_ma_empty[i] | s_stall_ma[i]) | s_interrupt[i]) ? s_new_pc[i] : s_pc[i];
+            assign s_wpc[i]     = (~(s_rstpp[i] | s_ma_empty[i] | s_stall_ma[i]) | s_interrupt[i]) ? s_new_pc[i] : s_pc[i];
 
             //Transfer of control
             assign s_ma_toc_addr[i] = (~(s_rstpp[i] | s_ma_empty[i]) | s_interrupt[i]) ? s_new_pc[i] : s_rpc[i];
             assign s_ma_toc[i]      = (s_interrupt[i] | s_bru_toc[i] | s_exception[i] | s_tereturn[i] | s_rstpp[i]);
 
             //Interrupts - delay until LSU operation is finished
-            assign s_interrupt[i]   = s_int_pending[i] & ~s_exma_ictrl_i[i][ICTRL_UNIT_LSU];
+            assign s_interrupt[i]   = s_int_pending[i] & ~s_exma_ictrl_i[i].lsu;
 
             //Stall if a data-bus transfer is extended
-            assign s_stall_ma[i]    = (~s_lsu_ready_i[i] | s_lsu_busy_i[i]) & s_exma_ictrl_i[i][ICTRL_UNIT_LSU];
+            assign s_stall_ma[i]    = (~s_lsu_ready_i[i] | s_lsu_busy_i[i]) & s_exma_ictrl_i[i].lsu;
             //Invalidate MA instruction if reset, interrupt, or exception is detected
             assign s_flush_ma[i]    = s_rstpp[i] | s_interrupt[i] | s_exception[i];
             //Stall lower stages on extended data-bus transfer
             assign s_stall_o[i]     = s_stall_ma[i];
             //Hold signal - do not start new instruction in EX stage
-            assign s_hold_o[i]      = s_int_pending[i] | s_wb_error[i] | (s_lsu_busy_i[i] & s_exma_ictrl_i[i][ICTRL_UNIT_LSU]);
+            assign s_hold_o[i]      = s_int_pending[i] | s_wb_error[i] | (s_lsu_busy_i[i] & s_exma_ictrl_i[i].lsu);
 
             assign s_ma_empty[i]    = (s_exma_imiscon_i[i] == IMISCON_FREE) & (s_exma_ictrl_i[i] == 7'b0);
             //Write-enable signal for auxiliary MAWB registers
             assign s_mawb_we_aux[i] = !(s_flush_ma[i] || s_ma_empty[i]);
             //Write-enable signal for MAWB value register
-            assign s_mawb_we_val[i] = s_mawb_we_aux[i] && (!s_exma_ictrl_i[i][ICTRL_UNIT_LSU] || s_lsu_save_i[i]);
+            assign s_mawb_we_val[i] = s_mawb_we_aux[i] && (!s_exma_ictrl_i[i].lsu || s_lsu_save_i[i]);
             //Write-enable signal for essential MAWB registers
             assign s_mawb_we_esn[i] = s_flush_ma[i] || !s_ma_empty[i] || (s_rmawb_ictrl[i] != 7'b0);
 
             //Select result of the MA stage. NOTE: the REG_DEST bit in the instruction control must be active for register file write
-            assign s_write_val[i]  = (s_exma_ictrl_i[i][ICTRL_UNIT_LSU]) ? s_lsu_data_i : 
-                                     (s_exma_ictrl_i[i][ICTRL_UNIT_BRU]) ? s_next_pc[i] :
-                                     (s_exma_ictrl_i[i][ICTRL_UNIT_CSR]) ? s_csr_val[i] : s_exma_val_i[i];
+            assign s_write_val[i]  = (s_exma_ictrl_i[i].lsu) ? s_lsu_data_i : 
+                                     (s_exma_ictrl_i[i].bru) ? s_next_pc[i] :
+                                     (s_exma_ictrl_i[i].csr) ? s_csr_val[i] : s_exma_val_i[i];
 
             always_comb begin : pipe_5_writer
                 s_wmawb_val[i]  = s_write_val[i];
@@ -228,26 +225,26 @@ module pipeline_5_ma (
 
         /*  This section is part of WB stage  */
         for ( i = 0; i<PROT_3REP ; i++ ) begin : wb_replicator
-            assign s_mawb_val[i] = (s_rmawb_ictrl[i][ICTRL_UNIT_LSU]) ? s_lsurdata[i] : s_rmawb_val[i];
+            assign s_mawb_val[i] = (s_rmawb_ictrl[i].lsu) ? s_lsurdata[i] : s_rmawb_val[i];
             //Decoding of the loaded data, that can be forwarded to the lower stages
             lsu_decoder m_lsu_decoder(.s_lsu_data_i(s_rmawb_val[i]),.s_ld_info_i(s_rmawb_ldi[i]),.s_data_o(s_lsurdata[i]));
 `ifdef PROT_INTF
             //Decoding of the loaded data after potential fixing - long combinational path, data are not forwarded to the lower stages
             lsu_decoder m_lsu_decoder_slow(.s_lsu_data_i(s_lsu_fixed_data_i[i]),.s_ld_info_i(s_rmawb_ldi[i]),.s_data_o(s_lsurdatac[i])); 
             //Check LSU error information in WB stage        
-            assign s_lsu_einfo[i]= s_rmawb_ictrl[i][ICTRL_UNIT_LSU] ? s_lsu_einfo_i[i] : 2'b0;
+            assign s_lsu_einfo[i]= s_rmawb_ictrl[i].lsu ? s_lsu_einfo_i[i] : 2'b0;
             //Save error information for further processing
             assign s_wmawb_err[i]= s_flush_ma[i] ? 2'b0 : ((s_lsu_einfo[i][0] ? {!s_lsu_einfo[i][1],1'b1} : 2'b0) | s_rmawb_err[i]); 
             //Any error in the WB stage prevents start of the new LSU transfer in the EX stage
             assign s_wb_error[i] = s_lsu_einfo[i][0] | s_rmawb_err[i][0];
             //WB error causes reset of the following instruction (except if the instruction is load/store)
-            assign s_wb_reset[i] = s_wb_error[i] & ~s_exma_ictrl_i[i][ICTRL_UNIT_LSU];
+            assign s_wb_reset[i] = s_wb_error[i] & ~s_exma_ictrl_i[i].lsu;
             //Correctable error is a source of maskable interrupt
             assign s_int_lcer[i] = (s_lsu_einfo[i][1] & s_lsu_einfo[i][0]);
             //Uncorrectable error is a source of not-maskable interrupt - preserve until the interrupt is taken
             assign s_nmi_luce[i] = (!s_lsu_einfo[i][1] & s_lsu_einfo[i][0]) | s_rmawb_err[i][1];
             //Data to be written into the register file - always take the data that has undergone a correction
-            assign s_rf_val_o[i] = (s_rmawb_ictrl[i][ICTRL_UNIT_LSU]) ? s_lsurdatac[i] : s_rmawb_val[i];
+            assign s_rf_val_o[i] = (s_rmawb_ictrl[i].lsu) ? s_lsurdatac[i] : s_rmawb_val[i];
 `else
             assign s_wb_error[i] = 1'b0;
             assign s_wb_reset[i] = 1'b0;

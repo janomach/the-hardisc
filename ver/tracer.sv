@@ -50,12 +50,12 @@ module tracer
     input logic s_dut_fe0_utd_i,
     input logic[30:0] s_dut_fe1_add_i,
     input logic s_dut_fe1_utd_i,
-    input logic[6:0] s_dut_id_ictrl_i,
+    input ictrl s_dut_id_ictrl_i,
     input logic s_dut_aligner_nop_i,
-    input logic[6:0] s_dut_op_ictrl_i,
-    input logic[6:0] s_dut_ex_ictrl_i,
-    input logic[6:0] s_dut_ma_ictrl_i,
-    input logic[6:0] s_dut_wb_ictrl_i,
+    input ictrl s_dut_op_ictrl_i,
+    input ictrl s_dut_ex_ictrl_i,
+    input ictrl s_dut_ma_ictrl_i,
+    input ictrl s_dut_wb_ictrl_i,
     input logic s_dut_rfc_we_i,
     input logic[31:0] s_dut_rfc_wval_i,
     input logic[4:0] s_dut_rfc_wadd_i
@@ -109,7 +109,7 @@ module tracer
             end else begin 
                     i_result = "";
             end
-            if(s_dut_wb_ictrl_i[ICTRL_RVC])
+            if(s_dut_wb_ictrl_i.rvc)
                 i_resinfo = $sformatf("core   0: 3 0x%8x (0x%4x)",s_wb_pc_i,s_wb_instr_i[15:0]);
             else
                 i_resinfo = $sformatf("core   0: 3 0x%8x (0x%8x)",s_wb_pc_i,s_wb_instr_i);

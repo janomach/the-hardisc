@@ -188,9 +188,9 @@ module pipeline_2_id (
             end
 
             //The decoded instruction will not need read port 1 in the OP stage
-            assign s_id_free_rp[i][0]   = (s_src_ctrl[i][SCTRL_ZERO1] | ~s_src_ctrl[i][SCTRL_RFRP1]);
+            assign s_id_free_rp[i][0]   = (s_src_ctrl[i].zero1 | ~s_src_ctrl[i].rfrp1);
             //The decoded instruction will not need read port 2 in the OP stage
-            assign s_id_free_rp[i][1]   = (s_src_ctrl[i][SCTRL_ZERO2] | ~s_src_ctrl[i][SCTRL_RFRP2]);
+            assign s_id_free_rp[i][1]   = (s_src_ctrl[i].zero2 | ~s_src_ctrl[i].rfrp2);
 
 `ifndef PROT_PIPE
             //Update values for IDOP read-address registers
@@ -202,9 +202,9 @@ module pipeline_2_id (
             /* Read-Port Address Scrubbing */
 
             //The instruction in OP stage does not need read port 1
-            assign s_op_free_rp[i][0]   = (s_ridop_sctrl[i][SCTRL_ZERO1] | ~s_ridop_sctrl[i][SCTRL_RFRP1] | (s_ridop_ictrl[i] == IMISCON_DSCR));
+            assign s_op_free_rp[i][0]   = (s_ridop_sctrl[i].zero1 | ~s_ridop_sctrl[i].rfrp1 | (s_ridop_ictrl[i] == IMISCON_DSCR));
             //The instruction in OP stage does not need read port 1
-            assign s_op_free_rp[i][1]   = (s_ridop_sctrl[i][SCTRL_ZERO2] | ~s_ridop_sctrl[i][SCTRL_RFRP2] | (s_ridop_ictrl[i] == IMISCON_DSCR));
+            assign s_op_free_rp[i][1]   = (s_ridop_sctrl[i].zero2 | ~s_ridop_sctrl[i].rfrp2 | (s_ridop_ictrl[i] == IMISCON_DSCR));
 
             //Update values for IDOP read-address registers
             always_comb begin : rsx_we_add_en

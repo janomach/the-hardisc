@@ -148,11 +148,11 @@ module csru (
             //Gathering exception information
             assign s_pma_violation[i]              = s_imiscon_i[i] == IMISCON_PMAV;    
             assign s_transfer_misaligned[i]        = ((|s_val_i[i][1:0] & s_function_i[i][1]) | (s_val_i[i][0] & s_function_i[i][0]));
-            assign s_exceptions[i][EXC_LSADD_MISS] = s_ictrl_i[i][ICTRL_UNIT_LSU] & s_transfer_misaligned[i];
-            assign s_exceptions[i][EXC_ECALL_M]    = s_ictrl_i[i][ICTRL_UNIT_CSR] & s_csr_fun[i] & (s_payload_i[i][10:9] == CSR_FUN_ECALL);
-            assign s_exceptions[i][EXC_EBREAK_M]   = s_ictrl_i[i][ICTRL_UNIT_CSR] & s_csr_fun[i] & (s_payload_i[i][10:9] == CSR_FUN_EBREAK);
-            assign s_exceptions[i][EXC_LSACCESS]   = s_ictrl_i[i][ICTRL_UNIT_LSU] & (s_hresp_i[i] | s_pma_violation[i]);
-            assign s_exceptions[i][EXC_IACCESS]    = (s_imiscon_i[i] == IMISCON_FERR) | (s_pma_violation[i] & ~s_ictrl_i[i][ICTRL_UNIT_LSU]);
+            assign s_exceptions[i][EXC_LSADD_MISS] = s_ictrl_i[i].lsu & s_transfer_misaligned[i];
+            assign s_exceptions[i][EXC_ECALL_M]    = s_ictrl_i[i].csr & s_csr_fun[i] & (s_payload_i[i][10:9] == CSR_FUN_ECALL);
+            assign s_exceptions[i][EXC_EBREAK_M]   = s_ictrl_i[i].csr & s_csr_fun[i] & (s_payload_i[i][10:9] == CSR_FUN_EBREAK);
+            assign s_exceptions[i][EXC_LSACCESS]   = s_ictrl_i[i].lsu & (s_hresp_i[i] | s_pma_violation[i]);
+            assign s_exceptions[i][EXC_IACCESS]    = (s_imiscon_i[i] == IMISCON_FERR) | (s_pma_violation[i] & ~s_ictrl_i[i].lsu);
             assign s_exceptions[i][EXC_ILLEGALI]   = s_imiscon_i[i] == IMISCON_ILLE;
             assign s_exception[i]                  = |s_exceptions[i];
 
@@ -170,8 +170,8 @@ module csru (
             assign s_uadd_00[i]        = s_payload_i[i][8:7] == 2'b00;
             assign s_uadd_01[i]        = s_payload_i[i][8:7] == 2'b01;
             assign s_uadd_10[i]        = s_payload_i[i][8:7] == 2'b10;
-            assign s_csr_fun[i]        = (s_function_i[i][2:0] == 3'b0) & s_ictrl_i[i][ICTRL_UNIT_CSR];
-            assign s_csr_op[i]         = |s_function_i[i][1:0] & s_ictrl_i[i][ICTRL_UNIT_CSR] & ~s_flush_i[i];
+            assign s_csr_fun[i]        = (s_function_i[i][2:0] == 3'b0) & s_ictrl_i[i].csr;
+            assign s_csr_op[i]         = |s_function_i[i][1:0] & s_ictrl_i[i].csr & ~s_flush_i[i];
             assign s_write_machine[i]  = s_csr_op[i] & s_machine_csr[i];
             assign s_mret[i]           = s_uadd_00[i] & s_machine_csr[i] & s_csr_fun[i] & (s_payload_i[i][10:9] == CSR_FUN_RET) & ~s_flush_i[i];
             assign s_execute[i]        = ((s_ictrl_i[i] != 7'b0) | s_exceptions[i][EXC_IACCESS] | s_exceptions[i][EXC_ILLEGALI]) & ~s_rstpp_i[i];
@@ -497,13 +497,13 @@ module csru (
             assign s_mcsr_addr_free[i] = (~s_mie[i][13] | (s_mie[i][13] & ~s_mip[i][13])) & (~s_mie[i][14] | (s_mie[i][14] & ~s_mip[i][14]));
 
             //If both, FCER and LCER, interrupt sources are enabled, the FCER has higher priority
-            assign s_maddrerr_we[i] = ((s_int_fcer_i & s_mie[i][13]) | (s_mie[i][14] & s_ictrl_i[i][ICTRL_UNIT_LSU])) || s_csr_refresh[i];
+            assign s_maddrerr_we[i] = ((s_int_fcer_i & s_mie[i][13]) | (s_mie[i][14] & s_ictrl_i[i].lsu)) || s_csr_refresh[i];
             always_comb begin
                 s_wmaddrerr[i] = s_maddrerr[i];
                 if(s_mcsr_addr_free[i] & s_int_fcer_i & s_mie[i][13])begin
                     //Save address of instruction with correctable error
                     s_wmaddrerr[i] = {s_pc_i[i][31:2],2'b0};
-                end else if(s_mcsr_addr_free[i] & s_mie[i][14] & s_ictrl_i[i][ICTRL_UNIT_LSU])begin
+                end else if(s_mcsr_addr_free[i] & s_mie[i][14] & s_ictrl_i[i].lsu)begin
                     //Save address of LSU transfer
                     s_wmaddrerr[i] = {s_val_i[i][31:2],2'b0};
                 end

@@ -102,7 +102,7 @@ module rf_controller
 `else
     assign s_clk_rf     = s_clk_i[0]; 
     //write enable signal for the register file
-    assign s_rf_we[0]   = s_mawb_ictrl_i[0][ICTRL_REG_DEST];
+    assign s_rf_we[0]   = s_mawb_ictrl_i[0].wrd;
     //value to be written to the register file
     assign s_rf_w_val[0]= s_mawb_val_i[0];
     //address for the write port of the register file
