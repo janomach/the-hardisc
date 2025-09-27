@@ -34,9 +34,8 @@ module see_wires #(
     see_insert #(.W(W),.N(N),.LABEL(LABEL),.GROUP(GROUP),.ELOG("T"),.MPROB(MPROB)) see (.s_clk_i(s_c_i),.s_upset_o(s_upset));
 `endif
 
-    genvar i;
     generate
-        for (i = 0;i < N; i++) begin : iterate_i
+        for (genvar i = 0;i < N; i++) begin : iterate_i
             assign s_d_o[i] = s_d_i[i]
 `ifdef SEE_TESTING            
                     ^ s_upset[i]

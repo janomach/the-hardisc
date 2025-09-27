@@ -249,4 +249,11 @@ package p_hardisc;
         '{base  : 32'h80001000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1}
     };   
 
+    function logic[3:0] calc_parity (logic[31:0] addr);
+        for (int p=0;p<4;p++) begin
+            calc_parity[p] = addr[0 + p] ^ addr[4 + p] ^ addr[8 + p] ^ addr[12 + p] ^
+                             addr[16 + p] ^ addr[20 + p] ^ addr[24 + p] ^ addr[28 + p];
+        end
+   	endfunction
+
 endpackage

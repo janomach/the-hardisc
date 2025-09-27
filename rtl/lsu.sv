@@ -83,15 +83,7 @@ module lsu (
     seu_ff_we_rst #(.LABEL("LSYNDROME"),.N(PROT_3REP),.W(7))m_lsyndrome(.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_syndrome_we),.s_d_i(s_wlsyndrome),.s_q_o(s_rlsyndrome)); 
 
     //Parity protection signal is determined by pipeline 1
-    logic[31:0] s_aux_addr;
-    assign s_aux_addr = s_haddr[PROT_2REP-1];
-    genvar p;
-    generate
-        for (p=0;p<4;p++) begin
-            assign s_hparity_o[p]   = s_aux_addr[0 + p] ^ s_aux_addr[4 + p] ^ s_aux_addr[8 + p] ^ s_aux_addr[12 + p] ^
-                                      s_aux_addr[16 + p] ^ s_aux_addr[20 + p] ^ s_aux_addr[24 + p] ^ s_aux_addr[28 + p];            
-        end
-    endgenerate
+    assign s_hparity_o[3:0] = calc_parity(s_haddr[PROT_2REP-1]); 
     assign s_hparity_o[4]   = (^s_hsize[PROT_2REP-1]) ^ s_hwrite[PROT_2REP-1];    //hsize, hwrite, hprot, hburst, hmastlock
     assign s_hparity_o[5]   = (^s_htrans[PROT_2REP-1]);                           //htrans
     assign s_hwdcheck_o     = s_wchecksum[0];
@@ -133,9 +125,8 @@ module lsu (
 `endif
 `endif
 
-    genvar i;
     generate
-        for (i = 0; i<PROT_3REP ;i++ ) begin : lsu_replicator
+        for (genvar i = 0; i<PROT_3REP ;i++ ) begin : lsu_replicator
             always_comb begin : request_control
                 s_size[i]  = {1'b0,s_opex_f_i[i%2][1:0]};
                 s_write[i] = s_opex_f_i[i%2][3]; 

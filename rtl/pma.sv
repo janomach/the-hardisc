@@ -37,9 +37,8 @@ module pma #(
     assign s_violation_o    = !(|s_address_hit) | (|s_ex_violation) | (|s_ro_violation);
     assign s_idempotent_o   = |(s_address_hit & s_idempotent);
 
-    genvar i;
     generate
-        for (i = 0; i < PMA_REGIONS; i++ ) begin            
+        for (genvar i = 0; i < PMA_REGIONS; i++ ) begin            
             assign s_address_hit[i] = (s_address_i[31:PMA_ALIGN] & PMA_CFG[i].mask[31:PMA_ALIGN]) == PMA_CFG[i].base[31:PMA_ALIGN];
             assign s_idempotent[i]  = PMA_CFG[i].idempotent;
             if(FETCH) begin

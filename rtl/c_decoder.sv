@@ -59,9 +59,8 @@ module c_decoder (
     assign s_imiscon_o  = s_instr_miscon;
     assign s_imm_o      = s_immediate;
 
-    genvar i;
     generate
-        for(i = 0;i<8;i++)begin: funct3_gen
+        for(genvar i = 0;i<8;i++)begin: funct3_gen
             assign s_funct3[i] = s_instr_i[15:13] == i; 
         end
     endgenerate

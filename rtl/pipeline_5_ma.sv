@@ -128,9 +128,8 @@ module pipeline_5_ma (
     assign s_ma_toc_addr_o      = s_ma_toc_addr;
     assign s_flush_o            = s_ma_toc;
 
-    genvar i;
     generate
-        for ( i = 0; i<PROT_3REP ; i++ ) begin : ma_replicator
+        for (genvar i = 0; i<PROT_3REP ; i++ ) begin : ma_replicator
             assign s_clk_prw[i]     = s_clk_i[i];
             assign s_resetn_prw[i]  = s_resetn_i[i];
 `ifdef PROT_PIPE
@@ -224,7 +223,7 @@ module pipeline_5_ma (
         end
 
         /*  This section is part of WB stage  */
-        for ( i = 0; i<PROT_3REP ; i++ ) begin : wb_replicator
+        for (genvar i = 0; i<PROT_3REP ; i++ ) begin : wb_replicator
             assign s_mawb_val[i] = (s_rmawb_ictrl[i].lsu) ? s_lsurdata[i] : s_rmawb_val[i];
             //Decoding of the loaded data, that can be forwarded to the lower stages
             lsu_decoder m_lsu_decoder(.s_lsu_data_i(s_rmawb_val[i]),.s_ld_info_i(s_rmawb_ldi[i]),.s_data_o(s_lsurdata[i]));

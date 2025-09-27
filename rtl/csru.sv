@@ -138,9 +138,8 @@ module csru (
     assign s_exc_trap_o     = s_exc_trap;
     assign s_int_trap_o     = s_int_trap;  
 
-    genvar i;
     generate
-        for (i = 0; i<PROT_3REP ;i++ ) begin : csr_replicator
+        for (genvar i = 0; i<PROT_3REP ;i++ ) begin : csr_replicator
             assign s_initialize_o[i]    = !s_mhrdctrl0[i][31];
             assign s_ibus_rst_en_o[i]   = s_mhrdctrl0[i][7] & ~s_mhrdctrl0[i][21];
             assign s_dbus_rst_en_o[i]   = s_mhrdctrl0[i][7] & ~s_mhrdctrl0[i][22];            

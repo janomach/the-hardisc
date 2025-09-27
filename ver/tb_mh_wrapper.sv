@@ -427,9 +427,8 @@ see_insert #(.W(1),.N(3),.GROUP(SEEGR_CORE_WIRE),.ELOG("T"),.LABEL("RSTN"),.MPRO
 always #(r_clk_time + {1'b0,r_clk_time[31:1]}) r_err_clk = ~r_err_clk;
 `endif
 
-genvar s;
 generate
-    for(s=0;s<3;s++)begin
+    for(genvar s=0;s<3;s++)begin
 `ifdef SEE_TESTING
         assign s_clk_see[s]     = (~s_upset_clk[s] | r_ver_clk) ? r_ver_clk : r_err_clk;
         assign s_resetn_see[s]  = (r_ver_rstn ^ s_upset_resetn[s]);
@@ -440,7 +439,7 @@ generate
         assign s_resetn_dut[s]  = r_ver_rstn;
 `endif
     end
-    for(s=0;s<SUBORDINATES;s++)begin
+    for(genvar s=0;s<SUBORDINATES;s++)begin
         assign s_ahb_sbase[s]   = PMA_CONFIG[s].base;
         assign s_ahb_smask[s]   = PMA_CONFIG[s].mask;
     end

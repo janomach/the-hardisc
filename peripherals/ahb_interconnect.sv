@@ -56,15 +56,14 @@ module ahb_interconnect #(
     assign s_stall = r_active & ~s_shready_i[r_selected];
     
     //Select a new slave for the transfer
-    genvar i;
     generate
-        for(i = 0; i<SLAVES;i++)begin : gen1
+        for(genvar i = 0; i<SLAVES;i++)begin : gen1
             assign s_slave_range[i] = (s_mhaddr_i & s_smask_i[i]) == s_sbase_i[i];
             assign s_hsel_o[i] = (s_selected[0] == i[SELMSB:0]) & ~s_stall;
         end
 
         if(SLAVES > 1)begin
-            for(i = 0; i<SLAVES-1;i++)begin
+            for(genvar i = 0; i<SLAVES-1;i++)begin
                 assign s_selected[i] = (~(|s_slave_range[SLAVES-1 : i+1]) | s_slave_range[i]) ? i[SELMSB:0] : s_selected[i+1];
             end
             assign s_selected[SLAVES-1] = (s_slave_range[SLAVES-1]) ? (SLAVES-1) : (0);

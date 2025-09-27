@@ -63,7 +63,7 @@ module pipeline_3_op (
     logic[3:0] s_wopex_fwd[PROT_2REP], s_ropex_fwd[PROT_2REP], s_forward[PROT_2REP];
     logic s_opex_we_aux[PROT_2REP], s_opex_we_esn[PROT_2REP], s_opex_we_fwd[PROT_2REP];
 
-    logic s_bubble[PROT_2REP];
+    logic s_bubble[PROT_2REP], s_op_empty[PROT_2REP];
     logic s_stall_op[PROT_2REP], s_flush_op[PROT_2REP];
     logic s_clk_prw[PROT_2REP], s_resetn_prw[PROT_2REP];
 
@@ -93,17 +93,14 @@ module pipeline_3_op (
     //Forwarding information
     seu_ff_we #(.LABEL({"OPEX_FWD"}),.W(4),.N(PROT_2REP)) m_opex_fwd (.s_c_i(s_clk_prw),.s_we_i(s_opex_we_fwd),.s_d_i(s_wopex_fwd),.s_q_o(s_ropex_fwd));
 
-    logic s_op_empty[PROT_2REP];
-
-    genvar i;
     generate
         //----------------------//
-        for (i = 0;i<PROT_3REP ;i++ ) begin : op_replicator_0
+        for (genvar i = 0;i<PROT_3REP ;i++ ) begin : op_replicator_0
             //If a bubble is signalized by the Preparer, stall lower stages and insert NOP to the EX stage
             assign s_stall_o[i]     = s_bubble[i%2];
         end
 
-        for (i = 0;i<PROT_2REP ;i++ ) begin : op_replicator_1
+        for (genvar i = 0;i<PROT_2REP ;i++ ) begin : op_replicator_1
             assign s_clk_prw[i]     = s_clk_i[i];
             assign s_resetn_prw[i]  = s_resetn_i[i];
 

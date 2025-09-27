@@ -102,9 +102,8 @@ module pipeline_4_ex #(
     //Save offset for predictor
     assign s_wexma_offset[0]= s_opex_payload_i[0][19:0];
 
-    genvar i;
     generate
-        for (i = 0; i<PROT_2REP ;i++ ) begin : ex_replicator_2
+        for (genvar i = 0; i<PROT_2REP ;i++ ) begin : ex_replicator_2
 `ifdef PROT_PIPE
             //OPEX registers replicas comparision
             assign s_opex_aux_neq[i] = (s_opex_op1_i[0] != s_opex_op1_i[1]) | (s_opex_op2_i[0] != s_opex_op2_i[1]) | 
@@ -137,7 +136,7 @@ module pipeline_4_ex #(
             );
         end
 
-        for (i = 0; i<PROT_3REP;i++ ) begin : ex_replicator
+        for (genvar i = 0; i<PROT_3REP;i++ ) begin : ex_replicator
             assign s_stall_ex[i]= s_stall_i[i][PIPE_MA];
             //If a bubble is signalized by the Executor, stall lower stages and insert NOP to the MA stage
             assign s_stall_o[i] = s_bubble[i];

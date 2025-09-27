@@ -70,9 +70,8 @@ logic s_unrec_err[1];
 assign s_unrec_err_o[0] = 1'b0;
 assign s_unrec_err_o[1] = 1'b0;
 
-genvar i;
 generate
-    for (i = 0; i < 1;i++ ) begin : rep
+    for (genvar i = 0; i < 1;i++ ) begin : rep
         hardisc #(.PMA_REGIONS(PMA_REGIONS),.PMA_CFG(PMA_CFG)) core
         (
             .s_clk_i({s_clk_i[0]}),

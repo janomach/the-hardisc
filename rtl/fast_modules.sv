@@ -111,10 +111,8 @@ module fast_shift #(
     localparam N = MS/A;
     logic[W-1:0] s_shifted[N]; 
 
-    genvar i;
-
     generate
-        for ( i=0 ; i<N ; i++ ) begin
+        for (genvar i=0 ; i<N ; i++ ) begin
             if(D == 0)
                 assign s_shifted[i] = {{(i*2){1'b0}},s_d_i[(i)*2 +: W-(i)*2]};
             else

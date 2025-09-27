@@ -58,10 +58,9 @@ module acm
     assign s_add_o  = s_file_w_add;
     assign s_we_o   = s_file_we;
     
-    genvar i;
     generate
         /* Automatic Correction Module*/
-        for (i = 0; i<2 ; i++ ) begin : acm_replicator
+        for (genvar i = 0; i<2 ; i++ ) begin : acm_replicator
             assign s_clk_prw[i]     = s_clk_i[i];
             assign s_resetn_prw[i]  = s_resetn_i[i];
             
@@ -104,7 +103,7 @@ module acm
             end
         end
 
-        for (i = 0; i<2 ;i++ ) begin : acm_double
+        for (genvar i = 0; i<2 ;i++ ) begin : acm_double
             //analyze saved data
             secded_encode m_acm_encode    (.s_data_i(s_racm_val[i]),.s_checksum_o(s_acm_achecksum[i]));
             secded_analyze m_acm_analyze  (.s_syndrome_i(s_acm_syndrome[i]),.s_error_o(s_acm_error[i]),.s_ce_o(s_acm_ce[i]));
@@ -133,7 +132,7 @@ module acm
             secded_encode m_w1_encode (.s_data_i(s_file_w_val[i]), .s_checksum_o(s_w_checksum[i])); 
         end
 
-        for (i =0 ; i<3 ;i++ ) begin : wb_triple
+        for (genvar i =0 ; i<3 ;i++ ) begin : wb_triple
             //write enable from WB stage
             assign s_mawb_we[i] = s_mawb_ictrl_i[i].wrd;     
         end

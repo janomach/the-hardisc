@@ -28,9 +28,8 @@ module tmr_comb #(
     assign s_out_and[1] = s_d_i[0] & s_d_i[2];
     assign s_out_and[2] = s_d_i[1] & s_d_i[2];
 
-    genvar i;
     generate
-        for (i = 0;i<OUT_REPS ;i++ ) begin
+        for (genvar i = 0;i<OUT_REPS ;i++ ) begin
             assign s_d_o[i]  = s_out_and[0] | s_out_and[1] | s_out_and[2];
         end
     endgenerate

@@ -37,9 +37,8 @@ module seu_ff_rst #(
 
     assign s_q_o    = r_data;
 
-    genvar i;
     generate
-        for ( i= 0;i<N ;i++ ) begin : reg_replicator
+        for (genvar i= 0;i<N ;i++ ) begin : reg_replicator
             always_ff @( posedge s_c_i[i] or negedge s_r_i[i] ) begin
                 if(s_r_i[i] == 1'b0)begin
                     r_data[i]  <= RSTVAL;
@@ -75,9 +74,8 @@ module seu_ff_rsts #(
 
     assign s_q_o    = r_data;
 
-    genvar i;
     generate
-        for ( i= 0;i<N ;i++ ) begin : reg_replicator
+        for (genvar i= 0;i<N ;i++ ) begin : reg_replicator
             always_ff @( posedge s_c_i[i] or negedge s_r_i[i] ) begin
                 if(s_r_i[i] == 1'b0)begin
                     r_data[i]  <= s_rs_i;
@@ -111,9 +109,8 @@ module seu_ff #(
 
     assign s_q_o    = r_data;
 
-    genvar i;
     generate
-        for ( i= 0;i<N ;i++ ) begin : reg_replicator
+        for (genvar i= 0;i<N ;i++ ) begin : reg_replicator
             always_ff @( posedge s_c_i[i] ) begin
 `ifdef SEE_TESTING 
                 r_data[i]  <= s_d_i[i] ^ s_upset[i];
@@ -144,9 +141,8 @@ module seu_ff_we #(
 
     assign s_q_o    = r_data;
 
-    genvar i;
     generate
-        for ( i= 0;i<N ;i++ ) begin : reg_replicator
+        for (genvar i= 0;i<N ;i++ ) begin : reg_replicator
             always_ff @( posedge s_c_i[i]) begin
                 if(s_we_i[i] == 1'b1) begin
 `ifndef SEE_TESTING
@@ -183,9 +179,8 @@ module seu_ff_we_rst #(
 
     assign s_q_o    = r_data;
 
-    genvar i;
     generate
-        for ( i= 0;i<N ;i++ ) begin : reg_replicator
+        for (genvar i= 0;i<N ;i++ ) begin : reg_replicator
             always_ff @( posedge s_c_i[i] or negedge s_r_i[i] ) begin
                 if(s_r_i[i] == 1'b0)begin
                     r_data[i]  <= RSTVAL;
@@ -216,9 +211,8 @@ module seu_ff_array_we #(
 );
     logic [W-1:0] s_q[N][1];
 
-    genvar i;
     generate
-        for ( i= 0;i<N ;i++ ) begin : reg_replicator
+        for (genvar i= 0;i<N ;i++ ) begin : reg_replicator
             seu_ff_we #(.W(W),.N(1),.GROUP(GROUP),.LABEL({LABEL,"[",$sformatf("%d",i),"]"})) row (.s_c_i(s_c_i),.s_we_i({s_we_i[i]}),.s_d_i({s_d_i[i]}),.s_q_o(s_q[i]));
             assign s_q_o[i] = s_q[i][0];
         end
@@ -243,13 +237,12 @@ module seu_ff_file #(
     logic s_we[N];
     logic [W-1:0] s_q[N][1];
 
-    genvar i;
     generate
-        for ( i= 0;i<N ;i++ ) begin : ff_replicator
+        for (genvar i= 0;i<N ;i++ ) begin : ff_replicator
             assign s_we[i] = (s_wa_i == i) && s_we_i;
             seu_ff_we #(.W(W),.N(1),.GROUP(GROUP),.LABEL({LABEL,"[",$sformatf("%d",i),"]"})) row (.s_c_i({s_c_i}),.s_we_i({s_we[i]}),.s_d_i({s_d_i}),.s_q_o(s_q[i]));
         end
-        for ( i= 0;i<RP ;i++ ) begin : read_ports
+        for (genvar i= 0;i<RP ;i++ ) begin : read_ports
             assign s_q_o[i] = s_q[s_ra_i[i]][0];
         end
     endgenerate
@@ -276,13 +269,12 @@ module seu_ff_file_rst #(
     logic s_we[N];
     logic [W-1:0] s_q[N][1];
 
-    genvar i;
     generate
-        for ( i= 0;i<N ;i++ ) begin : ff_replicator
+        for (genvar i= 0;i<N ;i++ ) begin : ff_replicator
             assign s_we[i] = (s_wa_i == i) && s_we_i;
             seu_ff_we_rst #(.W(W),.N(1),.RSTVAL(RSTVAL),.GROUP(GROUP),.LABEL({LABEL,"[",$sformatf("%d",i),"]"})) row (.s_c_i({s_c_i}),.s_r_i({s_r_i}),.s_we_i({s_we[i]}),.s_d_i({s_d_i}),.s_q_o(s_q[i]));
         end
-        for ( i= 0;i<RP ;i++ ) begin : read_ports
+        for (genvar i= 0;i<RP ;i++ ) begin : read_ports
             assign s_q_o[i] = s_q[s_ra_i[i]][0];
         end
     endgenerate

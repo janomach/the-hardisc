@@ -139,9 +139,8 @@ module ifb #(
 `endif
     end
 
-    genvar i;
     generate
-        for(i=1;i<SIZE-1;i++)begin : buffer_controler
+        for(genvar i=1;i<SIZE-1;i++)begin : buffer_controler
             assign s_buffer_we[i]   = s_push_i & s_roccupied[0][i-1];
             always_comb begin
                 s_wbuffer[i] = s_ubuffer[i-1];

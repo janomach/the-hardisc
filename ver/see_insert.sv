@@ -49,10 +49,8 @@ module see_insert #(
 
     assign s_upset_o    = r_force;
 
-    genvar i,k;
-    int j;
     generate
-        for (i = 0;i < N; i++) begin : iterate_i
+        for (genvar i = 0;i < N; i++) begin : iterate_i
             initial begin
                 seed_instance::srandom($sformatf("%m"));
                 r_seed_value[i]     = $urandom;
@@ -66,7 +64,7 @@ module see_insert #(
             always_ff @( posedge s_clk_i ) begin
                 if((see_prob != 0) & ((GROUP_MASK & see_group) != 0))begin
                     r_randomval[i] <= $urandom(r_seed_value[i]+r_randomval[i]);
-                    for(j = 0; j < W; j++)begin : iterate_j
+                    for(int j = 0; j < W; j++)begin : iterate_j
                         r_force[i][j] <= (s_filtered[i] >= (see_prob * j)) & (s_filtered[i] < (see_prob * (j+1)));
                         if(r_force[i][j] & (logging > 2))begin
                             if(N == 1)

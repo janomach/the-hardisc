@@ -174,9 +174,8 @@ generate
     end
 endgenerate
 
-genvar p;
 generate
-    for (p=0;p<4;p++) begin
+    for (genvar p=0;p<4;p++) begin
         assign s_parity[p]  = s_haddr_i[0 + p] ^ s_haddr_i[4 + p] ^ s_haddr_i[8 + p] ^ s_haddr_i[12 + p] ^
                               s_haddr_i[16 + p] ^ s_haddr_i[20 + p] ^ s_haddr_i[24 + p] ^ s_haddr_i[28 + p];            
     end
@@ -209,8 +208,7 @@ endgenerate
     assign s_hresp_o    = r_hresp;
 
     generate
-    genvar i;
-        for (i = 0; i < 4; i = i+1) begin: byte_write
+        for (genvar i = 0; i < 4; i = i+1) begin: byte_write
             always @(posedge s_clk_i)
                 if (s_we && s_byte[i])
                     r_memory[r_address[MSB:2]][(i+1)*8-1:i*8] <= s_hwdata_i[(i+1)*8-1:i*8];

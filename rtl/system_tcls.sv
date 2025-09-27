@@ -119,9 +119,8 @@ assign s_d_hwrite_o     = s_tmrd_hwrite[0];
 assign s_d_hparity_o    = s_tmrd_hparity[0];
 assign s_d_hwchecksum_o = s_tmrd_hwchecksum[0];
 
-genvar i;
 generate
-    for (i = 0; i < 3;i++ ) begin : rep
+    for (genvar i = 0; i < 3;i++ ) begin : rep
         hardisc #(.PMA_REGIONS(PMA_REGIONS),.PMA_CFG(PMA_CFG)) core
         (
             .s_clk_i({s_clk_i[i]}),

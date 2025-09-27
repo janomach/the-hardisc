@@ -111,9 +111,8 @@ module hardisc #(
     assign s_d_hmastlock_o  = 1'b0;
     assign s_d_hprot_o      = 4'b0;
 
-    genvar i;
     generate
-        for (i = 0; i<PROT_3REP ;i++ ) begin : integration_replicator
+        for (genvar i = 0; i<PROT_3REP ;i++ ) begin : integration_replicator
             assign s_stall[i] = {s_stall_ma[i],s_stall_ex[i],s_stall_op[i],s_stall_id[i],1'b0};          
         end  
     endgenerate

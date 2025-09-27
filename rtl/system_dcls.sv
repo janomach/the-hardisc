@@ -123,7 +123,6 @@ tmr_comb #(.OUT_REPS(2),.W(1))  m_tmr_i_hresp (.s_d_i(s_i_hresp_i),.s_d_o(s_tmri
 tmr_comb #(.OUT_REPS(2),.W(1))  m_tmr_d_hready (.s_d_i(s_d_hready_i),.s_d_o(s_tmrd_hready));
 tmr_comb #(.OUT_REPS(2),.W(1))  m_tmr_d_hresp (.s_d_i(s_d_hresp_i),.s_d_o(s_tmrd_hresp));
 
-genvar i;
 generate
     if(DELAY_INPUTS == 1)begin
         /* Instruction interface */
@@ -245,7 +244,7 @@ generate
         assign s_int_meip[1][0] = s_int_meip_i;
         assign s_int_mtip[1][0] = s_int_mtip_i;
     end
-    for (i = 0; i < 2;i++ ) begin : rep
+    for (genvar i = 0; i < 2;i++ ) begin : rep
         hardisc #(.PMA_REGIONS(PMA_REGIONS),.PMA_CFG(PMA_CFG)) core
         (
             .s_clk_i({s_clk_i[i]}),
@@ -289,7 +288,7 @@ generate
             .s_unrec_err_o(s_unrec_err[i])
         );        
     end
-    for (i = 0; i < 2;i++ ) begin : checker_rep
+    for (genvar i = 0; i < 2;i++ ) begin : checker_rep
         always_comb begin
             s_i_discrepancy[i] = 1'b0;
             if(s_ribus_htrans_cmp[0][0] != s_ribus_htrans_cmp[1][0])begin

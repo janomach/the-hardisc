@@ -65,9 +65,8 @@ module system_hardisc #(
     output logic s_unrec_err_o[2]           //unrecoverable error
 );
 
-genvar i;
 generate
-    for (i = 0; i < 1;i++ ) begin : rep
+    for (genvar i = 0; i < 1;i++ ) begin : rep
         hardisc #(.PMA_REGIONS(PMA_REGIONS),.PMA_CFG(PMA_CFG)) core
         (
             .s_clk_i(s_clk_i),

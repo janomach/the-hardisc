@@ -105,13 +105,12 @@ module pipeline_2_id (
           s_aligner_nop[PROT_2REP], s_aligner_pred[PROT_2REP], s_idop_empty[PROT_2REP];
     logic [2:0] s_fetch_error[PROT_2REP];
 
-    genvar i;
     generate  
-        for (i = 0; i<PROT_3REP ; i++ ) begin : id_pc_replicator
+        for (genvar i = 0; i<PROT_3REP ; i++ ) begin : id_pc_replicator
             assign s_stall_o[i]    = s_aligner_stall[i%2];   
         end
 
-        for (i = 0; i<PROT_2REP ; i++ ) begin : id_replicator
+        for (genvar i = 0; i<PROT_2REP ; i++ ) begin : id_replicator
             assign s_clk_prw[i]    = s_clk_i[i];
             assign s_resetn_prw[i] = s_resetn_i[i];
 

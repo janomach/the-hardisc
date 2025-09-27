@@ -114,8 +114,7 @@ module ahb_timer#(
     assign s_mtime  = {r_mtime[7],r_mtime[6],r_mtime[5],r_mtime[4],r_mtime[3],r_mtime[2],r_mtime[1],r_mtime[0]} + 64'd1;
 
     generate
-    genvar i;
-        for (i = 0; i < 4; i = i+1) begin: byte_write
+        for (genvar i = 0; i < 4; i = i+1) begin: byte_write
             always @(posedge s_clk_i or negedge s_resetn_i) begin
                 //mtime                   
                 if(~s_resetn_i)
