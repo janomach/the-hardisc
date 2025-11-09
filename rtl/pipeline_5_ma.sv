@@ -81,7 +81,7 @@ module pipeline_5_ma (
     logic s_clk_prw[PROT_3REP], s_resetn_prw[PROT_3REP];
     ld_info s_wmawb_ldi[PROT_3REP], s_rmawb_ldi[PROT_3REP];
     logic s_int_lcer[PROT_3REP], s_nmi_luce[PROT_3REP], s_wb_error[PROT_3REP], s_wb_reset[PROT_3REP], 
-            s_ibus_rst_en[PROT_3REP], s_dbus_rst_en[PROT_3REP], s_berr_rst[PROT_3REP], s_trans_rst[PROT_3REP],
+            s_ibus_rst_en[PROT_3REP], s_dbus_rst_en[PROT_3REP], s_trans_rst[PROT_3REP],
             s_ex_discrepancy[PROT_3REP], s_bru_discrepancy[PROT_3REP];
     logic s_mawb_we_aux[PROT_3REP], s_mawb_we_val[PROT_3REP], s_mawb_we_esn[PROT_3REP], s_ma_empty[PROT_3REP];
 `ifdef PROT_INTF
@@ -146,8 +146,6 @@ module pipeline_5_ma (
             //Reset pipeline on first occurence of bus error (if enabled in mhrdctrl0)
             assign s_trans_rst[i]   = (s_ibus_rst_en[i] & (s_exma_imiscon_i[i] == IMISCON_FERR)) | 
                                       (s_dbus_rst_en[i] & s_lsu_hresp_i[i] & s_exma_ictrl_i[i].lsu);
-            //Reset pipeline if bus error occurred without previously intended transfer
-            assign s_berr_rst[i]    = s_lsu_hresp_i[i] & ~s_exma_ictrl_i[i].lsu;
             //Gathering pipeline reset information
             assign s_rstpp[i]       = s_prior_rstpp[i] | s_wb_reset[i] | s_trans_rst[i] | s_ex_discrepancy[i] | s_bru_discrepancy[i] | s_initialize[i];
 

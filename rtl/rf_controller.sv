@@ -35,7 +35,7 @@ module rf_controller
     output logic[31:0] s_p2_val_o[PROT_2REP]    //read value from port 2
 );
 
-    logic[31:0] s_rf_w_val[PROT_2REP], s_rf0_val[2], s_rp2_val[PROT_2REP];
+    logic[31:0] s_rf_w_val[PROT_2REP], s_rf0_val[2];
     logic s_rf_we[PROT_2REP], s_clk_rf;
     rf_add s_rf_w_add[PROT_2REP], s_rf0_add[2];
 

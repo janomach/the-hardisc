@@ -44,11 +44,11 @@ module preparer (
 );
     logic[3:0]  s_forward;
     rf_add s_rs1, s_rs2;
-    logic[31:0] s_operand1_fw, s_operand2_fw, s_operand1, s_operand2, s_address, s_pc;
+    logic[31:0] s_operand1_fw, s_operand2_fw, s_operand1, s_operand2, s_address;
     logic s_rs1_cmpr_exma, s_rs2_cmpr_exma, s_rs1_cmpr_mawb, s_rs2_cmpr_mawb,
             s_rs1_need_exma, s_rs2_need_exma, s_rs1_need_mawb, s_rs2_need_mawb,
             s_rs1_cmpr_opex, s_rs2_cmpr_opex, s_rs1_need_opex, s_rs2_need_opex,
-            s_lsu_hazard, s_data_hazard, s_bubble, s_fix_hazard, s_pc_hazard, s_no_res_in_ex, s_result_in_ma, s_uce, s_ce;
+            s_lsu_hazard, s_data_hazard, s_bubble, s_fix_hazard, s_no_res_in_ex, s_result_in_ma;
 
     assign s_bubble_o   = s_bubble;
     assign s_operand1_o = s_operand1;  

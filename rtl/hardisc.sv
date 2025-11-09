@@ -85,9 +85,9 @@ module hardisc #(
     sctrl s_idop_sctrl[PROT_2REP];
     logic s_stall_ma[PROT_3REP],s_stall_ex[PROT_3REP],s_stall_op[PROT_3REP],s_stall_id[PROT_3REP],
             s_pred_bpu, s_pred_jpu, s_pred_btrue, s_pred_btbu, s_pred_clean, s_lsu_busy[PROT_3REP], s_lsu_approve[PROT_3REP], s_lsu_idempotent[PROT_3REP];
-    logic[31:0] s_pc[PROT_3REP], s_mhrdctrl0[PROT_3REP], s_lsu_ap_address, s_lsu_dp_data;
+    logic[31:0] s_pc[PROT_3REP], s_mhrdctrl0[PROT_3REP], s_lsu_dp_data;
     logic[30:0] s_bop_tadd[PROT_2REP];
-    logic s_bop_pred[PROT_2REP], s_bop_pop, s_lsu_ap_approve, s_lsu_dp_ready[PROT_3REP], s_lsu_dp_hresp[PROT_3REP], s_lsu_dp_save[PROT_3REP];
+    logic s_bop_pred[PROT_2REP], s_bop_pop, s_lsu_dp_ready[PROT_3REP], s_lsu_dp_hresp[PROT_3REP], s_lsu_dp_save[PROT_3REP];
     logic[1:0] s_lsu_einfo[PROT_3REP];
 
 `ifdef PROT_PIPE

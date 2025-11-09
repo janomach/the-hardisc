@@ -20,7 +20,6 @@ module secded_analyze (
     output logic s_ce_o             //error is correctable
 );
     /* Analyzer for Hsiao's Single-Error-Correction-Double-Error-Detection code */
-    logic[6:0]s_checksum;
     logic s_error, s_odd_syn;
     logic[20:0]s_5odd;
     logic s_not3bitodd;

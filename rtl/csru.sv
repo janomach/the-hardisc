@@ -189,7 +189,7 @@ module csru (
             assign s_exc_active[i]     = s_exception[i] & s_execute[i] & ~s_interrupted_i[i];
             assign s_int_exc[i]        = s_interrupted_i[i] | (s_exception[i] & s_execute[i]);
             assign s_int_pending[i]    = s_interrupt[i] | (|s_nmi[i]);
-            assign s_mtval_zero[i]     = (s_exc_code[i] != EXC_MISALIGI_VAL) & (s_exc_code[i] != EXC_LADD_MISS_VAL) & (s_exc_code[i] != EXC_SADD_MISS_VAL) & s_exc_active[i];
+            assign s_mtval_zero[i]     = (s_exc_code[i] != EXC_MISALIGI_VAL) & (s_exc_code[i] != EXC_LADD_MISS_VAL) & (s_exc_code[i] != EXC_SADD_MISS_VAL);
             assign s_int_code[i]       = (s_nmi[i][0]) ? INT_LUCE_VAL : 
                                          (s_nmi[i][1]) ? INT_FUCE_VAL :
                                          (s_mie[i][11] & s_mip[i][11]) ? INT_MEI_VAL : 
@@ -356,7 +356,7 @@ module csru (
             always_comb begin : mtval_writer
                 s_wmtval[i] = s_mtval[i];
                 if(s_exc_active[i]) begin
-                    s_wmtval[i]   = s_val_i[i];
+                    s_wmtval[i]   = s_mtval_zero[i] ? 32'h0 : s_val_i[i];
                 end else if (s_write_machine[i] & (s_csr_add[i] == MCSR_TVAL) & s_uadd_00[i]) begin
                     s_wmtval[i]   = s_csr_w_val[i];
                 end
