@@ -42,11 +42,9 @@ module preparer (
     output logic[3:0]s_fwd_o,           //forwarding information
     output logic s_bubble_o             //bubble request indicator
 );
-
-    logic[20:0] s_tau_val;
     logic[3:0]  s_forward;
     rf_add s_rs1, s_rs2;
-    logic[31:0] s_operand1_fw, s_operand2_fw, s_operand1, s_operand2, s_address, s_p1_val, s_p2_val, s_pc;
+    logic[31:0] s_operand1_fw, s_operand2_fw, s_operand1, s_operand2, s_address, s_pc;
     logic s_rs1_cmpr_exma, s_rs2_cmpr_exma, s_rs1_cmpr_mawb, s_rs2_cmpr_mawb,
             s_rs1_need_exma, s_rs2_need_exma, s_rs1_need_mawb, s_rs2_need_mawb,
             s_rs1_cmpr_opex, s_rs2_cmpr_opex, s_rs1_need_opex, s_rs2_need_opex,
@@ -54,8 +52,7 @@ module preparer (
 
     assign s_bubble_o   = s_bubble;
     assign s_operand1_o = s_operand1;  
-    assign s_operand2_o = s_operand2;    
-    assign s_tadd_o     = s_tau_val;
+    assign s_operand2_o = s_operand2;
     assign s_fwd_o      = s_forward;
 
     //Auxiliary signals

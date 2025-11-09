@@ -56,7 +56,6 @@ module rf_controller
     assign s_rf1_add[1]  = s_r_p2_add_i[1];
 
     assign s_clk_rf     = s_clk_i[2];
-    assign s_resetn_rf  = s_resetn_i[2];
 
     acm m_acm
     (

@@ -53,7 +53,7 @@ module aligner (
     logic[1:0] s_stall;
 
     //Saved instruction information
-    seu_ff_rst #(.LABEL("ALNR_INFO"),.N(1),.W(4),.RSTVAL(2'b01)) m_svd_info(.s_c_i({s_clk_i}),.s_r_i({s_resetn_i}),.s_d_i(s_wsvd_info),.s_q_o(s_rsvd_info));
+    seu_ff_rst #(.LABEL("ALNR_INFO"),.N(1),.W(4),.RSTVAL(4'b01)) m_svd_info(.s_c_i({s_clk_i}),.s_r_i({s_resetn_i}),.s_d_i(s_wsvd_info),.s_q_o(s_rsvd_info));
     //Saved half of the instruction
     seu_ff #(.LABEL("ALNR_INSTR"),.N(1),.W(16)) m_svd_instr(.s_c_i({s_clk_i}),.s_d_i(s_wsvd_instr),.s_q_o(s_rsvd_instr));
     //Saved information that prediction was perfomed from the instruction 
@@ -88,7 +88,7 @@ module aligner (
     always_comb begin : aligner_regs
         if(s_flush_i)begin
             //Flush or clears internal registers
-            s_wsvd_info[0]  = 2'b01;
+            s_wsvd_info[0]  = 4'b0001;
             s_wsvd_instr[0] = 16'b0;
             s_wsvd_pred[0]  = 1'b0;
         end else if(s_stall_i & (~s_input_is_valid | s_lp_is_valid | s_saved_is_valid)) begin

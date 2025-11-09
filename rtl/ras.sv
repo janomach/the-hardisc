@@ -71,7 +71,7 @@ module ras
     see_wires #(.LABEL("RAS_OUT_POP"),.GROUP(SEEGR_CORE_WIRE),.W(2))  see_pred_pop(.s_c_i(s_clk_i),.s_d_i(s_poped),.s_d_o(s_poped_see));
 
     assign s_poped[0][0]    = (s_ipop | s_cpop[0]) & s_rutd[0] & !s_empty & s_enable_i;
-    assign s_poped[0][1]    = (s_cpop[1]) & !s_empty & s_rutd[0] & ~s_poped[0] & s_enable_i;
+    assign s_poped[0][1]    = (s_cpop[1]) & !s_empty & s_rutd[0] & ~s_poped[0][0] & s_enable_i;
 
     //Fetch address and valid information for the next clock cycle
     always_comb begin
