@@ -43,12 +43,13 @@ module seu_ff_rst #(
                 if(s_r_i[i] == 1'b0)begin
                     r_data[i]  <= RSTVAL;
                 end else begin
-`ifdef SEE_TESTING 
-                    r_data[i]  <= s_d_i[i] ^ s_upset[i];
-`else
                     r_data[i]  <= s_d_i[i];
-`endif
                 end
+`ifdef SEE_TESTING
+                if(|s_upset[i]) begin
+                    r_data[i]  <= s_upset[i] ^ s_d_i[i];
+                end
+`endif
             end
         end
     endgenerate
@@ -80,12 +81,13 @@ module seu_ff_rsts #(
                 if(s_r_i[i] == 1'b0)begin
                     r_data[i]  <= s_rs_i;
                 end else begin
-`ifdef SEE_TESTING 
-                    r_data[i]  <= s_d_i[i] ^ s_upset[i];
-`else
                     r_data[i]  <= s_d_i[i];
-`endif
                 end
+`ifdef SEE_TESTING
+                if(|s_upset[i]) begin
+                    r_data[i]  <= s_upset[i] ^ s_d_i[i];
+                end
+`endif
             end
         end
     endgenerate
@@ -112,10 +114,11 @@ module seu_ff #(
     generate
         for (genvar i= 0;i<N ;i++ ) begin : reg_replicator
             always_ff @( posedge s_c_i[i] ) begin
-`ifdef SEE_TESTING 
-                r_data[i]  <= s_d_i[i] ^ s_upset[i];
-`else
                 r_data[i]  <= s_d_i[i];
+`ifdef SEE_TESTING
+                if(|s_upset[i]) begin
+                    r_data[i]  <= s_upset[i] ^ s_d_i[i];
+                end
 `endif
             end
         end
@@ -145,14 +148,13 @@ module seu_ff_we #(
         for (genvar i= 0;i<N ;i++ ) begin : reg_replicator
             always_ff @( posedge s_c_i[i]) begin
                 if(s_we_i[i] == 1'b1) begin
-`ifndef SEE_TESTING
                     r_data[i]  <= s_d_i[i];
-`else 
-                    r_data[i]  <= s_d_i[i] ^ s_upset[i];
-                end else begin
-                    r_data[i]  <= r_data[i] ^ s_upset[i];
-`endif
                 end
+`ifdef SEE_TESTING
+                if(|s_upset[i]) begin
+                    r_data[i]  <= s_upset[i] ^ (s_we_i[i] ? s_d_i[i] : r_data[i]);
+                end
+`endif
             end
         end
     endgenerate
@@ -185,14 +187,13 @@ module seu_ff_we_rst #(
                 if(s_r_i[i] == 1'b0)begin
                     r_data[i]  <= RSTVAL;
                 end else if(s_we_i[i] == 1'b1) begin
-`ifndef SEE_TESTING
                     r_data[i]  <= s_d_i[i];
-`else 
-                    r_data[i]  <= s_d_i[i] ^ s_upset[i];
-                end else begin
-                    r_data[i]  <= r_data[i] ^ s_upset[i];
-`endif
                 end
+`ifdef SEE_TESTING
+                if(|s_upset[i]) begin
+                    r_data[i]  <= s_upset[i] ^ (s_we_i[i] ? s_d_i[i] : r_data[i]);
+                end
+`endif
             end
         end
     endgenerate
