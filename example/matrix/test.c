@@ -77,7 +77,7 @@ void matrix()
 
 int main(void)
 {
-	printf("The Matrix HAS you!\n");
+	printf("The Matrix has you!\n");
 
 	while(1)
 	{
