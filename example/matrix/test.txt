@@ -1,5 +1,5 @@
 
-example/matrix//test.o: formát súboru elf32-littleriscv
+example/matrix/test.o: formát súboru elf32-littleriscv
 
 
 Rozloženie sekcie .init:

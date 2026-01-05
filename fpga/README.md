@@ -23,6 +23,7 @@ Before you upload the bitstream, set the slider to the low state (position close
 4. Include RTL source folders/files for the [Hardisc](https://github.com/janomach/the-hardisc/tree/main/rtl), [peripherals](https://github.com/janomach/the-hardisc/tree/main/peripherals), and the [platform](https://github.com/janomach/the-hardisc/tree/main/fpga/src/platform_artyA7.sv).
 5. Include demo [mem files](https://github.com/janomach/the-hardisc/tree/main/fpga/src)
 6. Add Clocking Wizard from IP catalog. Only a single output clock (75MHz) is needed. Set reset type to `Active Low`.
+7. Check RTL [configuration](https://github.com/janomach/the-hardisc/wiki/Configuration) and comment-out `SIMULATION` before a synthesis.
 
 ## Out-of-the-box testing
 The FPGA bitstream can be generated from the provided Vivado project without any modifications.
