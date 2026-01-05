@@ -31,7 +31,7 @@
   *_t = (uint64_t)tmp1 << 32 | (uint64_t)tmp2;
 
 const char ch[58] = "1234567890qwertyuiopasdfghjklzxcvbnm,./';[]!@#$%^&*()-=_+";
-static uint8_t switches[15];
+static uint8_t switches[30];
 
 // Direct store to STDOUT_REG (instead of printf) is used to speed-up the simulation
 inline void direct_char_print (char c)
@@ -56,14 +56,14 @@ void matrix()
 
   for (i=0; i!=2; ++i)
   {
-    x = rand() % 15;
+    x = rand() % 30;
     switches[x] = !switches[x];
   }
 
   // Loop over the width
   direct_char_print('|');
   direct_char_print(' ');
-  for (i=0;i<15;i+=1)
+  for (i=0;i<30;i+=1)
   {
     if (switches[i])
       direct_char_print(ch[rand() % 57]);
@@ -77,7 +77,7 @@ void matrix()
 
 int main(void)
 {
-	printf("The Matrix has you!\n");
+	printf("The Matrix HAS you!\n");
 
 	while(1)
 	{
