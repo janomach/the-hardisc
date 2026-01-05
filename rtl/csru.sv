@@ -170,8 +170,8 @@ module csru (
             assign s_uadd_01[i]        = s_payload_i[i][8:7] == 2'b01;
             assign s_uadd_10[i]        = s_payload_i[i][8:7] == 2'b10;
             assign s_csr_fun[i]        = (s_function_i[i][2:0] == 3'b0) & s_ictrl_i[i].csr;
-            assign s_csr_op[i]         = |s_function_i[i][1:0] & s_ictrl_i[i].csr & ~s_flush_i[i];
-            assign s_write_machine[i]  = s_csr_op[i] & s_machine_csr[i];
+            assign s_csr_op[i]         = (|s_function_i[i][1:0]) & s_ictrl_i[i].csr & ~s_flush_i[i];
+            assign s_write_machine[i]  = s_csr_op[i] & s_machine_csr[i] & ((s_function_i[i][1:0] == CSR_RW) | (s_payload_i[i][10:9] != CSR_FUN_X0RS1));
             assign s_mret[i]           = s_uadd_00[i] & s_machine_csr[i] & s_csr_fun[i] & (s_payload_i[i][10:9] == CSR_FUN_RET) & ~s_flush_i[i];
             assign s_execute[i]        = ((s_ictrl_i[i] != 7'b0) | s_exceptions[i][EXC_IACCESS] | s_exceptions[i][EXC_ILLEGALI]) & ~s_rstpp_i[i];
             assign s_commit[i]         = (s_ictrl_i[i] != 7'b0) & ~s_stall_i[i] & ~s_flush_i[i];

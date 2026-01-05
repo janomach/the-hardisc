@@ -162,7 +162,9 @@ module decoder (
     end 
 
     //CSR auxiliary values
-    assign s_csr_fun        = (s_mret) ? CSR_FUN_RET : (s_ecb & s_instr_i[20]) ? CSR_FUN_EBREAK : CSR_FUN_ECALL;
+    assign s_csr_fun        = (s_csr & s_csr_need_rs1 & (s_rs1 == 5'b0)) ? CSR_FUN_X0RS1 : 
+                              (s_mret) ? CSR_FUN_RET : 
+                              (s_ecb & s_instr_i[20]) ? CSR_FUN_EBREAK : CSR_FUN_ECALL;
     assign s_csr_type       = s_instr_i[31:28];
     assign s_csr_need_rs1   = (~s_instr_i[14] & (s_instr_i[12] | s_instr_i[13]));
 

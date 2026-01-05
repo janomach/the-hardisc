@@ -155,9 +155,10 @@ package p_hardisc;
                 CSR_MHARTID     = {2'b11,LEVEL_MACHINE,CSR_HARTID},
                 CSR_MADDRERR    = {2'b11,LEVEL_MACHINE,CSR_ADDRERR};
     parameter [1:0] 
-                CSR_FUN_ECALL   = 2'b0,
+                CSR_FUN_ECALL   = 2'b00,
                 CSR_FUN_EBREAK  = 2'b01,
-                CSR_FUN_RET     = 2'b10;
+                CSR_FUN_RET     = 2'b10,
+                CSR_FUN_X0RS1   = 2'b11;
     parameter [2:0]
                 EXC_ILLEGALI    = 3'd0,
                 EXC_ECALL_M     = 3'd1,
