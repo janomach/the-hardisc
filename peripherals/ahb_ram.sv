@@ -14,12 +14,13 @@
    limitations under the License.
 */
 
-import seed_instance::*;
+//import seed_instance::*; TODO: uncomment for better randomization
 
 module ahb_ram#(
     parameter MEM_SIZE = 32'h00001000,
     parameter SIMULATION = 0,
     parameter ENABLE_LOG = 1,
+    parameter SAVE_CHECKSUM = 1,
     parameter GROUP = 1,
     parameter MPROB = 1,
     parameter IFP = 0,
@@ -66,8 +67,8 @@ module ahb_ram#(
 
     logic[5:0] s_parity;
     logic[6:0] s_read_checksum;
+    logic[6:0] r_checksum, r_wtor_checksum;
     logic[6:0] r_cmemory[MEM_SIZE[31:2]] = '{default:0};
-    logic[31:0] r_checksum, r_wtor_checksum;
 
     logic l_clock;
     logic[1:0] r_delay;
@@ -78,6 +79,13 @@ generate
             $readmemh(MEM_FILE,r_memory);
         end
     end
+    if(IFP == 1)begin
+        assign s_parity_error   = s_parity != s_hparity_i;
+        assign s_wrong_comb     = (^s_htrans_i) ^ s_hparity_i[5];
+    end else begin
+        assign s_parity_error   = 1'b0;
+        assign s_wrong_comb     = 1'b0;
+    end
     if(SIMULATION == 1)begin
         int logging, see_prob, see_group;
         logic latency;
@@ -86,7 +94,7 @@ generate
         initial begin
             latency = 0;
             logging = 0;
-            seed_instance::srandom($sformatf("%m"));
+            //seed_instance::srandom($sformatf("%m")); TODO: uncomment for better randomization
             if($value$plusargs ("SEE_PROB=%d", see_prob));
             if($value$plusargs ("SEE_GROUP=%d", see_group));
             if($value$plusargs ("LOGGING=%d", logging));
@@ -127,7 +135,7 @@ generate
         end
 
         //Error generation
-        if(IFP == 1)begin
+        if(IFP == 1 && SAVE_CHECKSUM == 1)begin
             logic[31:0] r_seu_randomval, s_filtered;
             logic[MSB:0] s_error_addr;
             logic[7:0] s_error_bit;
@@ -164,13 +172,6 @@ generate
         assign s_ra     = s_haddr_i[$clog2(MEM_SIZE)-1:0];
         assign r_delay  = 2'b0;
         assign s_cclock = s_clk_i;
-    end
-    if(IFP == 1)begin
-        assign s_parity_error   = s_parity != s_hparity_i;
-        assign s_wrong_comb     = (^s_htrans_i) ^ s_hparity_i[5];
-    end else begin
-        assign s_parity_error   = 1'b0;
-        assign s_wrong_comb     = 1'b0;
     end
 endgenerate
 
@@ -214,26 +215,30 @@ endgenerate
                     r_memory[r_address[MSB:2]][(i+1)*8-1:i*8] <= s_hwdata_i[(i+1)*8-1:i*8];
         end
         if (IFP == 1) begin
-            assign s_hrchecksum_o   = s_read_checksum;    
-            assign s_read_checksum  = (r_wtor & (r_address[MSB:2] == r_paddress[MSB:2])) ? r_wtor_checksum : r_checksum;
-            //Write checksum
-            always @(posedge s_clk_i)begin
-                if (s_we)
-                    r_cmemory[r_address[MSB:2]] <= s_hwchecksum_i;  
-            end          
-            //Checksum is read in the address phase
-            always_ff @(posedge s_clk_i) begin : memory_checksum_read
-                r_checksum <= r_cmemory[s_ra[MSB:2]];
-            end
-            //Save transfer information
-            always_ff @(posedge s_cclock or negedge s_resetn_i) begin : memory_control
-                if(~s_resetn_i)begin
-                    r_wtor_checksum <= 32'b0;
-                end else if(s_hsel_i & s_transfer)begin
-                    r_wtor_checksum <= s_we ? s_hwchecksum_i : s_read_checksum;
-                end else begin
-                    r_wtor_checksum <= r_wtor_checksum;
+            assign s_hrchecksum_o   = s_read_checksum;
+            if(SAVE_CHECKSUM == 1) begin
+                assign s_read_checksum  = (r_wtor & (r_address[MSB:2] == r_paddress[MSB:2])) ? r_wtor_checksum : r_checksum;
+                //Write checksum
+                always @(posedge s_clk_i)begin
+                    if (s_we)
+                        r_cmemory[r_address[MSB:2]] <= s_hwchecksum_i;  
                 end
+                //Checksum is read in the address phase
+                always_ff @(posedge s_clk_i) begin : memory_checksum_read
+                    r_checksum <= r_cmemory[s_ra[MSB:2]];
+                end
+                //Save transfer information
+                always_ff @(posedge s_cclock or negedge s_resetn_i) begin : memory_control
+                    if(~s_resetn_i)begin
+                        r_wtor_checksum <= 32'b0;
+                    end else if(s_hsel_i & s_transfer)begin
+                        r_wtor_checksum <= s_we ? s_hwchecksum_i : s_read_checksum;
+                    end else begin
+                        r_wtor_checksum <= r_wtor_checksum;
+                    end
+                end
+            end else begin
+                assign s_read_checksum = edac_checksum(s_read_data);               
             end
         end else begin
             assign s_hrchecksum_o = 7'b0;

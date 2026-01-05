@@ -75,7 +75,6 @@ module ahb_timer#(
 
     assign s_we     = r_write;
     assign s_ra     = s_haddr_i[$clog2(MEM_SIZE)-1:0];
-    assign r_delay  = 2'b0;
 
     genvar p;
     generate
@@ -102,7 +101,7 @@ module ahb_timer#(
 
     //Response
     assign s_hrdata_o   = s_read_data;
-    assign s_hready_o   = !(r_hresp & r_trans) & (r_delay == 2'b00);
+    assign s_hready_o   = !(r_hresp & r_trans);
     assign s_hresp_o    = r_hresp;
 
     //Select which bytes to overwrite

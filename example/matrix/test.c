@@ -21,6 +21,14 @@
 #include <stdint.h>
 
 #define STDOUT_REG 0x80000000
+#define FREQUENCY 75000000u
+
+#define GETMYTIME(_t) \
+  uint32_t tmp1, tmp2, tmp3;\
+  do {\
+    __asm__ volatile ("csrr %0, mcycleh\n\tcsrr %1, mcycle\n\tcsrr %2, mcycleh" :  "=r"(tmp1), "=r"(tmp2), "=r"(tmp3) : );\
+  } while (tmp1 != tmp3);\
+  *_t = (uint64_t)tmp1 << 32 | (uint64_t)tmp2;
 
 const char ch[58] = "1234567890qwertyuiopasdfghjklzxcvbnm,./';[]!@#$%^&*()-=_+";
 static uint8_t switches[15];
@@ -30,6 +38,17 @@ inline void direct_char_print (char c)
 {
  *(volatile int *)STDOUT_REG = c;
 }
+
+void delay(uint64_t cycles)
+{
+  uint64_t cycles_now;
+  GETMYTIME(&cycles_now);
+  cycles += cycles_now;
+  do {
+    GETMYTIME(&cycles_now);
+  } while(cycles_now < cycles);
+}
+
 
 void matrix()
 {
@@ -63,6 +82,7 @@ int main(void)
 	while(1)
 	{
 		matrix();
+    delay(FREQUENCY/10);
 	}
 
 	return 0;

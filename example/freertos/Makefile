@@ -1,12 +1,12 @@
 XLEN    = 32
-CROSS   = riscv32-unknown-elf-
+CROSS   = riscv64-unknown-elf-
 CC      = $(CROSS)gcc
 CPP     = $(CROSS)cpp
 OBJCOPY = $(CROSS)objcopy
 OBJDUMP = $(CROSS)objdump
 ARCH    = $(CROSS)ar
 BASE_ADDRESS ?= 0x10000000
-MARCH   = rv32imc
+MARCH   = rv32imc_zicsr
 MABI    = ilp32
 STACK_SIZE = 300
 

@@ -18,6 +18,7 @@ module dahb_ram#(
     parameter MEM_SIZE = 32'h00001000,
     parameter SIMULATION = 0,
     parameter ENABLE_LOG = 1,
+    parameter SAVE_CHECKSUM = 1,
     parameter GROUP = 1,
     parameter MPROB = 1,
     parameter IFP = 0,
@@ -123,7 +124,7 @@ module dahb_ram#(
     assign s_hrchecksum_o[1] = s_hrchecksum;
 
     //Dual-port RAM
-    ahb_ram #(.MEM_SIZE(MEM_SIZE),.SIMULATION(SIMULATION),.MEM_INIT(MEM_INIT),.MEM_FILE(MEM_FILE),.ENABLE_LOG(ENABLE_LOG),.LABEL(LABEL),.IFP(IFP),.GROUP(GROUP),.MPROB(MPROB)) ahb_dmem
+    ahb_ram #(.MEM_SIZE(MEM_SIZE),.SIMULATION(SIMULATION),.SAVE_CHECKSUM(SAVE_CHECKSUM),.MEM_INIT(MEM_INIT),.MEM_FILE(MEM_FILE),.ENABLE_LOG(ENABLE_LOG),.LABEL(LABEL),.IFP(IFP),.GROUP(GROUP),.MPROB(MPROB)) ahb_dmem
     (
         .s_clk_i(s_clk_i),
         .s_resetn_i(s_resetn_i),

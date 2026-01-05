@@ -1,0 +1,47 @@
+
+bootloader.o: formát súboru elf32-littleriscv
+
+
+Rozloženie sekcie .init:
+
+00000000 <_start>:
+   0:	00100513          	li	a0,1
+   4:	00b51513          	slli	a0,a0,0xb
+   8:	30452073          	csrs	mie,a0
+   c:	00000517          	auipc	a0,0x0
+  10:	05450513          	addi	a0,a0,84 # 60 <__interrupt>
+  14:	30551073          	csrw	mtvec,a0
+  18:	80000537          	lui	a0,0x80000
+  1c:	10000737          	lui	a4,0x10000
+  20:	30046073          	csrsi	mstatus,8
+  24:	00000593          	li	a1,0
+
+00000028 <_first_data_wait>:
+  28:	00058063          	beqz	a1,28 <_first_data_wait>
+  2c:	b0001073          	csrw	mcycle,zero
+  30:	b8001073          	csrw	mcycleh,zero
+  34:	30000837          	lui	a6,0x30000
+
+00000038 <_loop>:
+  38:	b00026f3          	csrr	a3,mcycle
+  3c:	ff06eee3          	bltu	a3,a6,38 <_loop>
+
+00000040 <_start_from_ram>:
+  40:	30047073          	csrci	mstatus,8
+  44:	30501073          	csrw	mtvec,zero
+  48:	30401073          	csrw	mie,zero
+  4c:	10000537          	lui	a0,0x10000
+  50:	00050067          	jr	a0 # 10000000 <_receiving+0xfffff9c>
+
+Rozloženie sekcie .vectors:
+
+00000060 <__interrupt>:
+  60:	00100593          	li	a1,1
+
+00000064 <_receiving>:
+  64:	00054783          	lbu	a5,0(a0)
+  68:	00f70023          	sb	a5,0(a4) # 10000000 <_receiving+0xfffff9c>
+  6c:	00170713          	addi	a4,a4,1
+  70:	00052223          	sw	zero,4(a0)
+  74:	30200073          	mret
+	...
