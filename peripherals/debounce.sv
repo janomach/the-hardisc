@@ -24,16 +24,18 @@ module debounce#(
 );
 
 logic[$clog2(DELAY)-1:0] r_delay;
+logic r_state;
 logic s_max;
 
 assign s_max   = &r_delay;
-assign s_btn_o = s_max;
+assign s_btn_o = r_state;
                                     
 always @ (posedge s_clk_i) begin
-    if(~s_btn_i) begin
-        r_delay <= '0;
-    end else if(!s_max) begin
+    if(!s_max || (r_state != s_btn_i)) begin
         r_delay <= r_delay + 1;
+        if(s_max) begin
+            r_state <= s_btn_i;
+        end
     end
 end               
 

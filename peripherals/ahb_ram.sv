@@ -212,7 +212,7 @@ endgenerate
         for (genvar i = 0; i < 4; i = i+1) begin: byte_write
             always @(posedge s_clk_i)
                 if (s_we && s_byte[i])
-                    r_memory[r_address[MSB:2]][(i+1)*8-1:i*8] <= s_hwdata_i[(i+1)*8-1:i*8];
+                    r_memory[r_address[MSB:2]][i*8 +: 8] <= s_hwdata_i[i*8 +: 8];
         end
         if (IFP == 1) begin
             assign s_hrchecksum_o   = s_read_checksum;
