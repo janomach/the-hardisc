@@ -50,65 +50,26 @@ module ahb_timer#(
     localparam MEM_SIZE = 32'd16;
     localparam MSB = $clog2(MEM_SIZE) - 32'h1;
 
-    logic[31:0] s_read_data, s_write_data;
-    logic[MSB:0] r_address, r_paddress, s_ra;
-    logic[1:0] r_size;
-    logic r_write, r_trans, r_hresp;
-    logic[63:0] s_mtime, r_mtimecmp0; 
+    logic[31:0] s_read_data, s_dp_address;
+    logic[63:0] s_mtime, r_mtimecmp0;
     logic[7:0] r_mtime[8];
-    logic[31:0] r_data, r_wtor_data;
-    logic s_wea[4];
-    logic s_we, r_wtor, s_cclock, s_parity_error;
-    logic s_wrong_comb, s_transfer;
-
-    logic[5:0] s_parity;
-
-    generate
-        if(IFP == 1)begin
-            assign s_parity_error   = s_parity != s_hparity_i;
-            assign s_wrong_comb     = (^s_htrans_i) ^ s_hparity_i[5];
-        end else begin
-            assign s_parity_error   = 1'b0;
-            assign s_wrong_comb     = 1'b0;
-        end
-    endgenerate
-
-    assign s_we     = r_write;
-    assign s_ra     = s_haddr_i[$clog2(MEM_SIZE)-1:0];
-
-    genvar p;
-    generate
-        for (p=0;p<4;p++) begin
-            assign s_parity[p]  = s_haddr_i[0 + p] ^ s_haddr_i[4 + p] ^ s_haddr_i[8 + p] ^ s_haddr_i[12 + p] ^
-                                  s_haddr_i[16 + p] ^ s_haddr_i[20 + p] ^ s_haddr_i[24 + p] ^ s_haddr_i[28 + p];            
-        end
-    endgenerate
-
-    assign s_parity[4]  = (^s_hsize_i) ^ (^s_hburst_i) ^ (^s_hprot_i) ^ s_hwrite_i ^ s_hmastlock_i; //hsize, hwrite, hprot, hburst, hmastlock
-    assign s_parity[5]  = (^s_htrans_i); //htrans
-
-    assign s_transfer   = s_wrong_comb | (s_htrans_i == 2'd2);
-
-    //Forward data if a write is followed by the read from the same address
-    assign s_read_data          = (r_wtor & (r_address[MSB:2] == r_paddress[MSB:2])) ? r_wtor_data : r_data;
-    assign s_write_data[7:0]    = s_wea[0] ? s_hwdata_i[7:0] : s_read_data[7:0];
-    assign s_write_data[15:8]   = s_wea[1] ? s_hwdata_i[15:8] : s_read_data[15:8];
-    assign s_write_data[23:16]  = s_wea[2] ? s_hwdata_i[23:16] : s_read_data[23:16];
-    assign s_write_data[31:24]  = s_wea[3] ? s_hwdata_i[31:24] : s_read_data[31:24];
+    logic s_we, s_wea[4];
+    logic s_ap_detected, s_dp_accepted, s_dp_write;
+    logic[1:0] s_dp_size;
 
     //Timeout
     assign s_timeout_o  = {r_mtime[7],r_mtime[6],r_mtime[5],r_mtime[4],r_mtime[3],r_mtime[2],r_mtime[1],r_mtime[0]} >= r_mtimecmp0;
 
     //Response
     assign s_hrdata_o   = s_read_data;
-    assign s_hready_o   = !(r_hresp & r_trans);
-    assign s_hresp_o    = r_hresp;
 
     //Select which bytes to overwrite
-    assign s_wea[0] = s_we & (r_address[1:0] == 2'd0);
-    assign s_wea[1] = s_we & (((r_address[1:0] == 2'd0) & (r_size != 2'd0)) || (r_address[1:0] == 2'd1));
-    assign s_wea[2] = s_we & (((r_address[1:0] == 2'd0) & (r_size == 2'd2)) || (r_address[1:0] == 2'd2));
-    assign s_wea[3] = s_we & (((r_address[1:0] == 2'd0) & (r_size == 2'd2)) || ((r_address[1:0] == 2'd2) & (r_size == 2'd1)) || (r_address[1:0] == 2'd3));
+    assign s_we     = s_dp_accepted & s_dp_write;
+
+    assign s_wea[0] = s_we & (s_dp_address[1:0] == 2'd0);
+    assign s_wea[1] = s_we & (((s_dp_address[1:0] == 2'd0) & (s_dp_size != 2'd0)) || (s_dp_address[1:0] == 2'd1));
+    assign s_wea[2] = s_we & (((s_dp_address[1:0] == 2'd0) & (s_dp_size == 2'd2)) || (s_dp_address[1:0] == 2'd2));
+    assign s_wea[3] = s_we & (((s_dp_address[1:0] == 2'd0) & (s_dp_size == 2'd2)) || ((s_dp_address[1:0] == 2'd2) & (s_dp_size == 2'd1)) || (s_dp_address[1:0] == 2'd3));
 
     assign s_mtime  = {r_mtime[7],r_mtime[6],r_mtime[5],r_mtime[4],r_mtime[3],r_mtime[2],r_mtime[1],r_mtime[0]} + 64'd1;
 
@@ -118,22 +79,22 @@ module ahb_timer#(
                 //mtime                   
                 if(~s_resetn_i)
                     r_mtime[i] <= 8'b0;
-                else if(s_wea[i] & (r_address[MSB:2] == 2'd0))
+                else if(s_wea[i] & (s_dp_address[MSB:2] == 2'd0))
                     r_mtime[i] <= s_hwdata_i[(i+1)*8-1:i*8];
                 else
                     r_mtime[i] <= s_mtime[(i+1)*8-1:i*8];
                 if(~s_resetn_i)
                     r_mtime[i+4] <= 8'b0;
-                else if(s_wea[i] & (r_address[MSB:2] == 2'd1))
+                else if(s_wea[i] & (s_dp_address[MSB:2] == 2'd1))
                     r_mtime[i+4] <= s_hwdata_i[(i+1)*8-1:i*8];
                 else
                     r_mtime[i+4] <= s_mtime[(i+1)*8-1 +32:i*8 +32];
             end
             always @(posedge s_clk_i) begin
                 //mtimecmp0
-                if(s_wea[i] & (r_address[MSB:2] == 2'd2))
+                if(s_wea[i] & (s_dp_address[MSB:2] == 2'd2))
                     r_mtimecmp0[(i+1)*8-1:i*8] <= s_hwdata_i[(i+1)*8-1:i*8];
-                if(s_wea[i] & (r_address[MSB:2] == 2'd3))
+                if(s_wea[i] & (s_dp_address[MSB:2] == 2'd3))
                     r_mtimecmp0[(i+1)*8-1 +32:i*8 +32] <= s_hwdata_i[(i+1)*8-1:i*8];
             end
         end
@@ -144,45 +105,45 @@ module ahb_timer#(
         end
     endgenerate
 
-    //Data are read in the address phase
-    always_ff @(posedge s_clk_i) begin : memory_read
-        case (s_ra[MSB:2])
-            2'd0: r_data <= {r_mtime[3],r_mtime[2],r_mtime[1],r_mtime[0]}; 
-            2'd1: r_data <= {r_mtime[7],r_mtime[6],r_mtime[5],r_mtime[4]}; 
-            2'd2: r_data <= r_mtimecmp0[31:0]; 
-            default: r_data <= r_mtimecmp0[63:32]; 
+    //Data are read combinationally in the data phase
+    always_comb begin : timer_read
+        case (s_dp_address[MSB:2])
+            2'd0: s_read_data = {r_mtime[3],r_mtime[2],r_mtime[1],r_mtime[0]};
+            2'd1: s_read_data = {r_mtime[7],r_mtime[6],r_mtime[5],r_mtime[4]};
+            2'd2: s_read_data = r_mtimecmp0[31:0];
+            default: s_read_data = r_mtimecmp0[63:32];
         endcase
     end
 
-    //Save transfer information
-    always_ff @(posedge s_clk_i or negedge s_resetn_i) begin : memory_control
-        if(~s_resetn_i | (r_hresp & r_trans))begin
-            r_trans <= 1'd0;
-            r_write <= 1'd0;
-            r_address <= {1'b0,{MSB{1'b0}}};
-            r_paddress <= {1'b0,{MSB{1'b0}}};
-            r_wtor_data <= 32'b0;
-            r_size <= 2'd0;
-            r_wtor <= 1'b0;
-            r_hresp <= (~s_resetn_i) ? 1'b0 : (r_hresp & r_trans);
-        end else if(s_hsel_i & s_transfer)begin
-            r_trans <= 1'd1;
-            r_write <= !s_parity_error & s_hwrite_i;
-            r_address <= s_haddr_i[$clog2(MEM_SIZE)-1:0];
-            r_paddress <= r_address;
-            r_wtor_data <= s_write_data;
-            r_size <= s_hsize_i[1:0];
-            r_wtor <= !s_parity_error & s_we;
-            r_hresp <= s_parity_error;
-        end else begin
-            r_trans <= 1'd0;
-            r_write <= 1'd0;
-            r_address <= r_address;
-            r_paddress <= r_address;
-            r_wtor_data <= r_wtor_data;
-            r_size <= 2'd0;
-            r_wtor <= 1'b0;
-            r_hresp <= 1'b0;
-        end
-    end
+    ahb_controller_m #(.IFP(0)) ahb_ctrl
+    (
+        .s_clk_i(s_clk_i),
+        .s_resetn_i(s_resetn_i),
+        
+        // AHB3-Lite
+        .s_haddr_i(s_haddr_i),
+        .s_hburst_i(s_hburst_i),
+        .s_hmastlock_i(s_hmastlock_i),
+        .s_hprot_i(s_hprot_i),
+        .s_hsize_i(s_hsize_i),
+        .s_htrans_i(s_htrans_i),
+        .s_hwrite_i(s_hwrite_i),
+        .s_hsel_i(s_hsel_i),
+
+        .s_hparity_i(s_hparity_i),
+        
+        .s_hready_o(s_hready_o),
+        .s_hresp_o(s_hresp_o),
+
+        // API
+        .s_ap_error_i(1'b0),
+        .s_dp_delay_i(1'b0),
+
+        .s_ap_detected_o(s_ap_detected),
+        .s_dp_accepted_o(s_dp_accepted),
+        .s_dp_address_o(s_dp_address),
+        .s_dp_write_o(s_dp_write),
+        .s_dp_size_o(s_dp_size)
+    );
+
 endmodule

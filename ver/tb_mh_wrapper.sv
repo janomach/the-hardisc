@@ -254,7 +254,7 @@ ahb_interconnect #(.SLAVES(SUBORDINATES)) data_interconnect
 
 assign s_ecall_halt = r_ecall_halt & (dut.rep[0].core.m_pipe_5_ma.m_csru.s_rmcause[0] == EXC_ECALL_M_VAL);
 
-assign s_halt = r_ver_rstn & ((m_control.s_we & (m_control.r_address[2:0] == 3'd4)) | s_unrec_err[0] | s_unrec_err[1] | s_sim_timeout | s_ecall_halt);
+assign s_halt = r_ver_rstn & ((m_control.s_we & (m_control.ahb_ctrl.r_address[2:0] == 3'd4)) | s_unrec_err[0] | s_unrec_err[1] | s_sim_timeout | s_ecall_halt);
 always_ff @( posedge s_halt ) begin : halt_execution
     $finish;
 end
@@ -342,7 +342,7 @@ assign s_shresp[0]      = s_m_hresp[0];
 assign s_shrdata[0]     = s_m_hrdata[0];
 assign s_shrchecksum[0] = s_m_hrchecksum[0];
 
-dahb_ram #(.MEM_SIZE(MEM_SIZE),.SIMULATION(0),.ENABLE_LOG(0),.LABEL("MEMORY"),.IFP(`MEMORY_IFP),.GROUP(SEEGR_MEMORY)) m_memory
+dahb_ram #(.MEM_SIZE(MEM_SIZE),.SIMULATION(1),.ENABLE_LOG(0),.LABEL("MEMORY"),.IFP(`MEMORY_IFP),.GROUP(SEEGR_MEMORY)) m_memory
 (
     .s_clk_i(r_ver_clk),
     .s_resetn_i(r_ver_rstn),
