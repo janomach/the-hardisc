@@ -33,7 +33,7 @@ SYSCALLS            := ${HARDISC_DIR}/example/custom/syscalls.c
 STARTUP             := ${HARDISC_DIR}/example/custom/crt0.S
 VECTORS             := ${HARDISC_DIR}/example/custom/vectors.S
 CFLAGS              := -static -O3 -mcmodel=medany -march=rv32imc_zicsr -mabi=ilp32 -nostdlib
-RISCV               := /opt/riscv
+RISCV               := /opt/riscv2024
 
 hardiscSetup:
 	vsim -c -do "project new $(HARDISC_SIM) the-hardisc; project addfolder rtl; project addfolder ver; project addfolder peripherals; exit"
