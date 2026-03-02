@@ -115,7 +115,7 @@ module ahb_timer#(
         endcase
     end
 
-    ahb_controller_m #(.IFP(0)) ahb_ctrl
+    ahb_controller_m #(.IFP(IFP)) ahb_ctrl
     (
         .s_clk_i(s_clk_i),
         .s_resetn_i(s_resetn_i),
