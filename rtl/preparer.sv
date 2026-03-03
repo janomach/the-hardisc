@@ -80,7 +80,7 @@ module preparer (
     //Data hazard, forwardable result is produced in the MA stage
     assign s_data_hazard    = (s_rs1_need_opex | s_rs2_need_opex) & s_no_res_in_ex;                           
     //Fix hazard - prevent propagation until EX and MA stages are empty
-    assign s_fix_hazard     = s_idop_fixed_i & ((s_opex_ictrl_i != 7'b0) | (s_exma_ictrl_i != 7'b0));
+    assign s_fix_hazard     = s_idop_fixed_i & ((s_opex_ictrl_i != '0) | (s_exma_ictrl_i != '0));
     //Each fulfilled hazard condition leads to bubble (NOP) in the EX stage
     assign s_bubble         = s_lsu_hazard | s_data_hazard | s_fix_hazard;
 

@@ -114,7 +114,7 @@ module pipeline_4_ex #(
             //Auxiliary signals for Executor
             assign s_ma_jump[i]     = (s_rexma_f[i] == ALU_SET1) || (s_rexma_f[i] == ALU_IPC);
             assign s_ma_taken[i]    = s_rexma_ictrl[i].bru & ((~s_ma_jump[i] & s_rexma_val[i][0]) | s_ma_jump[i]);
-            assign s_pc_incr[i]     = (s_rexma_ictrl[i] != 7'b0) ? (s_rexma_ictrl[i].rvc ? 2'b01 : 2'b10) : 2'b00;
+            assign s_pc_incr[i]     = (s_rexma_ictrl[i] != '0) ? (s_rexma_ictrl[i].rvc ? 2'b01 : 2'b10) : 2'b00;
 
             executor m_executor
             (
@@ -144,7 +144,7 @@ module pipeline_4_ex #(
             assign s_flush_ex[i]= s_flush_i[i] | (s_bubble[i] & ~s_stall_ex[i] & ~s_rstpipe[i]);
             //Prevent start of execution in Execute stage
             assign s_prevent_ex[i] = s_hold_i[i] & ~s_rexma_tstrd[i];
-            assign s_ex_empty[i]   = (s_opex_imiscon_i[i%2] == IMISCON_FREE) & (s_opex_ictrl_i[i%2] == 7'b0);
+            assign s_ex_empty[i]   = (s_opex_imiscon_i[i%2] == IMISCON_FREE) & (s_opex_ictrl_i[i%2] == '0);
             //Write-enable signals for auxiliary EXMA registers
             assign s_exma_we_aux[i]= !(s_flush_ex[i] || s_stall_ex[i] || s_ex_empty[i]);
             //Write-enable signals for essential EXMA registers
@@ -189,7 +189,7 @@ module pipeline_4_ex #(
                 s_wexma_imiscon[i]  = s_rstpipe[i] ? IMISCON_DSCR :                                          
                                       (s_pma_violation[i] & s_opex_ictrl_i[i%2].lsu) ? IMISCON_PMAV : s_opex_imiscon_i[i%2];
                 if(s_flush_ex[i] || s_prevent_ex[i] || (s_ex_empty[i] & ~s_rstpipe[i]))begin
-                    s_wexma_ictrl[i]    = 7'b0; 
+                    s_wexma_ictrl[i]    = '0; 
                     s_wexma_imiscon[i]  = IMISCON_FREE;
                 end
             end

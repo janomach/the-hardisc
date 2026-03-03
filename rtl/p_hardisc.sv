@@ -225,6 +225,8 @@ package p_hardisc;
         logic lsu;
         logic bru;
         logic alu;
+        logic bmu;
+        logic ciu;
     } ictrl;
 
     typedef struct packed {

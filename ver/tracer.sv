@@ -103,7 +103,7 @@ module tracer
         end
     end
     always_ff @( posedge s_clk_i ) begin
-        if(s_resetn_i & (s_dut_wb_ictrl_i != 7'b0) & fd != 0)begin
+        if(s_resetn_i & (s_dut_wb_ictrl_i != '0) & fd != 0)begin
             if(s_dut_rfc_we_i)begin
                     i_result = $sformatf("x%2d 0x%8x",s_dut_rfc_wadd_i, s_dut_rfc_wval_i);
             end else begin 

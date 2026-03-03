@@ -166,6 +166,8 @@ module c_decoder (
     assign s_src_ctrl.zero2  = s_rs2 == 5'b0; 
 
     //Instruction control specifier
+    assign s_instr_ctrl.ciu = 1'b0;
+    assign s_instr_ctrl.bmu = 1'b0;
     assign s_instr_ctrl.alu = (s_op | s_op_imm | s_lui);
     assign s_instr_ctrl.bru = (s_branch | s_jump);
     assign s_instr_ctrl.lsu = (s_load | s_store);

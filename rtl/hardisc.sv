@@ -354,9 +354,9 @@ module hardisc #(
     );
 
 `ifdef PROT_INTF
-    assign s_int_fcer   = (s_idop_fixed[0] & ((s_opex_ictrl[0] == 7'b0) & (s_exma_ictrl[0] == 7'b0))) 
+    assign s_int_fcer   = (s_idop_fixed[0] & ((s_opex_ictrl[0] == '0) & (s_exma_ictrl[0] == '0))) 
 `ifdef PROT_PIPE
-                         | s_idop_fixed[1] & ((s_opex_ictrl[1] == 7'b0) & (s_exma_ictrl[1] == 7'b0))
+                         | s_idop_fixed[1] & ((s_opex_ictrl[1] == '0) & (s_exma_ictrl[1] == '0))
 `endif                         
                          ;
 `else
