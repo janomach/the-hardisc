@@ -19,6 +19,7 @@ import p_hardisc::*;
 module alu (
     input f_part s_function_i,          //instruction function
     input logic s_bru_i,                //EX stage contains BRU instruction
+    input logic s_bmu_i,                //EX stage contains BMU instruction
     input logic s_ma_taken_i,           //MA stage contains instruction, which performs TOC
     input logic[31:0] s_op1_i,          //operand 1
     input logic[31:0] s_op2_i,          //operand 2
@@ -37,12 +38,12 @@ module alu (
     assign s_add = s_op1_i + s_op2_i;
     assign s_sub = s_op1_i - s_op2_i;
     assign s_xor = s_op1_i ^ s_op2_i;
-    assign s_and = s_op1_i & s_op2_i;
-    assign s_or  = s_op1_i | s_op2_i;
+    assign s_and = s_op1_i & (s_bmu_i ? ~s_op2_i : s_op2_i);
+    assign s_or  = s_op1_i | (s_bmu_i ? ~s_op2_i : s_op2_i);
     assign s_sltu= s_op1_i < s_op2_i;
     assign s_neq = |s_xor;
-    assign s_sll = s_op1_i << s_op2_i[4:0];
-    assign s_srl = s_op1_i >> s_op2_i[4:0];
+    assign s_sll = s_op1_i << ((s_bmu_i & (s_function_i == ALU_SRL)) ? (6'd32 - s_op2_i[4:0]) : s_op2_i[4:0]);
+    assign s_srl = s_op1_i >> ((s_bmu_i & (s_function_i == ALU_SLL)) ? (6'd32 - s_op2_i[4:0]) : s_op2_i[4:0]);
     assign s_sra = $signed(s_op1_i) >>> s_op2_i[4:0];
     assign s_slt = (s_op1_i[31] ^ s_op2_i[31]) ? s_op1_i[31] : s_sltu;
 
@@ -71,22 +72,22 @@ module alu (
                 s_result_o = s_sub;
             end
             ALU_SLL: begin
-                s_result_o = s_sll;
+                s_result_o = s_bmu_i ? (s_sll | s_srl) : s_sll;
             end
             ALU_SLT: begin
-                s_result_o = {s_tadd,s_slt};
+                s_result_o = s_bmu_i ? (s_slt ? s_op1_i : s_op2_i) : {s_tadd,s_slt};
             end
             ALU_SLTU: begin
-                s_result_o = {s_tadd,s_sltu};
+                s_result_o = s_bmu_i ? (s_sltu ? s_op1_i : s_op2_i) : {s_tadd,s_sltu};
             end
             ALU_SRL: begin
-                s_result_o = s_srl;
+                s_result_o = s_bmu_i ? (s_srl | s_sll) : s_srl;
             end
             ALU_SRA: begin
                 s_result_o = s_sra;
             end
             ALU_XOR: begin
-                s_result_o = s_xor;
+                s_result_o = s_bmu_i ? ~s_xor : s_xor;
             end
             ALU_OR: begin
                 s_result_o = s_or;
@@ -101,15 +102,15 @@ module alu (
                 s_result_o = {s_tadd,~s_neq};
             end
             ALU_GE: begin
-                s_result_o = {s_tadd,~s_slt};
+                s_result_o = s_bmu_i ? (~s_slt ? s_op1_i : s_op2_i) : {s_tadd,~s_slt};
             end
             ALU_GEU: begin
-                s_result_o = {s_tadd,~s_sltu};
+                s_result_o = s_bmu_i ? (~s_sltu ? s_op1_i : s_op2_i) : {s_tadd,~s_sltu};
             end
             ALU_IPC: begin //includes AUIPC and JAL
                 s_result_o = {s_pc_tadd[30:0],1'b0};
             end
-            default: //includes JALR
+            default: //ALU_ADD and ALU_SET1 (includes JALR)
                 s_result_o = s_add;
         endcase   
     end
