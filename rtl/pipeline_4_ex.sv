@@ -183,7 +183,8 @@ module pipeline_4_ex #(
                 s_wexma_f[i]        = s_opex_f_i[i%2];
                 s_wexma_ictrl[i]    = s_opex_ictrl_i[i%2];
                 //Select EX stage result
-                s_wexma_val[i]      = (s_opex_ictrl_i[i%2].alu | s_opex_ictrl_i[i%2].bru | s_opex_ictrl_i[i%2].mdu) ? s_result[i%2] : s_operand1[i];
+                s_wexma_val[i]      = (s_opex_ictrl_i[i%2].alu | s_opex_ictrl_i[i%2].bru | 
+                                       s_opex_ictrl_i[i%2].mdu | s_opex_ictrl_i[i%2].bmu) ? s_result[i%2] : s_operand1[i];
                 //Payload for the MA stage
                 s_wexma_payload[i]  = {s_opex_payload_i[i%2][20],s_opex_payload_i[i%2][10:0]};
                 s_wexma_imiscon[i]  = s_rstpipe[i] ? IMISCON_DSCR :                                          

@@ -36,7 +36,7 @@ module decoder (
     logic s_b_op, s_balu_op, s_shxadd, s_bset, s_bext, s_binv, s_bclr, s_ror, s_rol, s_xnor, s_andn, s_orn, s_b_sop, s_sext, s_zext, s_rev8, s_orcb, s_cx, s_bsel;
 	logic s_csr_need_rs1, s_sub_sra, s_ecb, s_mret, s_csr, s_illegal;
     logic[1:0] s_csr_fun;
-    logic[2:0] s_brj_f;
+    logic[2:0] s_brj_f, s_bsop_f;
     logic[19:0] s_imm, s_c_imm, s_imm_lui_auipc, s_imm_jal, s_imm_ls_i_jalr, s_imm_branch, s_imm_csr;
     opcode s_opcode;
     f_part s_i_f, s_c_f;
@@ -57,12 +57,18 @@ module decoder (
     assign s_rs2_o      = (s_rvc) ? s_c_rs2 : s_rs2;
     assign s_f_o        = (s_rvc) ? s_c_f : s_i_f;
     assign s_sctrl_o    = (s_rvc) ? s_c_src_ctrl : s_src_ctrl;
-    assign s_ictrl_o    = (s_imiscon_o != IMISCON_FREE) ? 
-                          {s_align_error_i | s_rvc, 6'b000000} : //The RVC means the Predictor will not increment address before invalidiation
-                          (s_rvc) ? s_c_instr_ctrl : s_instr_ctrl;
     assign s_imiscon_o  = (s_align_error_i) ? IMISCON_DSCR : //Restart due to wrong alignment, probably caused by the Predictor
                           ((s_fetch_error_i != FETCH_VALID) & (s_fetch_error_i != FETCH_INCER)) ? s_fetch_error_i : s_dec_imiscon;
     assign s_dec_imiscon = (s_rvc) ? s_c_instr_miscon : s_instr_miscon;
+
+    always_comb begin : ictrl_block
+        s_ictrl_o = (s_rvc) ? s_c_instr_ctrl : s_instr_ctrl;
+        if(s_imiscon_o != IMISCON_FREE) begin
+            //The RVC means the Predictor will not increment address before invalidiation
+            s_ictrl_o = '0;
+            s_ictrl_o.rvc = s_align_error_i | s_rvc;
+        end
+    end
 
     //Payload information - leveraged by upper stages
     assign s_payload_o[20]  = s_prediction_i;
@@ -87,6 +93,7 @@ module decoder (
 
     assign s_base       = s_instr_i[31:25] == 7'b0000000;
     assign s_alter      = s_instr_i[31:25] == 7'b0100000;
+    assign s_m_op       = s_instr_i[31:25] == 7'b0000001;
     assign s_fun        = s_instr_i[14:12];
     assign s_rd         = s_instr_i[11:7];
     assign s_rs1        = s_instr_i[19:15];
@@ -99,9 +106,7 @@ module decoder (
 	assign s_branch 	= (s_opcode == OPC_BRANCH) & s_fun != 3'b011 & s_fun != 3'b010;
 	assign s_jalr 		= (s_opcode == OPC_JALR) & s_fun == 3'b000;
 	assign s_jal 		= (s_opcode == OPC_JAL);
-	assign s_op 		= (s_opcode == OPC_OP) & ((s_fun == 3'b101 & (s_base | s_alter | s_m_op)) || 
-                                                  (s_fun == 3'b000 & (s_base | s_alter | s_m_op)) || 
-                                                  (s_fun != 3'b101 & s_fun != 3'b000 & (s_base | s_m_op)));
+	assign s_op 		= (s_opcode == OPC_OP) & (s_base || s_m_op || (s_alter & (s_fun == 3'b000 || s_fun == 3'b101)));
 	assign s_op_imm 	= (s_opcode == OPC_OP_IMM) & ((s_fun == 3'b001 & s_base) || 
                                                       (s_fun == 3'b101 & (s_base | s_alter)) || 
                                                       (s_fun != 3'b101 & s_fun != 3'b001));
@@ -122,7 +127,7 @@ module decoder (
     assign s_orcb       = (s_opcode == OPC_OP_IMM) & (s_instr_i[31:20] == 12'b001010000111) & (s_fun == 3'b101);
     assign s_cx         = (s_opcode == OPC_OP_IMM) & (s_instr_i[31:22] == 10'b0110000000) & (s_instr_i[21:20] != 2'b11) & (s_fun == 3'b001);
     assign s_bsel       = (s_opcode == OPC_OP) & (s_instr_i[31:25] == 7'b0000101) & (s_fun[2] == 1'b1);
-    assign s_clmul      = (s_opcode == OPC_OP) & (s_instr_i[31:25] == 7'b0000101) & (s_fun[2] == 1'b0) & (s_fun[1:0]) != 2'b0;
+    assign s_clmul      = (s_opcode == OPC_OP) & (s_instr_i[31:25] == 7'b0000101) & (s_fun[2] == 1'b0) & (s_fun[1:0] != 2'b0);
     assign s_b_sop      = (s_sext | s_zext | s_rev8 | s_orcb | s_cx);
 
     assign s_sub_sra    = s_instr_i[30] & (((s_op & ~s_m_op) & s_add) | ((s_op_imm | (s_op & ~s_m_op)) & s_srla));
@@ -135,14 +140,13 @@ module decoder (
     assign s_illegal    = (~s_known) | (s_csr & (s_csr_add == 5'b11111));
 
     //Auxiliary values
-    assign s_b_op       = (s_shxadd | s_b_sop);
-    assign s_balu_op    = (s_bset | s_bext | s_binv | s_bclr | s_ror | s_rol | s_xnor | s_andn | s_orn | s_bsel);
-    assign s_m_op       = (s_instr_i[31:25] == 7'b0000001);
+    assign s_b_op       = (s_bset | s_bext | s_binv | s_bclr | s_shxadd | s_b_sop);
+    assign s_balu_op    = (s_ror | s_rol | s_xnor | s_andn | s_orn | s_bsel);
     assign s_srla       = (s_fun == 3'b101);
     assign s_add        = (s_fun == 3'b000);
     assign s_ecb        = s_system & ~((|s_instr_i[31:21]) | (|s_instr_i[19:7]));
-    assign s_mret       = s_system & s_instr_i[31:25] == 7'b0011000 & s_instr_i[24:20] == 5'b00010 & ~(|s_instr_i[19:7]);
-    assign s_csr        = s_system & s_fun != 3'b000;
+    assign s_mret       = s_system & (s_instr_i[31:25] == 7'b0011000) & (s_instr_i[24:20] == 5'b00010) & ~(|s_instr_i[19:7]);
+    assign s_csr        = s_system & (s_fun != 3'b000);
     
     //Immediate value, note that if LSB is defined to be 1'b0, it is not propagated from the ID stage
     assign s_imm_lui_auipc  = {s_instr_i[31:12]}; //lui, auipc, bsop
@@ -159,11 +163,12 @@ module decoder (
                             (s_instr_i[13:12] == 2'b00 ) ? 3'b010 :
                             (s_fun == 3'b101) ? ALU_GE[2:0] :
                             (s_fun == 3'b110) ? ALU_SLTU[2:0] : s_fun;
-    assign s_i_f[3]     = (s_jalr | s_jal | s_fence | s_auipc | s_sub_sra | s_store | s_shxadd | s_bset | s_bext | s_b_sop | s_clmul | (s_bsel & s_fun[1]) |
-                          (s_branch & s_fun != 3'b110 & s_fun != 3'b100));
+    assign s_bsop_f     = (s_instr_i[27] & !s_instr_i[22] ? (s_instr_i[23] ? BMU_REV8[2:0] : BMU_ZXTH[2:0]) : s_instr_i[22:20]);
+    assign s_i_f[3]     = (s_jalr | s_jal | s_fence | s_auipc | s_sub_sra | s_store | s_shxadd | s_bset | s_bext | s_clmul | s_binv | s_bclr |
+                          (s_bsel & s_fun[1]) | (s_branch & s_fun != 3'b110 & s_fun != 3'b100));
     assign s_i_f[2:0]   = (s_instr_ctrl.bru) ? s_brj_f : 
                           (s_lui | s_auipc) ? (s_auipc ? ALU_IPC[2:0] : ALU_ADD[2:0]) : 
-                          (s_binv | s_bclr | s_b_sop) ? (s_b_sop ? BMU_MISC[2:0] : s_instr_i[31:29]) : 
+                          (s_binv | s_bclr | s_b_sop) ? (s_b_sop ? s_bsop_f : s_binv ? BMU_BINV[2:0] : BMU_BCLR[2:0]) : 
                           (s_bsel & !s_fun[1]) ? (s_fun[0] ? ALU_SLTU[2:0] : ALU_SLT[2:0]) : s_fun;
 
     //CSR address compressor

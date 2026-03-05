@@ -64,18 +64,18 @@ module muldiv (
 
     //Instruction treats operand 2 signed
     assign s_signed_op1     = (s_function_i == 4'b0000) | (s_function_i == 4'b0001) |
-                              (s_function_i == 4'b0100) | (s_function_i == 4'b0110) | s_function_i[3];
+                              (s_function_i == 4'b0100) | (s_function_i == 4'b0110);
     //Instruction treats operand 1 signed
     assign s_signed_op0     = (s_function_i == 4'b0010) | s_signed_op1;
     //Indicates that signed operands should be changed to have positive value
-    assign s_change_sign[0] = (s_signed_op0 & s_operand1_i[31]);
-    assign s_change_sign[1] = (s_signed_op1 & s_operand2_i[31]);
+    assign s_change_sign[0] = (s_signed_op0 & s_operand1_i[31]) & !s_function_i[3];
+    assign s_change_sign[1] = (s_signed_op1 & s_operand2_i[31]) & !s_function_i[3];
     /*  Selection of positive/negative value of operands.
         Multiplicator can count only with positive numbers. If both operands have
         different signs, the sign of the result is inverted. Diviver is based
         on decrementation, so the DIVISOR's sign is set to be negative. */
     assign s_operand1       = (s_change_sign[0]) ? s_op1_rev : s_operand1_i;
-    assign s_operand2       = ((s_change_sign[1] & ~s_function_i[2]) | (s_function_i[2] & ~s_change_sign[1]) | s_function_i[3]) ? s_op2_rev : s_operand2_i;
+    assign s_operand2       = ((s_change_sign[1] ^ s_function_i[2]) & !s_function_i[3]) ? s_op2_rev : s_operand2_i;
     /*  Indicates that the final result should change the sign. The sign Multiplier's
         result is changed if the input operands had different signs. The same situation
         is for the Divider if a product of division is requested. If the instruction

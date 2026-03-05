@@ -131,7 +131,7 @@ tmr_comb #(.W($size(ictrl)),.OUT_REPS(1)) m_tmr_ictrl (.s_d_i(dut.rep[0].core.s_
 assign s_mawb_ctrl[0] = dut.rep[0].core.s_mawb_ictrl[0];
 `endif
 
-assign s_wb_pc = ((|s_mawb_ctrl[0][4:0])) ? r_last_rp : 32'd0;
+assign s_wb_pc = ((|s_mawb_ctrl[0][6:0])) ? r_last_rp : 32'd0;
 always_ff @(posedge r_ver_clk) r_last_rp <= dut.rep[0].core.m_pipe_5_ma.s_pc[0];
 /////////////////////
 
