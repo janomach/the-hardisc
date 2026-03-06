@@ -1,7 +1,6 @@
 `ifndef SETTINGS
 `define SETTINGS
 
-`define SIMULATION
 //`define SEE_TESTING
 //`define PROT_PIPE
 //`define PROT_INTF

@@ -60,31 +60,37 @@ module tracer
     input logic[31:0] s_dut_rfc_wval_i,
     input logic[4:0] s_dut_rfc_wadd_i
 );
-    int fd, logging,i;
-    string logfile;
+    int lfd, pfd, logging,i;
+    string logfile, proffile;
     instruction_s s_wb_instruction, s_id_instruction;
     string i_resinfo, i_result;
     initial begin
-        fd = 0;
+        lfd = 0;
         logging = 0;
         if($value$plusargs ("LOGGING=%d", logging));
         if ($value$plusargs ("LFILE=%s", logfile))begin
             $display ("Log file:%s", logfile);
-            fd = $fopen(logfile,"w");
+            lfd = $fopen(logfile,"w");
+        end
+        if ($value$plusargs ("PFILE=%s", proffile))begin
+            $display ("Profiling file:%s", proffile);
+            pfd = $fopen(proffile,"w");
         end
     end
 
     always_comb begin
-        if(s_dec_instr_i[1:0] == 2'b11)begin
-            s_id_instruction = instr_i(s_dec_instr_i);
-        end else begin
-            s_id_instruction = instr_c(s_dec_instr_i);
+        if(lfd != 0 || logging > 0) begin
+            if(s_dec_instr_i[1:0] == 2'b11)begin
+                s_id_instruction = instr_i(s_dec_instr_i);
+            end else begin
+                s_id_instruction = instr_c(s_dec_instr_i);
+            end
+            if(s_wb_instr_i[1:0] == 2'b11)begin
+                s_wb_instruction = instr_i(s_wb_instr_i);
+            end else begin
+                s_wb_instruction = instr_c(s_wb_instr_i);
+            end 
         end
-        if(s_wb_instr_i[1:0] == 2'b11)begin
-            s_wb_instruction = instr_i(s_wb_instr_i);
-        end else begin
-            s_wb_instruction = instr_c(s_wb_instr_i);
-        end    
     end
 
     always_ff @( posedge s_clk_i ) begin 
@@ -103,7 +109,7 @@ module tracer
         end
     end
     always_ff @( posedge s_clk_i ) begin
-        if(s_resetn_i & (s_dut_wb_ictrl_i != '0) & fd != 0)begin
+        if(s_resetn_i & (s_dut_wb_ictrl_i != '0) & lfd != 0)begin
             if(s_dut_rfc_we_i)begin
                     i_result = $sformatf("x%2d 0x%8x",s_dut_rfc_wadd_i, s_dut_rfc_wval_i);
             end else begin 
@@ -114,8 +120,11 @@ module tracer
             else
                 i_resinfo = $sformatf("core   0: 3 0x%8x (0x%8x)",s_wb_pc_i,s_wb_instr_i);
 
-            $fwrite(fd,"core   0: 0x%8x (0x%8x) %s\n",s_wb_pc_i,s_wb_instr_i,(s_wb_instr_i[1:0] == 2'b11) ? s_wb_instruction.text : {"c.",s_wb_instruction.text});
-            $fwrite(fd,"%s %s\n",i_resinfo,i_result);
+            $fwrite(lfd,"core   0: 0x%8x (0x%8x) %s\n",s_wb_pc_i,s_wb_instr_i,(s_wb_instr_i[1:0] == 2'b11) ? s_wb_instruction.text : {"c.",s_wb_instruction.text});
+            $fwrite(lfd,"%s %s\n",i_resinfo,i_result);
+        end
+        if(s_resetn_i & (s_dut_wb_ictrl_i != '0) & pfd != 0)begin
+            $fwrite(pfd,"%8h %8h %8h\n",s_dut_mcycle_i, s_dut_minstret_i, s_wb_pc_i);
         end
     end
 

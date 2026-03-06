@@ -19,7 +19,7 @@ Before you upload the bitstream, set the slider to the low state (position close
 
 1. Open Vivado from this directory 
 2. Run the [TCL script](https://github.com/janomach/the-hardisc/tree/main/fpga/project_setup.tcl) in Vivado
-3. Check RTL [configuration](https://github.com/janomach/the-hardisc/wiki/Configuration) and comment-out `SIMULATION` before a synthesis.
+3. Check RTL [configuration](https://github.com/janomach/the-hardisc/wiki/Configuration) before a synthesis.
 
 More information can be found [here](https://digilent.com/reference/programmable-logic/guides/getting-started-with-vivado).
 
