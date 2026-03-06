@@ -36,11 +36,11 @@ prepareRISCVDV:
 	sed -i 's/ --misaligned//' $(RISCV_DV_DIR)/yaml/iss.yaml
 
 spikeSimPregen:
-	run --iss spike --isa rv32imc --mabi ilp32 -o work -s iss_sim --asm_test pregenAsmTests
+	python3 $(RISCV_DV_DIR)/run.py --iss spike --isa rv32imc_zbb_zbc_zbs --mabi ilp32 --target rv32imcb -o work -s iss_sim --asm_test pregenAsmTestsB
 hardiscSimPregen:
 	rm -r -f ${WORK_DIR}/hardisc_sim
 	mkdir ${WORK_DIR}/hardisc_sim
-	@for f in $(shell ls ${WORK_DIR}/directed_asm_test | grep \.bin$); do echo "Running ${WORK_DIR}/directed_asm_test/$${f}, sv_seed=${SV_SEED}"; vsim -c ${HARDISC_SIM}/work.tb_mh_wrapper -nostdout -do "run 7ms; exit" +BOOTADD=80000000 +ECALLHALT=1 +TIMEOUT=${TIMEOUT_VAL} +LAT=${LAT} -sv_seed ${SV_SEED} +BIN="${WORK_DIR}/directed_asm_test/$${f}" +LFILE=${WORK_DIR}/hardisc_sim/$${f%.bin}.log; done
+	@for f in $(shell ls ${WORK_DIR}/directed_asm_test | grep \.bin$); do echo "Running ${WORK_DIR}/directed_asm_test/$${f}, sv_seed=${SV_SEED}"; vsim -c ${HARDISC_SIM}/work.tb_mh_wrapper -nostdout -do "run 7ms; exit" +ECALLHALT=1 +TIMEOUT=${TIMEOUT_VAL} +LAT=${LAT} -sv_seed ${SV_SEED} +BIN="${WORK_DIR}/directed_asm_test/$${f}" +LFILE=${WORK_DIR}/hardisc_sim/$${f%.bin}.log; done
 spikeTrace:
 	@for f in $(shell ls ${WORK_DIR}/spike_sim | grep \.log$); do python $(RISCV_DV_DIR)/scripts/spike_log_to_trace_csv.py --log "${WORK_DIR}/spike_sim/$${f}" --csv ${WORK_DIR}/spike_sim/$${f%.log}.csv; done
 hardiscTrace:
@@ -48,5 +48,5 @@ hardiscTrace:
 compareTrace:
 	@for f in $(shell ls ${WORK_DIR}/spike_sim | grep \.csv$); do python $(RISCV_DV_DIR)/scripts/instr_trace_compare.py --csv_file_1 "${WORK_DIR}/spike_sim/$${f}" --csv_file_2 "${WORK_DIR}/hardisc_sim/$${f}" --csv_name_1 spike --csv_name_2 hardiscv; done	
 hardiscTest:
-	vsim -${HOW} ${HARDISC_SIM}/work.tb_mh_wrapper -nostdout -do "run 7ms; exit" +BOOTADD=80000000 +ECALLHALT=1 +TIMEOUT=${TIMEOUT_VAL} +LAT=${LAT} -sv_seed ${SV_SEED} +BIN="${WORK_DIR}/directed_asm_test/${TEST}.bin" +LFILE=${WORK_DIR}/hardisc_sim/${TEST}.log +LOGGING=2;
+	vsim -${HOW} ${HARDISC_SIM}/work.tb_mh_wrapper -nostdout -do "do ${HARDISC_SIM}/../scripts/basic_waves_mh.do run 7ms; exit" +ECALLHALT=1 +TIMEOUT=${TIMEOUT_VAL} +LAT=${LAT} -sv_seed ${SV_SEED} +BIN="${WORK_DIR}/directed_asm_test/${TEST}.bin" +LFILE=${WORK_DIR}/hardisc_sim/${TEST}.log +LOGGING=2;
 

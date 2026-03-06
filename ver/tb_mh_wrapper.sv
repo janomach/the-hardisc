@@ -33,11 +33,13 @@ import edac::*;
 module tb_mh_wrapper();
 
 localparam SUBORDINATES = 3;
-localparam MEM_SIZE = 32'h20000;
-localparam MEM_MSB  = $clog2(MEM_SIZE) - 32'h1;
 localparam BOOTADD  = 32'h10000000;
+localparam MEM_SIZE = 32'h20000;
+localparam MEM_MASK = 32'hFFFFFFFF - MEM_SIZE + 32'h1;
+localparam MEM_MSB  = $clog2(MEM_SIZE) - 32'h1;
+
 localparam pma_cfg_t PMA_CONFIG[SUBORDINATES] = '{
-    '{base  : BOOTADD,                mask  : 32'hFFFE0000, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
+    '{base  : BOOTADD,                mask  : MEM_MASK, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
     '{base  : BOOTADD + 32'h70000000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
     '{base  : BOOTADD + 32'h70001000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1}
 };
