@@ -97,13 +97,13 @@ module tracer
                 s_dut_aligner_nop_i ? 0 : s_dut_id_ictrl_i, 
                 s_dut_aligner_nop_i ? "" : ((s_dec_instr_i[1:0] == 2'b11) ? s_id_instruction.text : {"c.",s_id_instruction.text}),
                 s_dut_op_ictrl_i, s_dut_ex_ictrl_i,s_dut_ma_ictrl_i, s_dut_wb_ictrl_i,
-                s_wb_pc_i, (|s_dut_wb_ictrl_i[4:0])? 8'd86 : 8'd32 );                
+                s_wb_pc_i, (|s_dut_wb_ictrl_i[6:0])? 8'd86 : 8'd32 );                
             if(s_dut_rfc_we_i) $write(" %x -> R%2d",s_dut_rfc_wval_i,s_dut_rfc_wadd_i);
             $write("\n");                       
         end
     end
     always_ff @( posedge s_clk_i ) begin
-        if(s_resetn_i & (s_dut_wb_ictrl_i != 7'b0) & fd != 0)begin
+        if(s_resetn_i & (s_dut_wb_ictrl_i != '0) & fd != 0)begin
             if(s_dut_rfc_we_i)begin
                     i_result = $sformatf("x%2d 0x%8x",s_dut_rfc_wadd_i, s_dut_rfc_wval_i);
             end else begin 

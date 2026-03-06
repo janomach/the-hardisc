@@ -60,6 +60,23 @@ package p_hardisc;
                 ALU_SRA = 4'b1101,
                 ALU_GE  = 4'b1110,
                 ALU_GEU = 4'b1111;
+    parameter[3:0]
+                BMU_CLZ  = 4'b0000,
+                BMU_CTZ  = 4'b0001,
+                BMU_CPOP = 4'b0010,
+                BMU_ZXTH = 4'b0011,
+                BMU_SXTB = 4'b0100,
+                BMU_SXTH = 4'b0101,
+                BMU_REV8 = 4'b0110,  
+                BMU_ORCB = 4'b0111,
+                BMU_FREE = 4'b1000, //unused
+                BMU_BSET = 4'b1001,
+                BMU_SH1A = 4'b1010,
+                BMU_BINV = 4'b1011,
+                BMU_SH2A = 4'b1100,
+                BMU_BEXT = 4'b1101,
+                BMU_SH3A = 4'b1110,
+                BMU_BCLR = 4'b1111;
     parameter[1:0]
                 CSR_RW  = 2'b01,
                 CSR_RS  = 2'b10,
@@ -225,6 +242,8 @@ package p_hardisc;
         logic lsu;
         logic bru;
         logic alu;
+        logic bmu;
+        logic ciu;
     } ictrl;
 
     typedef struct packed {

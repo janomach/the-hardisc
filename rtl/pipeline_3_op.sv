@@ -109,7 +109,7 @@ module pipeline_3_op (
             assign s_flush_op[i]    = s_flush_i[i] | (s_bubble[i] & ~s_stall_op[i]);
 
             //The ID stage requests restart of the instruction
-            assign s_op_empty[i]        = (s_idop_imiscon_i[i] == IMISCON_FREE) & (s_idop_ictrl_i[i] == 7'b0);
+            assign s_op_empty[i]        = (s_idop_imiscon_i[i] == IMISCON_FREE) & (s_idop_ictrl_i[i] == '0);
             assign s_opex_we_fwd[i]     = s_opex_we_aux[i] || ((s_ropex_fwd[i][3:2] != 2'b0) && s_stall_op[i]);
             //Write-enable signals for auxiliary OPEX registers
             assign s_opex_we_aux[i]     = !(s_flush_op[i] || s_stall_op[i] || s_op_empty[i]);
@@ -153,7 +153,7 @@ module pipeline_3_op (
                 s_wopex_ictrl[i]    = s_idop_ictrl_i[i];
                 s_wopex_imiscon[i]  = s_idop_imiscon_i[i];
                 if(s_flush_op[i] || s_op_empty[i])begin 
-                    s_wopex_ictrl[i]    = 7'b0;
+                    s_wopex_ictrl[i]    = '0;
                     s_wopex_imiscon[i]  = IMISCON_FREE; 
                 end
             end

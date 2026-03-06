@@ -33,11 +33,13 @@ import edac::*;
 module tb_mh_wrapper();
 
 localparam SUBORDINATES = 3;
-localparam MEM_SIZE = 32'h20000;
-localparam MEM_MSB  = $clog2(MEM_SIZE) - 32'h1;
 localparam BOOTADD  = 32'h10000000;
+localparam MEM_SIZE = 32'h20000;
+localparam MEM_MASK = 32'hFFFFFFFF - MEM_SIZE + 32'h1;
+localparam MEM_MSB  = $clog2(MEM_SIZE) - 32'h1;
+
 localparam pma_cfg_t PMA_CONFIG[SUBORDINATES] = '{
-    '{base  : BOOTADD,                mask  : 32'hFFFE0000, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
+    '{base  : BOOTADD,                mask  : MEM_MASK, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
     '{base  : BOOTADD + 32'h70000000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
     '{base  : BOOTADD + 32'h70001000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1}
 };
@@ -131,7 +133,7 @@ tmr_comb #(.W($size(ictrl)),.OUT_REPS(1)) m_tmr_ictrl (.s_d_i(dut.rep[0].core.s_
 assign s_mawb_ctrl[0] = dut.rep[0].core.s_mawb_ictrl[0];
 `endif
 
-assign s_wb_pc = ((|s_mawb_ctrl[0][4:0])) ? r_last_rp : 32'd0;
+assign s_wb_pc = ((|s_mawb_ctrl[0][6:0])) ? r_last_rp : 32'd0;
 always_ff @(posedge r_ver_clk) r_last_rp <= dut.rep[0].core.m_pipe_5_ma.s_pc[0];
 /////////////////////
 

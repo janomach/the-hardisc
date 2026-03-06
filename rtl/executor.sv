@@ -34,7 +34,7 @@ module executor (
     output logic s_finished_o,          //indicates end of computation
     output logic[31:0] s_result_o       //result
 );
-    logic[31:0] s_alu_result, s_mdu_result, s_result[1], s_result_see[1];
+    logic[31:0] s_alu_result, s_mdu_result, s_bmu_result, s_result[1], s_result_see[1];
     logic[30:0] s_pc_offset;
     logic s_mdu_finished[1], s_mdu_finished_see[1];
 
@@ -45,7 +45,7 @@ module executor (
     see_wires #(.LABEL("ALU_FIN"),.GROUP(SEEGR_CORE_WIRE),.W(1)) see_fin(.s_c_i(s_clk_i),.s_d_i(s_mdu_finished),.s_d_o(s_mdu_finished_see));
 
     //result selection
-    assign s_result[0]  = s_ictrl_i.mdu ? s_mdu_result : s_alu_result;
+    assign s_result[0]  = s_ictrl_i.mdu ? s_mdu_result : (s_ictrl_i.alu | s_ictrl_i.bru) ? s_alu_result : s_bmu_result;
 
     //preparation of program counter offset for AUIPC and BRU instructions
     assign s_pc_offset  = s_ictrl_i.bru ? {{11{s_payload_i[19]}},s_payload_i[19:0]} : {s_payload_i[19:0],11'b0} ;
@@ -60,8 +60,17 @@ module executor (
         .s_ma_taken_i(s_ma_taken_i),
         .s_pc_i(s_pc_i),
         .s_bru_i(s_ictrl_i.bru),
+        .s_bmu_i(s_ictrl_i.bmu),
         .s_pc_incr_i(s_pc_incr_i),
         .s_result_o(s_alu_result)
+    );
+
+    bmu m_bmu
+    (
+        .s_function_i(s_function_i),
+        .s_op1_i(s_operand1_i),
+        .s_op2_i(s_operand2_i),
+        .s_result_o(s_bmu_result)
     );
 
     muldiv m_mdu

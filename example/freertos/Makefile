@@ -6,7 +6,7 @@ OBJCOPY = $(CROSS)objcopy
 OBJDUMP = $(CROSS)objdump
 ARCH    = $(CROSS)ar
 BASE_ADDRESS ?= 0x10000000
-MARCH   = rv32imc_zicsr
+MARCH   = rv32imc_zicsr_zba_zbb_zbs_zbc
 MABI    = ilp32
 STACK_SIZE = 300
 

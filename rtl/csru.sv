@@ -173,8 +173,8 @@ module csru (
             assign s_csr_op[i]         = (|s_function_i[i][1:0]) & s_ictrl_i[i].csr & ~s_flush_i[i];
             assign s_write_machine[i]  = s_csr_op[i] & s_machine_csr[i] & ((s_function_i[i][1:0] == CSR_RW) | (s_payload_i[i][10:9] != CSR_FUN_X0RS1));
             assign s_mret[i]           = s_uadd_00[i] & s_machine_csr[i] & s_csr_fun[i] & (s_payload_i[i][10:9] == CSR_FUN_RET) & ~s_flush_i[i];
-            assign s_execute[i]        = ((s_ictrl_i[i] != 7'b0) | s_exceptions[i][EXC_IACCESS] | s_exceptions[i][EXC_ILLEGALI]) & ~s_rstpp_i[i];
-            assign s_commit[i]         = (s_ictrl_i[i] != 7'b0) & ~s_stall_i[i] & ~s_flush_i[i];
+            assign s_execute[i]        = ((s_ictrl_i[i] != '0) | s_exceptions[i][EXC_IACCESS] | s_exceptions[i][EXC_ILLEGALI]) & ~s_rstpp_i[i];
+            assign s_commit[i]         = (s_ictrl_i[i] != '0) & ~s_stall_i[i] & ~s_flush_i[i];
 
             //Interrupt and exception evaluation
 `ifdef PROT_INTF
@@ -223,7 +223,7 @@ module csru (
                     MCSR_SCRATCH:    s_mcsr_r_val[i] = s_rmscratch[i];
                     MCSR_HARTID:     s_mcsr_r_val[i] = 32'b0;
                     MCSR_HRDCTRL0:   s_mcsr_r_val[i] = s_rmhrdctrl0[i];
-                    MCSR_ISA:        s_mcsr_r_val[i] = 32'h40001104; // 32bit - IMC
+                    MCSR_ISA:        s_mcsr_r_val[i] = 32'h40001106; // 32bit - IMCB
 `ifdef PROT_INTF
                     MCSR_ADDRERR:    s_mcsr_r_val[i] = s_rmaddrerr[i];
 `endif

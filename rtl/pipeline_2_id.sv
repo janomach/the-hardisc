@@ -160,7 +160,7 @@ module pipeline_2_id (
             );
 
             //Indicates empty OP stage, so the IDOP register do not hold executable instruction
-            assign s_idop_empty[i]  = (s_ridop_ictrl[i] == 7'b0) & (s_ridop_imiscon[i] == IMISCON_FREE);
+            assign s_idop_empty[i]  = (s_ridop_ictrl[i] == '0) & (s_ridop_imiscon[i] == IMISCON_FREE);
             //Write-enable signals for auxiliary IDOP registers
             assign s_idop_we_aux[i] = !(s_flush_id[i] || s_stall_id[i] || s_aligner_nop[i]);
             //Write-enable signals for essential IDOP registers
@@ -176,7 +176,7 @@ module pipeline_2_id (
                 s_widop_imiscon[i]  = s_instr_miscon[i];
                 if(s_flush_id[i] || s_aligner_nop[i])begin
                     //Default during reset, flush, or if the Aligner's output is not valid (and ID stage not stalled)
-                    s_widop_ictrl[i]    = 7'b0;
+                    s_widop_ictrl[i]    = '0;
                     s_widop_imiscon[i]  = IMISCON_FREE;
 `ifdef PROT_PIPE 
                     if(s_acm_restart)begin

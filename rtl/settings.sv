@@ -5,7 +5,6 @@
 //`define SEE_TESTING
 //`define PROT_PIPE
 //`define PROT_INTF
-//`define FAST_MULTIPLY
  
 `define SEE_MAX 1000000
 
