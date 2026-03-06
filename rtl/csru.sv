@@ -223,7 +223,7 @@ module csru (
                     MCSR_SCRATCH:    s_mcsr_r_val[i] = s_rmscratch[i];
                     MCSR_HARTID:     s_mcsr_r_val[i] = 32'b0;
                     MCSR_HRDCTRL0:   s_mcsr_r_val[i] = s_rmhrdctrl0[i];
-                    MCSR_ISA:        s_mcsr_r_val[i] = 32'h40001104; // 32bit - IMC
+                    MCSR_ISA:        s_mcsr_r_val[i] = 32'h40001106; // 32bit - IMCB
 `ifdef PROT_INTF
                     MCSR_ADDRERR:    s_mcsr_r_val[i] = s_rmaddrerr[i];
 `endif
