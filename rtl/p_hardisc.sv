@@ -64,12 +64,12 @@ package p_hardisc;
                 BMU_CLZ  = 4'b0000,
                 BMU_CTZ  = 4'b0001,
                 BMU_CPOP = 4'b0010,
-                BMU_ZXTH = 4'b0011,
+                BMU_ZXTH = 4'b0011, //not necessary - ALU alternative exist (AND)
                 BMU_SXTB = 4'b0100,
                 BMU_SXTH = 4'b0101,
                 BMU_REV8 = 4'b0110,  
                 BMU_ORCB = 4'b0111,
-                BMU_FREE = 4'b1000, //unused
+                BMU_ZXTB = 4'b1000, //not necessary - ALU alternative exist (AND)
                 BMU_BSET = 4'b1001,
                 BMU_SH1A = 4'b1010,
                 BMU_BINV = 4'b1011,

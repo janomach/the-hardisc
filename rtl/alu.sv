@@ -37,7 +37,7 @@ module alu (
     //Basic operations
     assign s_add = s_op1_i + s_op2_i;
     assign s_sub = s_op1_i - s_op2_i;
-    assign s_xor = s_op1_i ^ s_op2_i;
+    assign s_xor = s_op2_i ^ ((s_bmu_i & (s_function_i != ALU_XOR)) ? 32'b0 : s_op1_i);
     assign s_and = s_op1_i & (s_bmu_i ? ~s_op2_i : s_op2_i);
     assign s_or  = s_op1_i | (s_bmu_i ? ~s_op2_i : s_op2_i);
     assign s_sltu= s_op1_i < s_op2_i;
@@ -96,10 +96,10 @@ module alu (
                 s_result_o = s_and;
             end
             ALU_NEQ: begin
-                s_result_o = {s_tadd,s_neq};
+                s_result_o = s_bmu_i ? (s_neq ? 32'b0 : s_op1_i) : {s_tadd,s_neq};
             end
             ALU_EQ: begin
-                s_result_o = {s_tadd,~s_neq};
+                s_result_o = s_bmu_i ? (~s_neq ? 32'b0 : s_op1_i) :{s_tadd,~s_neq};
             end
             ALU_GE: begin
                 s_result_o = s_bmu_i ? (~s_slt ? s_op1_i : s_op2_i) : {s_tadd,~s_slt};
