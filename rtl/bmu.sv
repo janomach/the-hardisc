@@ -52,6 +52,10 @@ module bmu (
                 // Zero-extend least-significant halfword to 32 bits
                 s_result_o = {16'b0, s_op1_i[15:0]};
             end
+            BMU_ZXTB: begin // ZEXT.B
+                // Zero-extend least-significant byte to 32 bits
+                s_result_o = {24'b0, s_op1_i[7:0]};
+            end
             BMU_REV8: begin // REV8
                 // Reverse byte order
                 s_result_o = {s_op1_i[7:0], s_op1_i[15:8], s_op1_i[23:16], s_op1_i[31:24]};

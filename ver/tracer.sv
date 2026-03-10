@@ -299,6 +299,8 @@ module tracer
                     10'b0000001101: instr_i.text = {"divu    ",rd_name,", ",rs1_name,", ",rs2_name};
                     10'b0000001110: instr_i.text = {"rem     ",rd_name,", ",rs1_name,", ",rs2_name};
                     10'b0000001111: instr_i.text = {"remu    ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0000111101: instr_i.text = {"czero.eqz ",rd_name,", ",rs1_name,", ",rs2_name};
+                    10'b0000111111: instr_i.text = {"czero.nez ",rd_name,", ",rs1_name,", ",rs2_name};
                     default:instr_i.text = "unknown";
                 endcase
                 instr_i.source = {instr[19:15],instr[24:20],1'b1,1'b1};
@@ -392,6 +394,27 @@ module tracer
                         instr_c.dest = {{2'b1,instr[4:2]},1'b1};
                         instr_c.itype = LOAD;
                     end
+                    3'd4:begin
+                        if(instr[12:11] == 2'b00) begin
+                            if(instr[10]) begin
+                                instr_c.text = {instr[6] ? "lh " : "lhu ",name4to2,", ",$sformatf("%1d",{1'b0,instr[6]}),"(",name9to7,")"};
+                            end else begin
+                                instr_c.text = {"lbu ",name4to2,", ",$sformatf("%1d",{instr[5],instr[6]}),"(",name9to7,")"};
+                            end
+                            instr_c.itype = LOAD;
+                        end else if (instr[12:11] == 2'b01) begin
+                            if(!instr[10] || !instr[6]) begin
+                                instr_c.text = {instr[10] ? "sh " : "sb ",name4to2,", ",$sformatf("%1d",{1'b0,instr[6]}),"(",name9to7,")"};
+                            end else begin
+                                instr_c.text = "unknown";
+                            end
+                            instr_c.itype = STORE;
+                        end else begin
+                            instr_c.text = "unknown";
+                        end
+                        instr_c.source = {{2'b1,instr[9:7]},5'd0,1'b1,1'b0};
+                        instr_c.dest = {{2'b1,instr[4:2]},1'b1};
+                    end
                     3'd6:begin
                         instr_c.text = {"sw ",name4to2,", ",$sformatf("%1d",s_uimm10lwsw),"(",name9to7,")"};
                         instr_c.source = {{2'b1,instr[9:7]},{2'b1,instr[4:2]},1'b1,1'b1};
@@ -442,7 +465,14 @@ module tracer
                                         (instr[11:10] == 2'b11 & instr[6:5] == 2'b00 & ~instr[12]) ?  {"sub   ",name9to7,", ",name4to2}: 
                                         (instr[11:10] == 2'b11 & instr[6:5] == 2'b01 & ~instr[12]) ?  {"xor   ",name9to7,", ",name4to2}: 
                                         (instr[11:10] == 2'b11 & instr[6:5] == 2'b10 & ~instr[12]) ?  {"or    ",name9to7,", ",name4to2}: 
-                                        (instr[11:10] == 2'b11 & instr[6:5] == 2'b11 & ~instr[12]) ?  {"and   ",name9to7,", ",name4to2}: "unknown";
+                                        (instr[11:10] == 2'b11 & instr[6:5] == 2'b11 & ~instr[12]) ?  {"and   ",name9to7,", ",name4to2}: 
+                                        (instr[11:10] == 2'b11 & instr[6:5] == 2'b10 & instr[12]) ?  {"mul   ",name9to7,", ",name4to2}: 
+                                        (instr[11:10] == 2'b11 & instr[6:5] == 2'b11 & instr[12] & (instr[4:2] == 3'b101)) ?  {"not   ",name9to7}:
+                                        (instr[11:10] == 2'b11 & instr[6:5] == 2'b11 & instr[12] & (instr[4:2] == 3'b000)) ?  {"zext.b   ",name9to7}:
+                                        (instr[11:10] == 2'b11 & instr[6:5] == 2'b11 & instr[12] & (instr[4:2] == 3'b001)) ?  {"sext.b   ",name9to7}:
+                                        (instr[11:10] == 2'b11 & instr[6:5] == 2'b11 & instr[12] & (instr[4:2] == 3'b010)) ?  {"zext.h   ",name9to7}:
+                                        (instr[11:10] == 2'b11 & instr[6:5] == 2'b11 & instr[12] & (instr[4:2] == 3'b011)) ?  {"sext.h   ",name9to7}: "unknown";
+                        //deprecated
                         instr_c.source = ((instr[11:10] == 2'b10) | (instr[11:10] == 2'b00 & ~s_shamtzr) | (instr[11:10] == 2'b01 & ~s_shamtzr)) ? {{2'b1,instr[9:7]},5'd0,1'b1,1'b0} : {{2'b1,instr[9:7]},{2'b1,instr[4:2]},1'b1,1'b1};
                         instr_c.dest = {{2'b1,instr[9:7]},1'b1};
                         instr_c.itype = BASE;

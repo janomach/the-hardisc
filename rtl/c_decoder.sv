@@ -32,7 +32,7 @@ module c_decoder (
 );
     logic[7:0] s_funct3;
     logic[2:0] s_quad;
-    f_part s_fun;
+    f_part s_fun, s_fun_lsx, s_fun_sext;
     rf_add s_11to7, s_rs1, s_rs2, s_rd;
     ictrl s_instr_ctrl;
     sctrl s_src_ctrl;
@@ -42,9 +42,9 @@ module c_decoder (
             s_rdsp, s_nzimm6bzr, s_nzuimmzr, s_slli, s_srli, s_srai, s_shamtzr, 
             s_andi, s_mv, s_add, s_and, s_or, s_xor, s_sub,
             s_lwsp, s_swsp, s_branch, s_jump, s_load, s_store, s_op_imm, s_op, 
-            s_known, s_illi, s_ebreak, s_pred_not_allowed, s_illegal;
+            s_known, s_illi, s_ebreak, s_pred_not_allowed, s_illegal, s_lx, s_sx, s_not, s_mul, s_ext;
     logic[7:0] s_uimm8lwsp, s_uimm8swsp;
-    logic[9:0] s_uimm10_0, s_uimm10_1, s_imm10, s_uimm10lwsw, s_uimm10adi4;
+    logic[9:0] s_uimm10_0, s_uimm10_1, s_imm10, s_uimm10lwsw, s_uimm10lsx, s_uimm10adi4;
     logic[19:0] s_uimm, s_imm, s_immediate;
     logic[11:0] s_imm12_0, s_imm12_1, s_imm12j, s_imm12b;
     logic[5:0] s_imm6;
@@ -79,6 +79,8 @@ module c_decoder (
     assign s_illi       = s_instr_i[15:0] == 16'b0;
     assign s_addi4spn   = s_funct3[0] & s_quad[0] & ~s_nzuimmzr;
     assign s_lw         = s_funct3[2] & s_quad[0];
+    assign s_lx         = s_funct3[4] & s_quad[0] & (s_instr_i[12:11] == 2'b00);
+    assign s_sx         = s_funct3[4] & s_quad[0] & (s_instr_i[12:11] == 2'b01) & (!s_instr_i[10] | !s_instr_i[6]); 
     assign s_sw         = s_funct3[6] & s_quad[0];
 
     //Quadrant 01
@@ -94,6 +96,9 @@ module c_decoder (
     assign s_xor        = s_funct3[4] & s_quad[1] & ~s_instr_i[12] & s_instr_i[11:10] == 2'b11 & s_instr_i[6:5] == 2'b01;
     assign s_or         = s_funct3[4] & s_quad[1] & ~s_instr_i[12] & s_instr_i[11:10] == 2'b11 & s_instr_i[6:5] == 2'b10;
     assign s_and        = s_funct3[4] & s_quad[1] & ~s_instr_i[12] & s_instr_i[11:10] == 2'b11 & s_instr_i[6:5] == 2'b11;
+    assign s_mul        = s_funct3[4] & s_quad[1] & s_instr_i[12] & s_instr_i[11:10] == 2'b11 & s_instr_i[6:5] == 2'b10;
+    assign s_not        = s_funct3[4] & s_quad[1] & s_instr_i[12] & s_instr_i[11:10] == 2'b11 & s_instr_i[6:2] == 5'b11101;
+    assign s_ext        = s_funct3[4] & s_quad[1] & s_instr_i[12] & s_instr_i[11:10] == 2'b11 & s_instr_i[6:4] == 3'b110;
     assign s_j          = s_funct3[5] & s_quad[1];
     assign s_beqz       = s_funct3[6] & s_quad[1];
     assign s_bnez       = s_funct3[7] & s_quad[1];
@@ -110,41 +115,47 @@ module c_decoder (
 
     assign s_branch     = s_beqz | s_bnez;
     assign s_jump       = s_jr | s_jalr | s_jal | s_j;
-    assign s_load       = s_lw | s_lwsp;
-    assign s_store      = s_sw | s_swsp;
+    assign s_load       = s_lw | s_lx | s_lwsp;
+    assign s_store      = s_sw | s_sx | s_swsp;
     assign s_op         = s_mv | s_add | s_sub | s_xor | s_or | s_and;
-    assign s_op_imm     = s_addi | s_addi4spn | s_addi16sp | s_srli | s_srai | s_slli | s_andi | s_li;
-    assign s_known      = (s_branch | s_jump | s_load | s_store | s_op | s_op_imm | s_lui | s_ebreak);
+    assign s_op_imm     = s_addi | s_addi4spn | s_addi16sp | s_srli | s_srai | s_slli | s_andi | s_li | s_not;
+    assign s_known      = (s_branch | s_jump | s_load | s_store | s_op | s_op_imm | s_lui | s_ebreak | s_mul | s_ext);
     assign s_illegal    = s_illi | (~s_known);
 
     //Instruction function and RF address selector
-    assign s_rs1        = (s_lw | s_sw | s_srli | s_srai | s_andi | s_and | 
+    assign s_rs1        = (s_lw | s_lx | s_sw | s_sx | s_srli | s_srai | s_andi | s_and | s_not | s_mul | s_ext |
                            s_or | s_xor | s_sub | s_beqz | s_bnez) ? {2'b1,s_instr_i[9:7]} : 
                            (s_li | s_mv) ? 5'b0 : (s_lwsp | s_swsp | s_addi4spn) ? 5'b10 : s_instr_i[11:7];
-    assign s_rs2        = (s_sw | s_sub | s_xor | s_or | s_and) ? {2'b1,s_instr_i[4:2]} : 
+    assign s_rs2        = (s_sw | s_sx | s_sub | s_xor | s_or | s_and | s_mul) ? {2'b1,s_instr_i[4:2]} : 
                             (s_beqz | s_bnez) ? 5'b0 : s_instr_i[6:2];
-    assign s_rd         = (s_srli | s_srai | s_andi | s_sub | s_xor | s_or | s_and) ? {2'b1,s_instr_i[9:7]} : 
-                            (s_lw | s_addi4spn) ? {2'b1,s_instr_i[4:2]} : (s_jal | s_jalr) ? 5'b1 : 
+    assign s_rd         = (s_srli | s_srai | s_andi | s_sub | s_xor | s_or | s_and | s_not | s_mul | s_ext) ? {2'b1,s_instr_i[9:7]} : 
+                            (s_lw | s_lx | s_addi4spn) ? {2'b1,s_instr_i[4:2]} : (s_jal | s_jalr) ? 5'b1 : 
                             (s_jr) ? 5'b0 : s_instr_i[11:7];
-    assign s_fun[2:0]   =   (s_slli | s_bnez) ? 3'd1 :
-                            (s_beqz | s_load | s_store) ? 3'd2 :
+
+    assign s_fun_lsx    = s_lx ? {!(s_instr_i[10] & s_instr_i[6]),s_instr_i[11:10]} : {2'b0,s_instr_i[10]};
+    assign s_fun_sext   = (s_instr_i[3:2] == 2'b00) ? BMU_ZXTB[2:0] :
+                          (s_instr_i[3:2] == 2'b01) ? BMU_SXTB[2:0] :
+                          (s_instr_i[3:2] == 2'b10) ? BMU_ZXTH[2:0] : BMU_SXTH[2:0];
+    assign s_fun[2:0]   =   (s_slli | s_bnez | s_ext) ? (s_ext ? s_fun_sext : 3'd1) :
+                            (s_beqz | s_load | s_store) ? ((s_lx | s_sx) ? s_fun_lsx : 3'd2) :
                             (s_jr | s_jalr) ? 3'd3 :
-                            (s_xor | s_jal | s_j) ? 3'd4 :
+                            (s_xor | s_not | s_jal | s_j) ? 3'd4 :
                             (s_srli | s_srai) ? 3'd5 :
-                            (s_or) ? 3'd6 :
-                            (s_andi | s_and) ? 3'd7 : 3'd0;
-    assign s_fun[3]     = (s_beqz | s_bnez | s_sub | s_srai | s_store | s_jr | s_jalr | s_jal | s_j);
+                            (s_or) ? ALU_OR[2:0] :
+                            (s_andi | s_and) ? ALU_AND[2:0] : 3'd0;
+    assign s_fun[3]     = (s_beqz | s_bnez | s_sub | s_srai | s_store | s_jr | s_jalr | s_jal | s_j | (s_ext & s_instr_i[3:2] == 2'b00));
 
     //Immediate value, note that if LSB is defined to be 1'b0, it is not propagated from the ID stage
     assign s_uimm8lwsp  = {s_instr_i[3:2],s_instr_i[12],s_instr_i[6:4],2'b0}; //lwsp
     assign s_uimm8swsp  = {s_instr_i[8:7],s_instr_i[12:9],2'b0}; //swsp
     assign s_uimm10_0   = {2'b0,(s_lwsp) ? s_uimm8lwsp : s_uimm8swsp};
 
+    assign s_uimm10lsx  = {8'b0, s_instr_i[5],s_instr_i[6] & !s_instr_i[10]}; //lbu, lhu, lh, sb, sh
     assign s_uimm10lwsw = {3'b0,s_instr_i[5],s_instr_i[12:10],s_instr_i[6],2'b0}; //lw, sw
     assign s_uimm10adi4 = {s_instr_i[10:7],s_instr_i[12:11],s_instr_i[5],s_instr_i[6],2'b0}; //addi4spn
     assign s_uimm10_1   = (s_addi4spn) ? s_uimm10adi4 : s_uimm10lwsw;
 
-    assign s_uimm       = {10'b0, (s_lwsp | s_swsp) ? s_uimm10_0 : s_uimm10_1};
+    assign s_uimm       = {10'b0, (s_lwsp | s_swsp) ? s_uimm10_0 : (s_lx | s_sx) ? s_uimm10lsx : s_uimm10_1};
 
     assign s_imm12j     = (s_jalr | s_jr) ? 12'b0 : {{2{s_instr_i[12]}},s_instr_i[8],s_instr_i[10:9],s_instr_i[6],s_instr_i[7],s_instr_i[2],s_instr_i[11],s_instr_i[5:3]}; //j, jal
     assign s_imm12b     = {{5{s_instr_i[12]}},s_instr_i[6:5],s_instr_i[2],s_instr_i[11:10],s_instr_i[4:3]}; //beqz, bnez
@@ -155,25 +166,25 @@ module c_decoder (
     assign s_imm12_1    = (s_addi16sp) ? {{2{s_instr_i[12]}},s_imm10} : {{6{s_instr_i[12]}},s_imm6};
 
     assign s_imm        = (s_j | s_jal | s_beqz | s_bnez | s_jalr | s_jr) ? {{8{s_imm12_0[11]}},s_imm12_0} : 
-                          (s_lui) ? {{14{s_instr_i[12]}},s_imm6} : 
+                          (s_lui | s_not) ? (s_not ? '1 : {{14{s_instr_i[12]}},s_imm6}) : 
                           (s_ebreak) ? {9'b0,CSR_FUN_EBREAK,9'b0} : {{8{s_instr_i[12]}},s_imm12_1[11:1],s_imm12_1[0]};
     assign s_immediate  = (s_load | s_store | s_addi4spn) ? s_uimm : s_imm;
     
     //Instruction source specifier
-    assign s_src_ctrl.rfrp1  = (s_op | s_op_imm | s_branch | s_jalr | s_jr | s_store | s_load);
-    assign s_src_ctrl.rfrp2  = (s_op | s_branch | s_store);
+    assign s_src_ctrl.rfrp1  = (s_op | s_op_imm | s_branch | s_jalr | s_jr | s_store | s_load | s_mul | s_ext);
+    assign s_src_ctrl.rfrp2  = (s_op | s_branch | s_store | s_mul);
     assign s_src_ctrl.zero1  = (s_rs1 == 5'b0) | s_li | s_lui;
     assign s_src_ctrl.zero2  = s_rs2 == 5'b0; 
 
     //Instruction control specifier
     assign s_instr_ctrl.ciu = 1'b0;
-    assign s_instr_ctrl.bmu = 1'b0;
+    assign s_instr_ctrl.bmu = s_ext;
     assign s_instr_ctrl.alu = (s_op | s_op_imm | s_lui);
     assign s_instr_ctrl.bru = (s_branch | s_jump);
     assign s_instr_ctrl.lsu = (s_load | s_store);
     assign s_instr_ctrl.csr = (s_ebreak);
-    assign s_instr_ctrl.mdu = 1'b0;
-    assign s_instr_ctrl.wrd = (|s_rd) & (s_load | s_jal | s_jalr | s_li | s_lui | s_op_imm | s_op);
+    assign s_instr_ctrl.mdu = s_mul;
+    assign s_instr_ctrl.wrd = (|s_rd) & (s_load | s_jal | s_jalr | s_li | s_lui | s_op_imm | s_op | s_mul | s_ext);
     assign s_instr_ctrl.rvc = 1'b1;
     //Prediction is not allowed from other instructions than branch/jump
     assign s_pred_not_allowed   = s_prediction_i & (~s_instr_ctrl.bru);

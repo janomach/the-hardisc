@@ -32,7 +32,7 @@ module decoder (
     output ictrl s_ictrl_o,         //instruction control indicator
     output imiscon s_imiscon_o      //instruction misconduct indicator 
 );
-    logic s_load, s_store, s_branch, s_jalr, s_jal, s_op, s_op_imm, s_lui, s_system, s_auipc, s_fence, s_srla, s_add, s_m_op, s_clmul; 
+    logic s_load, s_store, s_branch, s_jalr, s_jal, s_op, s_op_imm, s_lui, s_system, s_auipc, s_fence, s_srla, s_add, s_m_op, s_clmul, s_czero; 
     logic s_b_op, s_balu_op, s_shxadd, s_bset, s_bext, s_binv, s_bclr, s_ror, s_rol, s_xnor, s_andn, s_orn, s_b_sop, s_sext, s_zext, s_rev8, s_orcb, s_cx, s_bsel;
 	logic s_csr_need_rs1, s_sub_sra, s_ecb, s_mret, s_csr, s_illegal;
     logic[1:0] s_csr_fun;
@@ -128,6 +128,7 @@ module decoder (
     assign s_cx         = (s_opcode == OPC_OP_IMM) & (s_instr_i[31:22] == 10'b0110000000) & (s_instr_i[21:20] != 2'b11) & (s_fun == 3'b001);
     assign s_bsel       = (s_opcode == OPC_OP) & (s_instr_i[31:25] == 7'b0000101) & (s_fun[2] == 1'b1);
     assign s_clmul      = (s_opcode == OPC_OP) & (s_instr_i[31:25] == 7'b0000101) & (s_fun[2] == 1'b0) & (s_fun[1:0] != 2'b0);
+    assign s_czero      = (s_opcode == OPC_OP) & (s_instr_i[31:25] == 7'b0000111) & s_fun[2] & s_fun[0]; //zicond extension
     assign s_b_sop      = (s_sext | s_zext | s_rev8 | s_orcb | s_cx);
 
     assign s_sub_sra    = s_instr_i[30] & (((s_op & ~s_m_op) & s_add) | ((s_op_imm | (s_op & ~s_m_op)) & s_srla));
@@ -141,7 +142,7 @@ module decoder (
 
     //Auxiliary values
     assign s_b_op       = (s_bset | s_bext | s_binv | s_bclr | s_shxadd | s_b_sop);
-    assign s_balu_op    = (s_ror | s_rol | s_xnor | s_andn | s_orn | s_bsel);
+    assign s_balu_op    = (s_ror | s_rol | s_xnor | s_andn | s_orn | s_bsel | s_czero);
     assign s_srla       = (s_fun == 3'b101);
     assign s_add        = (s_fun == 3'b000);
     assign s_ecb        = s_system & ~((|s_instr_i[31:21]) | (|s_instr_i[19:7]));
@@ -164,12 +165,13 @@ module decoder (
                             (s_fun == 3'b101) ? ALU_GE[2:0] :
                             (s_fun == 3'b110) ? ALU_SLTU[2:0] : s_fun;
     assign s_bsop_f     = (s_instr_i[27] & !s_instr_i[22] ? (s_instr_i[23] ? BMU_REV8[2:0] : BMU_ZXTH[2:0]) : s_instr_i[22:20]);
-    assign s_i_f[3]     = (s_jalr | s_jal | s_fence | s_auipc | s_sub_sra | s_store | s_shxadd | s_bset | s_bext | s_clmul | s_binv | s_bclr |
+    assign s_i_f[3]     = (s_jalr | s_jal | s_fence | s_auipc | s_sub_sra | s_store | s_shxadd | s_bset | s_bext | s_clmul | s_binv | s_bclr | s_czero |
                           (s_bsel & s_fun[1]) | (s_branch & s_fun != 3'b110 & s_fun != 3'b100));
     assign s_i_f[2:0]   = (s_instr_ctrl.bru) ? s_brj_f : 
                           (s_lui | s_auipc) ? (s_auipc ? ALU_IPC[2:0] : ALU_ADD[2:0]) : 
                           (s_binv | s_bclr | s_b_sop) ? (s_b_sop ? s_bsop_f : s_binv ? BMU_BINV[2:0] : BMU_BCLR[2:0]) : 
-                          (s_bsel & !s_fun[1]) ? (s_fun[0] ? ALU_SLTU[2:0] : ALU_SLT[2:0]) : s_fun;
+                          (s_bsel & !s_fun[1]) ? (s_fun[0] ? ALU_SLTU[2:0] : ALU_SLT[2:0]) : 
+                          (s_czero) ? (s_fun[1] ? ALU_NEQ[2:0] : ALU_EQ[2:0]) : s_fun;
 
     //CSR address compressor
     always_comb begin : machine_csr_address

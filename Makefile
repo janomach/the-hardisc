@@ -32,7 +32,7 @@ LD_SCRIPT           := ${HARDISC_DIR}/example/custom/link.ld
 SYSCALLS            := ${HARDISC_DIR}/example/custom/syscalls.c
 STARTUP             := ${HARDISC_DIR}/example/custom/crt0.S
 VECTORS             := ${HARDISC_DIR}/example/custom/vectors.S
-CFLAGS              := -static -O3 -mcmodel=medany -march=rv32imc_zicsr_zba_zbb_zbs_zbc -mabi=ilp32 -nostdlib
+CFLAGS              := -static -O3 -mcmodel=medany -march=rv32imc_zicsr_zba_zbb_zbc_zbs_zcb_zicond -mabi=ilp32 -nostdlib
 RISCV               := /opt/riscv2026
 
 hardiscSetup:
