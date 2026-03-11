@@ -129,7 +129,7 @@ module tracer
     end
 
     function instruction_s instr_i (input bit[31:0] instr);
-        string jal_offset, signed_12off, signed_12offs, rs1_name, rd_name, rs2_name, branch_off, csr_name;
+        string jal_offset, signed_12off, signed_12offs, shamt, rs1_name, rd_name, rs2_name, branch_off, csr_name;
         logic rd_zero, rd_ra, rs1_zero, rs2_zero;
         int jal_imm, branch_imm;
         jal_imm = $signed({{20{instr[31]}},instr[19:12],instr[20],instr[30:21],1'b0});
@@ -138,6 +138,7 @@ module tracer
         branch_off = $sformatf("%1d",(instr[31]) ? (branch_imm *(-1)) : branch_imm);
         signed_12off = $sformatf("%1d",$signed({{20{instr[31]}},instr[31:20]}));
         signed_12offs = $sformatf("%1d",$signed({{20{instr[31]}},instr[31:25],instr[11:7]}));
+        shamt = $sformatf("%1d",instr[24:20]);
         rs1_name = reg_name(instr[19:15]);
         rs2_name = reg_name(instr[24:20]);
         rd_name = reg_name(instr[11:7]);
@@ -220,7 +221,7 @@ module tracer
                                       (rs1_zero) ? {"li      ",rd_name,", ",signed_12off}: {"addi    ",rd_name,", ",rs1_name,", ",signed_12off};
                     3'b001: begin
                         case (instr[31:25])
-                            7'b0000000: instr_i.text = {"slli    ",rd_name,", ",rs1_name,", ",signed_12off};
+                            7'b0000000: instr_i.text = {"slli    ",rd_name,", ",rs1_name,", ",shamt};
                             7'b0100100: instr_i.text = {"bclri   ",rd_name,", ",rs1_name,", ",signed_12off};
                             7'b0110100: instr_i.text = {"binvi   ",rd_name,", ",rs1_name,", ",signed_12off};
                             7'b0010100: instr_i.text = {"bseti   ",rd_name,", ",rs1_name,", ",signed_12off};
@@ -242,8 +243,8 @@ module tracer
                     3'b100: instr_i.text = {"xori    ",rd_name,", ",rs1_name,", ",signed_12off};
                     3'b101: begin
                         case (instr[31:25])
-                            7'b0000000: instr_i.text = {"srli    ",rd_name,", ",rs1_name,", ",signed_12off};
-                            7'b0100000: instr_i.text = {"srai    ",rd_name,", ",rs1_name,", ",signed_12off};
+                            7'b0000000: instr_i.text = {"srli    ",rd_name,", ",rs1_name,", ",shamt};
+                            7'b0100000: instr_i.text = {"srai    ",rd_name,", ",rs1_name,", ",shamt};
                             7'b0100100: instr_i.text = {"bexti   ",rd_name,", ",rs1_name,", ",signed_12off};
                             7'b0110000: instr_i.text = {"rori   ",rd_name,", ",rs1_name,", ",signed_12off};
                             7'b0010100: instr_i.text = (instr[24:20] == 5'b00111) ? {"orc.b   ",rd_name,", ",rs1_name} : "unknown";
