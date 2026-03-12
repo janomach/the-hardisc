@@ -222,9 +222,9 @@ module tracer
                     3'b001: begin
                         case (instr[31:25])
                             7'b0000000: instr_i.text = {"slli    ",rd_name,", ",rs1_name,", ",shamt};
-                            7'b0100100: instr_i.text = {"bclri   ",rd_name,", ",rs1_name,", ",signed_12off};
-                            7'b0110100: instr_i.text = {"binvi   ",rd_name,", ",rs1_name,", ",signed_12off};
-                            7'b0010100: instr_i.text = {"bseti   ",rd_name,", ",rs1_name,", ",signed_12off};
+                            7'b0100100: instr_i.text = {"bclri   ",rd_name,", ",rs1_name,", ",shamt};
+                            7'b0110100: instr_i.text = {"binvi   ",rd_name,", ",rs1_name,", ",shamt};
+                            7'b0010100: instr_i.text = {"bseti   ",rd_name,", ",rs1_name,", ",shamt};
                             7'b0110000: begin
                                 case (instr[24:20])
                                     5'b00000: instr_i.text = {"clz     ",rd_name,", ",rs1_name};
@@ -245,8 +245,8 @@ module tracer
                         case (instr[31:25])
                             7'b0000000: instr_i.text = {"srli    ",rd_name,", ",rs1_name,", ",shamt};
                             7'b0100000: instr_i.text = {"srai    ",rd_name,", ",rs1_name,", ",shamt};
-                            7'b0100100: instr_i.text = {"bexti   ",rd_name,", ",rs1_name,", ",signed_12off};
-                            7'b0110000: instr_i.text = {"rori   ",rd_name,", ",rs1_name,", ",signed_12off};
+                            7'b0100100: instr_i.text = {"bexti   ",rd_name,", ",rs1_name,", ",shamt};
+                            7'b0110000: instr_i.text = {"rori   ",rd_name,", ",rs1_name,", ",shamt};
                             7'b0010100: instr_i.text = (instr[24:20] == 5'b00111) ? {"orc.b   ",rd_name,", ",rs1_name} : "unknown";
                             7'b0110100: instr_i.text = (instr[24:20] == 5'b11000) ? {"rev8    ",rd_name,", ",rs1_name} : "unknown";
                             default: instr_i.text = "unknown";
@@ -398,14 +398,14 @@ module tracer
                     3'd4:begin
                         if(instr[12:11] == 2'b00) begin
                             if(instr[10]) begin
-                                instr_c.text = {instr[6] ? "lh " : "lhu ",name4to2,", ",$sformatf("%1d",{1'b0,instr[6]}),"(",name9to7,")"};
+                                instr_c.text = {instr[6] ? "lh " : "lhu ",name4to2,", ",$sformatf("%1d",{instr[5],1'b0}),"(",name9to7,")"};
                             end else begin
                                 instr_c.text = {"lbu ",name4to2,", ",$sformatf("%1d",{instr[5],instr[6]}),"(",name9to7,")"};
                             end
                             instr_c.itype = LOAD;
                         end else if (instr[12:11] == 2'b01) begin
                             if(!instr[10] || !instr[6]) begin
-                                instr_c.text = {instr[10] ? "sh " : "sb ",name4to2,", ",$sformatf("%1d",{1'b0,instr[6]}),"(",name9to7,")"};
+                                instr_c.text = {instr[10] ? "sh " : "sb ",name4to2,", ",$sformatf("%1d",{instr[5], instr[10] ? 1'b0 : instr[6]}),"(",name9to7,")"};
                             end else begin
                                 instr_c.text = "unknown";
                             end
