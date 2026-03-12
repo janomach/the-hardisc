@@ -33,16 +33,20 @@ package p_hardisc;
 
 	parameter[OPC_WIDTH-1:0]
                 OPC_LOAD	= 5'b00000,
+                OPC_CUSTOM0	= 5'b00010,
                 OPC_FENCE	= 5'b00011,
                 OPC_OP_IMM	= 5'b00100,
                 OPC_AUIPC	= 5'b00101,
                 OPC_STORE	= 5'b01000,
+                OPC_CUSTOM1	= 5'b01010,
                 OPC_OP		= 5'b01100,
                 OPC_LUI 	= 5'b01101,
+                OPC_CUSTOM2	= 5'b10110,
                 OPC_BRANCH	= 5'b11000,
                 OPC_JALR	= 5'b11001,
                 OPC_JAL		= 5'b11011,
-                OPC_SYSTEM  = 5'b11100;
+                OPC_SYSTEM  = 5'b11100,
+                OPC_CUSTOM3	= 5'b11110;
     parameter[3:0]  
                 ALU_ADD = 4'b0000,
                 ALU_SLL = 4'b0001,

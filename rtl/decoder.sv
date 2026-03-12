@@ -34,7 +34,7 @@ module decoder (
 );
     logic s_load, s_store, s_branch, s_jalr, s_jal, s_op, s_op_imm, s_lui, s_system, s_auipc, s_fence, s_srla, s_add, s_m_op, s_clmul, s_czero; 
     logic s_b_op, s_balu_op, s_shxadd, s_bset, s_bext, s_binv, s_bclr, s_ror, s_rol, s_xnor, s_andn, s_orn, s_b_sop, s_sext, s_zext, s_rev8, s_orcb, s_cx, s_bsel;
-	logic s_csr_need_rs1, s_sub_sra, s_ecb, s_mret, s_csr, s_illegal;
+	logic s_csr_need_rs1, s_sub_sra, s_ecb, s_mret, s_csr, s_illegal, s_custom_op;
     logic[1:0] s_csr_fun;
     logic[2:0] s_brj_f, s_bsop_f;
     logic[19:0] s_imm, s_c_imm, s_imm_lui_auipc, s_imm_jal, s_imm_ls_i_jalr, s_imm_branch, s_imm_csr;
@@ -46,7 +46,7 @@ module decoder (
     imiscon s_instr_miscon, s_c_instr_miscon, s_dec_imiscon;
     logic s_rvc, s_alter, s_base, s_known;
     logic[4:0] s_csr_add;
-    logic[3:0] s_csr_type;
+    logic[3:0] s_csr_type, s_custom;
     logic[2:0] s_fun;
     logic s_pred_not_allowed;
 
@@ -131,13 +131,24 @@ module decoder (
     assign s_czero      = (s_opcode == OPC_OP) & (s_instr_i[31:25] == 7'b0000111) & s_fun[2] & s_fun[0]; //zicond extension
     assign s_b_sop      = (s_sext | s_zext | s_rev8 | s_orcb | s_cx);
 
+`ifdef CUSTOM_INSTRUCTIONS
+    assign s_custom[0]  = s_opcode == OPC_CUSTOM0; // R-type
+    assign s_custom[1]  = s_opcode == OPC_CUSTOM1; // I-Type
+    assign s_custom[2]  ='0; //s_opcode == OPC_CUSTOM2;
+    assign s_custom[3]  ='0;// s_opcode == OPC_CUSTOM3;
+    assign s_custom_op  = |s_custom;
+`else
+    assign s_custom     = '0;
+    assign s_custom_op  = '0;
+`endif
+
     assign s_sub_sra    = s_instr_i[30] & (((s_op & ~s_m_op) & s_add) | ((s_op_imm | (s_op & ~s_m_op)) & s_srla));
 	assign s_lui        = (s_opcode == OPC_LUI);
 	assign s_system 	= (s_opcode == OPC_SYSTEM);
 	assign s_auipc      = (s_opcode == OPC_AUIPC);
 	assign s_fence 	    = (s_opcode == OPC_FENCE) & (s_fun == 3'b000 | s_fun == 3'b001);
     assign s_known      = (s_load | s_store | s_branch | s_jalr | s_jal | s_op | s_op_imm | 
-                           s_lui | s_auipc | s_fence | s_csr | s_mret | s_ecb | s_balu_op | s_b_op | s_clmul);
+                           s_lui | s_auipc | s_fence | s_csr | s_mret | s_ecb | s_balu_op | s_b_op | s_clmul | s_custom_op);
     assign s_illegal    = (~s_known) | (s_csr & (s_csr_add == 5'b11111));
 
     //Auxiliary values
@@ -166,7 +177,7 @@ module decoder (
                             (s_fun == 3'b110) ? ALU_SLTU[2:0] : s_fun;
     assign s_bsop_f     = (s_instr_i[27] & !s_instr_i[22] ? (s_instr_i[23] ? BMU_REV8[2:0] : BMU_ZXTH[2:0]) : s_instr_i[22:20]);
     assign s_i_f[3]     = (s_jalr | s_jal | s_fence | s_auipc | s_sub_sra | s_store | s_shxadd | s_bset | s_bext | s_clmul | s_binv | s_bclr | s_czero |
-                          (s_bsel & s_fun[1]) | (s_branch & s_fun != 3'b110 & s_fun != 3'b100));
+                          s_custom[1] | (s_bsel & s_fun[1]) | (s_branch & s_fun != 3'b110 & s_fun != 3'b100));
     assign s_i_f[2:0]   = (s_instr_ctrl.bru) ? s_brj_f : 
                           (s_lui | s_auipc) ? (s_auipc ? ALU_IPC[2:0] : ALU_ADD[2:0]) : 
                           (s_binv | s_bclr | s_b_sop) ? (s_b_sop ? s_bsop_f : s_binv ? BMU_BINV[2:0] : BMU_BCLR[2:0]) : 
@@ -206,20 +217,22 @@ module decoder (
     assign s_csr_need_rs1   = (~s_instr_i[14] & (s_instr_i[12] | s_instr_i[13]));
 
     //Instruction source specifier
-    assign s_src_ctrl.rfrp1  = (s_op | s_op_imm | s_branch | s_jalr | s_store | s_load | s_balu_op | s_b_op | s_clmul | (s_csr & s_csr_need_rs1));
-    assign s_src_ctrl.rfrp2  = (s_branch | s_store | ((s_opcode == OPC_OP) & (s_op | s_balu_op | s_b_op | s_clmul) & !s_zext)); 
+    assign s_src_ctrl.rfrp1  = (s_op | s_op_imm | s_branch | s_jalr | s_store | s_load | s_balu_op | 
+                                s_b_op | s_clmul | (s_csr & s_csr_need_rs1) | s_custom[0] | s_custom[1]);
+    assign s_src_ctrl.rfrp2  = (s_branch | s_store | s_custom[0] | 
+                                ((s_opcode == OPC_OP) & (s_op | s_balu_op | s_b_op | s_clmul) & !s_zext)); 
     assign s_src_ctrl.zero1  = (s_rs1 == 5'b0) | s_lui;
     assign s_src_ctrl.zero2  = s_rs2 == 5'b0; 
 
     //Instruction control specifier
-    assign s_instr_ctrl.ciu = 1'b0;
+    assign s_instr_ctrl.ciu = s_custom_op;
     assign s_instr_ctrl.bmu = (s_balu_op | s_b_op);
     assign s_instr_ctrl.alu = ((s_op & ~s_m_op) | s_op_imm | s_auipc | s_lui | s_balu_op);
     assign s_instr_ctrl.bru = (s_branch | s_jal | s_jalr | s_fence);
     assign s_instr_ctrl.lsu = (s_store | s_load);
     assign s_instr_ctrl.csr = (s_system);
     assign s_instr_ctrl.mdu = (s_op & s_m_op) | s_clmul;
-    assign s_instr_ctrl.wrd = (|s_rd) & (s_lui | s_auipc | s_jal | s_jalr | s_op | s_op_imm | s_csr | s_load | s_clmul | s_balu_op | s_b_op);
+    assign s_instr_ctrl.wrd = (|s_rd) & (s_lui | s_auipc | s_jal | s_jalr | s_op | s_op_imm | s_csr | s_load | s_clmul | s_balu_op | s_b_op | s_custom_op);
     assign s_instr_ctrl.rvc = 1'b0;
     //Prediction is not allowed from other instructions than branch/jump
     assign s_pred_not_allowed           = s_prediction_i & (~s_instr_ctrl.bru | s_fence);
