@@ -33,7 +33,7 @@ import edac::*;
 
 module platform_artyA7(
     input s_clk_i,
-    input s_resetn_i,
+    input sw[2],
 
     output led[4],
 
@@ -49,7 +49,7 @@ localparam BOOTADD  = 32'h10000000;
 localparam INIT_RAM = 1;
 `endif
 
-localparam SUBORDINATES = 4;
+localparam SUBORDINATES = 5;
 localparam MEM_SIZE = 32'h20000;
 localparam MEM_MASK = 32'hFFFFFFFF - MEM_SIZE + 32'h1;
 
@@ -57,7 +57,8 @@ localparam pma_cfg_t PMA_CONFIG[SUBORDINATES] = '{
     '{base  : 32'h00000000, mask  : 32'hFFFFFF00, read_only  : 1'b1, executable: 1'b1, idempotent : 1'b1},
     '{base  : 32'h10000000, mask  : MEM_MASK, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
     '{base  : 32'h80000000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
-    '{base  : 32'h80001000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1}
+    '{base  : 32'h80001000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
+    '{base  : 32'h80002000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1}
 };
 
 logic[5:0] s_i_hparity[1];
@@ -86,32 +87,45 @@ logic[31:0] s_chrdata[2];
 logic s_chready[2], s_chresp[2], s_chsel[2];
 logic[31:0] s_ahb_cbase[2], s_ahb_cmask[2];
 
-logic s_sys_clk, s_sys_rstn, s_resetn_deb, s_int_meip, s_int_mtip, s_unrec_err[2], s_locked;
+logic s_sys_clk, s_sys_rstn, s_resetn_deb, s_int_meip, s_int_mtip, s_unrec_err[2], s_locked, s_uart_sel_deb;
 logic s_dut_clk[3], s_dut_rstn[3];
 
 debounce m_deb_resetn
 (
     .s_clk_i(s_sys_clk),
-    .s_btn_i(s_resetn_i),
+    .s_btn_i(sw[0]),
     .s_btn_o(s_resetn_deb)
 );
 
+debounce m_deb_uart_sel
+(
+    .s_clk_i(s_sys_clk),
+    .s_btn_i(sw[1]),
+    .s_btn_o(s_uart_sel_deb)
+);
+
 logic r_uart_txd_in;
+logic s_uart_tx_sem, s_uart_rx_sem, s_uart_tx_dut, s_uart_rx_dut;
 
 always_ff @(posedge s_sys_clk) r_uart_txd_in <= uart_txd_in;
 
-/*ila_0 ila
-(
-    .clk(s_clk_i),
-    .probe0(s_int_meip),
-    .probe1(dut.rep[0].core.s_pc[0])
-    //.probe1(dut.rep[0].core.m_pipe_5_ma.m_csru.s_mcycle[0])
-);*/
+
+assign uart_rxd_out = s_uart_sel_deb ? s_uart_tx_sem : s_uart_tx_dut;
+
+always_comb begin
+    if(s_uart_sel_deb)begin
+        s_uart_rx_sem = r_uart_txd_in;
+        s_uart_rx_dut = 1'b1;
+    end else begin
+        s_uart_rx_dut = r_uart_txd_in;
+        s_uart_rx_sem = 1'b1;    
+    end
+end
 
 clk_wiz_0 
 (
   .clk_out1(s_sys_clk),
-  .resetn(s_resetn_i),
+  .resetn(sw[0]),
   .locked(s_locked),
   .clk_in1(s_clk_i)
 );
@@ -121,7 +135,7 @@ assign s_sys_rstn   = s_resetn_deb & s_locked;
 
 assign led[0]   = s_chsel[0]; //rom
 assign led[1]   = s_chsel[1]; //ram
-assign led[2]   = s_int_meip;
+assign led[2]   = m_sem.r_status_essential;
 assign led[3]   = s_unrec_err[0];
 
 assign s_int_meip   = s_uart_interrupt;
@@ -213,7 +227,7 @@ ahb_interconnect #(.SLAVES(2)) instr_interconnect
     .s_shresp_o(s_i_hresp[0])
 );
 
-ahb_interconnect #(.SLAVES(3)) data_interconnect
+ahb_interconnect #(.SLAVES(4)) data_interconnect
 (
     .s_clk_i(s_sys_clk),
     .s_resetn_i(s_sys_rstn),
@@ -264,8 +278,8 @@ ahb_to_uart_controller #(.PERIOD(32'd130),.IFP(`MEMORY_IFP),.SIMULATION(0)) ahb_
     
     .s_data_ready_o(s_uart_interrupt),
 
-    .s_rxd_i(r_uart_txd_in),
-    .s_txd_o(uart_rxd_out)
+    .s_rxd_i(s_uart_rx_dut),
+    .s_txd_o(s_uart_tx_dut)
 );
 
 ahb_timer #(.IFP(`MEMORY_IFP)) m_mtimer
@@ -387,4 +401,45 @@ generate
         assign s_ahb_cmask[s]   = PMA_CONFIG[s].mask;
     end
 endgenerate
+
+(* dont_touch = "yes" *) ahb_sem #(.IFP(`MEMORY_IFP)) m_sem
+(
+    .s_clk_i(s_sys_clk),
+    .s_resetn_i(s_sys_rstn),
+
+    .s_haddr_i(s_d_haddr[0]),
+    .s_hwdata_i(s_d_hwdata[0]),
+    .s_hburst_i(s_d_hburst[0]),
+    .s_hmastlock_i(s_d_hmastlock[0]),
+    .s_hprot_i(s_d_hprot[0]),
+    .s_hsize_i(s_d_hsize[0]),
+    .s_htrans_i(s_d_htrans[0]),
+    .s_hwrite_i(s_d_hwrite[0]),
+    .s_hsel_i(s_shsel[3]),
+
+    .s_hparity_i(s_d_hparity[0]),
+    .s_hwchecksum_i(s_d_hwchecksum[0]),
+    .s_hrchecksum_o(s_shrchecksum[3]),
+
+    .s_hrdata_o(s_shrdata[3]),
+    .s_hready_o(s_shready[3]),
+    .s_hresp_o(s_shresp[3]),
+
+    .s_monitor_tx_o(s_uart_tx_sem),
+    .s_monitor_rx_i(s_uart_rx_sem)
+);
+
+/*ila_0 ila
+(
+    .clk(s_clk_i),
+    .probe0(s_unrec_err[0]),
+    .probe1(m_sem.r_status_initialization),
+    .probe2(m_sem.r_status_observation),
+    .probe3(m_sem.r_status_correction),
+    .probe4(m_sem.r_status_classification),
+    .probe5(m_sem.r_status_injection),
+    .probe6(m_sem.r_status_essential),
+    .probe7(m_sem.r_status_uncorrectable)
+);*/
+
 endmodule
