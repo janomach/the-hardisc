@@ -72,7 +72,7 @@ int main(void)
 
 	while(1){
 
-    err_lfa  = rand() & 0x1FFFF;
+    err_lfa  = (rand() & 0x1FFFF) % 0x11B6; //0x11B6 is a limit in 7A35T
     err_word = rand() & 0x7F;
     err_bit = rand() & 0x1F;
 
@@ -95,7 +95,7 @@ int main(void)
                                                              (total_delay / err_count) / (FREQUENCY / 1000000), 
                                                              max_delay / (FREQUENCY / 1000000));
 
-    if((current_delay / (total_delay / err_count)) > 2) {
+    if((current_delay / (FREQUENCY / 1000000)) > 3000) {
       printf("\tLivelock %5d survived!\n", ++lock_count);
     }
 
