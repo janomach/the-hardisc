@@ -96,7 +96,7 @@ module pipeline_5_ma (
     assign s_read_data_o    = s_rmawb_val;
 
     //Program Counter
-    seu_ff_rsts #(.LABEL("PC"),.N(PROT_3REP)) m_pc (.s_c_i(s_clk_prw),.s_r_i(s_resetn_i),.s_rs_i(s_boot_add_i),.s_d_i(s_wpc),.s_q_o(s_rpc));
+    seu_ff #(.LABEL("PC"),.N(PROT_3REP)) m_pc (.s_c_i(s_clk_prw),.s_d_i(s_wpc),.s_q_o(s_rpc));
 
     //Result value from the MA stage
     seu_ff_we #(.LABEL("MAWB_VAL"),.N(PROT_3REP))m_mawb_val (.s_c_i(s_clk_prw),.s_we_i(s_mawb_we_val),.s_d_i(s_wmawb_val),.s_q_o(s_rmawb_val));
@@ -173,12 +173,12 @@ module pipeline_5_ma (
             fast_adder m_next_pc(.s_base_val_i(s_pc[i]),.s_add_val_i({13'd0,s_pc_incr[i]}),.s_val_o(s_next_pc[i])); 
 
             //Selection of the value the program counter should be updated with
-            assign s_new_pc[i]  = (s_interrupt[i]) ? s_int_trap[i] : 
+            assign s_new_pc[i]  = (s_interrupt[i] | s_initialize[i]) ? (s_initialize[i] ? s_boot_add_i : s_int_trap[i]) : 
                                   (s_exception[i]) ? s_exc_trap[i] : 
                                   (s_tereturn[i]) ? s_mepc[i] : 
                                   (s_itaken[i]) ? s_bru_add[i] : s_next_pc[i];
 
-            assign s_wpc[i]     = (~(s_rstpp[i] | s_ma_empty[i] | s_stall_ma[i]) | s_interrupt[i]) ? s_new_pc[i] : s_pc[i];
+            assign s_wpc[i]     = (~(s_rstpp[i] | s_ma_empty[i] | s_stall_ma[i]) | s_interrupt[i] | s_initialize[i]) ? s_new_pc[i] : s_pc[i];
 
             //Transfer of control
             assign s_ma_toc_addr[i] = (~(s_rstpp[i] | s_ma_empty[i]) | s_interrupt[i]) ? s_new_pc[i] : s_rpc[i];
