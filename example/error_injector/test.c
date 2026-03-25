@@ -73,7 +73,7 @@ int main(void)
 	while(1){
 
     err_lfa  = (rand() & 0x1FFFF) % 0x11B6; //0x11B6 is a limit in 7A35T
-    err_word = rand() & 0x7F;
+    err_word = (rand() & 0x7F) % 0x65; //0x65 is a limit in 7 Series
     err_bit = rand() & 0x1F;
 
     printf("Fault injection %6d: \n\t-> Target LFA: 0x%05x, WORD: 0x%02x, BIT: 0x%02x\n", err_count, err_lfa, err_word, err_bit);
