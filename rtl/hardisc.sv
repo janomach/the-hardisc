@@ -62,7 +62,14 @@ module hardisc #(
     output logic[6:0] s_d_hwchecksum_o,     //AHB data bus - outgoing checksum
     output logic[5:0] s_d_hparity_o,        //AHB data bus - outgoing parity
 
-    output logic s_unrec_err_o[PROT_2REP]   //unrecoverable error
+    output logic s_unrec_err_o[PROT_2REP],  //unrecoverable error
+
+    // RERI fault outputs — connect to reri_error_bank fault bus
+    output logic        s_fault_fetch_ce_o,   //fetch interface correctable error
+    output logic        s_fault_lsu_ce_o,     //LSU data correctable error
+    output logic        s_fault_lsu_uce_o,    //LSU data uncorrectable error
+    output logic [31:0] s_fault_fetch_addr_o, //PC at time of fetch fault
+    output logic [31:0] s_fault_lsu_addr_o    //effective address at LSU fault
 );
 
     logic[4:0] s_stall[PROT_3REP];
@@ -362,5 +369,23 @@ module hardisc #(
 `else
     assign s_int_fcer   = 1'b0;
 `endif
+
+    // -------------------------------------------------------
+    // RERI fault output wiring
+    // s_lsu_einfo format: {ce, error}
+    //   [1] = correctable error (single-bit, SECDED corrected)
+    //   [0] = any error; UCE when [0]=1 and [1]=0 (double-bit)
+    // -------------------------------------------------------
+`ifdef PROT_INTF
+    assign s_fault_fetch_ce_o  = s_int_fcer;
+    assign s_fault_lsu_ce_o    = s_lsu_einfo[0][1];
+    assign s_fault_lsu_uce_o   = s_lsu_einfo[0][0] & ~s_lsu_einfo[0][1];
+`else
+    assign s_fault_fetch_ce_o  = 1'b0;
+    assign s_fault_lsu_ce_o    = 1'b0;
+    assign s_fault_lsu_uce_o   = 1'b0;
+`endif
+    assign s_fault_fetch_addr_o = s_pc[0];       // current PC (MA stage)
+    assign s_fault_lsu_addr_o   = s_exma_val[0]; // EX→MA effective address
 
 endmodule
