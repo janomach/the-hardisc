@@ -62,7 +62,14 @@ module hardisc #(
     output logic[6:0] s_d_hwchecksum_o,     //AHB data bus - outgoing checksum
     output logic[5:0] s_d_hparity_o,        //AHB data bus - outgoing parity
 
-    output logic s_unrec_err_o[PROT_2REP]   //unrecoverable error
+    output logic s_unrec_err_o[PROT_2REP],  //unrecoverable error
+
+    // RERI fault outputs — connect to reri_error_bank fault bus
+    output logic        s_fault_fetch_ce_o,   //fetch interface correctable error
+    output logic        s_fault_lsu_ce_o,     //LSU data correctable error
+    output logic        s_fault_lsu_uce_o,    //LSU data uncorrectable error
+    output logic [31:0] s_fault_fetch_addr_o, //PC at time of fetch fault
+    output logic [31:0] s_fault_lsu_addr_o    //effective address at LSU fault
 );
 
     logic[4:0] s_stall[PROT_3REP];
