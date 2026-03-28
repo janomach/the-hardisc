@@ -19,7 +19,8 @@ import edac::*;
 
 //`timescale 1ps/1ps
 
-//`define USE_BOOTLOADER
+`define USE_BOOTLOADER
+`define CLK_FREQUENCY 32'd75000000
 
 `ifdef PROT_INTF
     `define MEMORY_IFP 1
@@ -86,6 +87,8 @@ logic[6:0] s_chrchecksum[2];
 logic[31:0] s_chrdata[2];
 logic s_chready[2], s_chresp[2], s_chsel[2];
 logic[31:0] s_ahb_cbase[2], s_ahb_cmask[2];
+logic[31:0] r_uerr_cntr;
+logic r_uerr_halt;
 
 logic s_sys_clk, s_sys_rstn, s_resetn_deb, s_int_meip, s_int_mtip, s_unrec_err[2], s_locked, s_uart_sel_deb;
 logic s_dut_clk[3], s_dut_rstn[3];
@@ -122,6 +125,21 @@ always_comb begin
     end
 end
 
+always_ff @(posedge s_sys_clk or negedge s_sys_rstn) begin
+    if(!s_sys_rstn) begin
+        r_uerr_cntr <= 32'b0;
+    end else if(s_unrec_err[0] || s_unrec_err[1]) begin
+        r_uerr_cntr <= r_uerr_cntr + 32'b1;
+    end else begin
+        r_uerr_cntr <= 32'b0;
+    end
+    if(!s_sys_rstn) begin
+        r_uerr_halt <= 1'b0;
+    end else if(!r_uerr_halt) begin
+        r_uerr_halt <= r_uerr_cntr > (`CLK_FREQUENCY / 32'd30);
+    end
+end
+
 clk_wiz_0 
 (
   .clk_out1(s_sys_clk),
@@ -136,7 +154,7 @@ assign s_sys_rstn   = s_resetn_deb & s_locked;
 assign led[0]   = s_chsel[0]; //rom
 assign led[1]   = s_chsel[1]; //ram
 assign led[2]   = m_sem.r_status_essential;
-assign led[3]   = s_unrec_err[0];
+assign led[3]   = r_uerr_halt;
 
 assign s_int_meip   = s_uart_interrupt;
 
@@ -144,9 +162,9 @@ assign s_dut_clk[0] = s_sys_clk;
 assign s_dut_clk[1] = s_sys_clk;
 assign s_dut_clk[2] = s_sys_clk;
 
-assign s_dut_rstn[0] = s_sys_rstn;
-assign s_dut_rstn[1] = s_sys_rstn;
-assign s_dut_rstn[2] = s_sys_rstn;
+assign s_dut_rstn[0] = s_sys_rstn & !r_uerr_halt;
+assign s_dut_rstn[1] = s_sys_rstn & !r_uerr_halt;
+assign s_dut_rstn[2] = s_sys_rstn & !r_uerr_halt;
 
 (* dont_touch = "yes" *) `SYSTEM #(.PMA_REGIONS(SUBORDINATES),.PMA_CFG(PMA_CONFIG)) dut
 (
@@ -433,13 +451,13 @@ endgenerate
 (
     .clk(s_clk_i),
     .probe0(s_unrec_err[0]),
-    .probe1(m_sem.r_status_initialization),
-    .probe2(m_sem.r_status_observation),
-    .probe3(m_sem.r_status_correction),
-    .probe4(m_sem.r_status_classification),
+    .probe1(dut.rep[0].core.m_pipe_5_ma.m_csru.s_livelock[0]),
+    .probe2(r_noex),
+    .probe3(dut.rep[0].core.m_pipe_5_ma.m_csru.s_execute[0]),
+    .probe4(dut.rep[0].core.m_pipe_5_ma.m_csru.s_rstpp_i[0]),
     .probe5(m_sem.r_status_injection),
-    .probe6(m_sem.r_status_essential),
-    .probe7(m_sem.r_status_uncorrectable)
+    .probe6(dut.rep[0].core.m_pipe_5_ma.m_csru.s_mhrdctrl0[0]),
+    .probe7(dut.rep[0].core.m_pipe_5_ma.m_csru.s_pc_i[0])
 );*/
 
 endmodule

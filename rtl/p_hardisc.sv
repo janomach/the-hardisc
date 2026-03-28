@@ -197,7 +197,7 @@ package p_hardisc;
                 INT_MSI_VAL      = 5'd3,
                 INT_MTI_VAL      = 5'd7,
                 INT_MEI_VAL      = 5'd11,
-                INT_UCE_VAL      = 5'd16,
+                INT_LLCK_VAL     = 5'd16,
                 INT_FCER_VAL     = 5'd17,
                 INT_LCER_VAL     = 5'd18,
                 INT_FUCE_VAL     = 5'd19,

@@ -43,7 +43,7 @@ int main(void)
 {
 	printf("Checking SEM component...\n");
 
-  uint32_t data, err_lfa, err_word, err_bit, err_count = 1, current_delay, total_delay = 0, max_delay = 0, lock_count = 0;
+  uint32_t data, err_lfa, err_word, err_bit, err_count = 1, current_delay, total_delay = 0, max_delay = 0, lock_count = 0, livelocks = 0;
   uint64_t cycles_now, cycles_prev;
 
   do {
@@ -72,11 +72,18 @@ int main(void)
 
 	while(1){
 
+    __asm__ volatile ("csrr %0, 0x7C0\n\t" :  "=r"(data));
+
+    if((data & 0x4) != 0) {
+      livelocks++;
+      __asm__ volatile ("csrci 0x7C0, 0x4\n\t");
+    }
+
     err_lfa  = (rand() & 0x1FFFF) % 0x11B6; //0x11B6 is a limit in 7A35T
     err_word = (rand() & 0x7F) % 0x65; //0x65 is a limit in 7 Series
     err_bit = rand() & 0x1F;
 
-    printf("Fault injection %6d: \n\t-> Target LFA: 0x%05x, WORD: 0x%02x, BIT: 0x%02x\n", err_count, err_lfa, err_word, err_bit);
+    printf("Fault injection %6d, livelocks %4d: \n\t-> Target LFA: 0x%05x, WORD: 0x%02x, BIT: 0x%02x\n", err_count, livelocks, err_lfa, err_word, err_bit);
 
     *(volatile int *)(SEM_ADDRESS + 0xC) = 0xC0;
     *(volatile int *)(SEM_ADDRESS + 0x8) = (err_lfa << 12) | (err_word << 5) | (err_bit);
@@ -94,10 +101,6 @@ int main(void)
     printf("\t-> Delay CUR: %6d us, AVG: %6d us, MAX: %6d us\n", current_delay / (FREQUENCY / 1000000), 
                                                              (total_delay / err_count) / (FREQUENCY / 1000000), 
                                                              max_delay / (FREQUENCY / 1000000));
-
-    if((current_delay / (FREQUENCY / 1000000)) > 3000) {
-      printf("\tLivelock %5d survived!\n", ++lock_count);
-    }
 
     do {
       data = *(volatile uint32_t *)SEM_ADDRESS;

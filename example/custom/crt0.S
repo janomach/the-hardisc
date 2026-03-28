@@ -44,8 +44,8 @@ _start:
 	call __libc_init_array
 
 /* enable interrupts */
-	li a0, 3
-	slli a0, a0, 13
+	li a0, 6
+	slli a0, a0, 12
 	csrs mie, a0
 	csrsi mstatus, 8   
 
