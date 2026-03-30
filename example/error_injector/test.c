@@ -52,11 +52,10 @@ int main(void)
 
   printf("Sending SEM to the IDLE state...\n");
 
-  *(volatile int *)(SEM_ADDRESS + 0xC) = 0xE0;
-  *(volatile int *)(SEM_ADDRESS + 0x4) = 1;
-  delay(FREQUENCY/2);
-
   do {
+    *(volatile int *)(SEM_ADDRESS + 0xC) = 0xE0;
+    *(volatile int *)(SEM_ADDRESS + 0x4) = 1;
+    delay(FREQUENCY/1000);
     data = *(volatile uint32_t *)SEM_ADDRESS;
   } while((data & 0x4) != 0);
 
@@ -107,9 +106,10 @@ int main(void)
     } while((data & 0x30) != 0); //wait until injection and classification is done
 
     if((data & 0x4) != 0) { //observation
-      *(volatile int *)(SEM_ADDRESS + 0xC) = 0xE0;
-      *(volatile int *)(SEM_ADDRESS + 0x4) = 1;
       do {
+        *(volatile int *)(SEM_ADDRESS + 0xC) = 0xE0;
+        *(volatile int *)(SEM_ADDRESS + 0x4) = 1;
+        delay(FREQUENCY/1000);
         data = *(volatile uint32_t *)SEM_ADDRESS;
       } while((data & 0x4) != 0);
     } else { //idle

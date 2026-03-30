@@ -57,14 +57,25 @@ module decoder (
     assign s_rs2_o      = (s_rvc) ? s_c_rs2 : s_rs2;
     assign s_f_o        = (s_rvc) ? s_c_f : s_i_f;
     assign s_sctrl_o    = (s_rvc) ? s_c_src_ctrl : s_src_ctrl;
-    assign s_imiscon_o  = (s_align_error_i) ? IMISCON_DSCR : //Restart due to wrong alignment, probably caused by the Predictor
-                          ((s_fetch_error_i != FETCH_VALID) & (s_fetch_error_i != FETCH_INCER)) ? s_fetch_error_i : s_dec_imiscon;
+
     assign s_dec_imiscon = (s_rvc) ? s_c_instr_miscon : s_instr_miscon;
+
+    always_comb begin : imiscon_block
+        s_imiscon_o = s_fetch_error_i;
+        if(s_align_error_i) begin
+            //Restart due to wrong alignment, probably caused by the Predictor
+            s_imiscon_o = IMISCON_DSCR;
+        end else if(s_dec_imiscon != IMISCON_FREE) begin
+            //Decoder imiscon has priority over fetch correctable error
+            if((s_fetch_error_i == IMISCON_FREE) || (s_fetch_error_i == IMISCON_FCCE))
+                s_imiscon_o = s_dec_imiscon;
+        end
+    end
 
     always_comb begin : ictrl_block
         s_ictrl_o = (s_rvc) ? s_c_instr_ctrl : s_instr_ctrl;
-        if(s_imiscon_o != IMISCON_FREE) begin
-            //The RVC means the Predictor will not increment address before invalidiation
+        if((s_imiscon_o != IMISCON_FREE) && (s_imiscon_o != IMISCON_FCCE)) begin
+            //The RVC means the Predictor will not increment address before invalidation
             s_ictrl_o = '0;
             s_ictrl_o.rvc = s_align_error_i | s_rvc;
         end

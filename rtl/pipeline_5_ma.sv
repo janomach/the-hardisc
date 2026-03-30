@@ -24,7 +24,6 @@ module pipeline_5_ma (
 
     input logic s_int_meip_i,                       //external interrupt
     input logic s_int_mtip_i,                       //timer interrupt
-    input logic s_int_fcer_i,                       //fetch correctable error
 
     output logic s_stall_o[PROT_3REP],              //stall signal for lower stages
     output logic s_flush_o[PROT_3REP],              //flush signal for lower stages
@@ -265,7 +264,6 @@ module pipeline_5_ma (
         .s_int_mtip_i(s_int_mtip_i),
         .s_int_msip_i(1'b0),
         .s_int_lcer_i(s_int_lcer),
-        .s_int_fcer_i(s_int_fcer_i),
         .s_nmi_luce_i(s_nmi_luce),
         .s_hresp_i(s_lsu_hresp_i),
         .s_imiscon_i(s_exma_imiscon_i),

@@ -36,8 +36,7 @@ module pipeline_2_id (
     output rf_add s_idop_rs2_o[PROT_2REP],          //source register 2 address for OP stage
     output sctrl s_idop_sctrl_o[PROT_2REP],         //source control indicator for OP stage
     output ictrl s_idop_ictrl_o[PROT_2REP],         //instruction control indicator for OP stage
-    output imiscon s_idop_imiscon_o[PROT_2REP],     //instruction misconduct indicator for OP stage
-    output logic s_idop_fixed_o[PROT_2REP]          //fix indicator for OP stage
+    output imiscon s_idop_imiscon_o[PROT_2REP]      //instruction misconduct indicator for OP stage
 );
 
     logic[20:0] s_widop_payload[PROT_2REP], s_ridop_payload[PROT_2REP];
@@ -47,7 +46,7 @@ module pipeline_2_id (
     sctrl s_widop_sctrl[PROT_2REP],s_ridop_sctrl[PROT_2REP];
     ictrl s_widop_ictrl[PROT_2REP],s_ridop_ictrl[PROT_2REP];
     imiscon s_widop_imiscon[PROT_2REP],s_ridop_imiscon[PROT_2REP];
-    logic s_clk_prw[PROT_2REP], s_resetn_prw[PROT_2REP], s_widop_fixed[PROT_2REP], s_ridop_fixed[PROT_2REP];
+    logic s_clk_prw[PROT_2REP], s_resetn_prw[PROT_2REP];
     logic s_idop_we_aux[PROT_2REP], s_idop_we_esn[PROT_2REP], s_idop_we_rs1[PROT_2REP], s_idop_we_rs2[PROT_2REP];
 
     assign s_idop_rd_o      = s_ridop_rd;
@@ -58,7 +57,6 @@ module pipeline_2_id (
     assign s_idop_sctrl_o   = s_ridop_sctrl;
     assign s_idop_ictrl_o   = s_ridop_ictrl;
     assign s_idop_imiscon_o = s_ridop_imiscon;
-    assign s_idop_fixed_o   = s_ridop_fixed;
 
     //Instruction payload information
     seu_ff_we #(.LABEL("IDOP_PYLD"),.W(21),.N(PROT_2REP))m_idop_payload (.s_c_i(s_clk_prw),.s_we_i(s_idop_we_aux),.s_d_i(s_widop_payload),.s_q_o(s_ridop_payload));
@@ -76,12 +74,7 @@ module pipeline_2_id (
     seu_ff_we_rst #(.LABEL("IDOP_ICTRL"),.W($size(ictrl)),.N(PROT_2REP)) m_idop_ictrl (.s_c_i(s_clk_prw),.s_we_i(s_idop_we_esn),.s_r_i(s_resetn_prw),.s_d_i(s_widop_ictrl),.s_q_o(s_ridop_ictrl));
     //Instruction misconduct indicator
     seu_ff_we_rst #(.LABEL("IDOP_IMISCON"),.W($size(imiscon)),.N(PROT_2REP)) m_idop_imiscon (.s_c_i(s_clk_prw),.s_we_i(s_idop_we_esn),.s_r_i(s_resetn_prw),.s_d_i(s_widop_imiscon),.s_q_o(s_ridop_imiscon));
-`ifdef PROT_INTF
-    //Instruction was fixed (SEU corrected)
-    seu_ff_rst #(.LABEL("IDOP_FIXED"),.W(1),.N(PROT_2REP)) m_idop_fixed (.s_c_i(s_clk_prw),.s_r_i(s_resetn_prw),.s_d_i(s_widop_fixed),.s_q_o(s_ridop_fixed));
-`else
-    assign s_ridop_fixed[0] = 1'b0;
-`endif
+
 `ifdef PROT_PIPE
     rf_add s_widop_acmadd[1], s_ridop_acmadd[1];
     logic[5:0] s_widop_acmcnt[1], s_ridop_acmcnt[1];
@@ -230,17 +223,6 @@ module pipeline_2_id (
                         s_widop_rs1[i]  = s_rs1[i];
                     if(~s_id_free_rp[i][1])
                         s_widop_rs2[i]  = s_rs2[i];
-                end
-            end
-`endif
-`ifdef PROT_INTF
-            always_comb begin : pipe_2_fixed_writer
-                if(s_flush_id[i] | (s_aligner_nop[i] & ~s_stall_id[i]))begin
-                    s_widop_fixed[i]= 1'b0;
-                end else if(s_stall_id[i])begin
-                    s_widop_fixed[i]= s_ridop_fixed[i];
-                end else begin
-                    s_widop_fixed[i]= s_fetch_error[i] == FETCH_INCER;
                 end
             end
 `endif

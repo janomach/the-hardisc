@@ -175,7 +175,7 @@ module pipeline_1_fe #(
             assign s_ifb_push[i]        = s_hready_i[i] & s_rfe1_utd[i] & ~s_ras_toc_valid[i];
             assign s_ifb_wdata[i][31:0] = s_hrdata_i;
             assign s_ifb_wdata[i][32]   = s_rfe1_add[i][0];
-            assign s_ifb_wdata[i][35:33]= s_discrepancy[i] ? FETCH_DSCR : s_wo_trreq_fe1[i] ? FETCH_PMAVN : s_hresp_i[i] ? FETCH_BSERR : FETCH_VALID;
+            assign s_ifb_wdata[i][35:33]= s_discrepancy[i] ? IMISCON_DSCR : s_wo_trreq_fe1[i] ? IMISCON_PMAV : s_hresp_i[i] ? IMISCON_FERR : IMISCON_FREE;
             assign s_ifb_wdata[i][37:36]= s_wo_trreq_fe1[i] ? 2'b0 : s_rfe1_inf[i];
             //Output of the IFB
             assign s_feid_info_o[i]     = {s_ifb_rdata[i][35:32], ~s_ifb_valid[i]};

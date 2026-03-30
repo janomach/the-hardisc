@@ -77,7 +77,6 @@ module hardisc #(
                 s_toc_addr[PROT_3REP], s_rf_val[PROT_3REP], s_lsu_wdata[PROT_3REP], s_read_data[PROT_3REP], s_lsu_fixed_data[PROT_3REP];
     logic[20:0] s_idop_payload[PROT_2REP];
     logic[1:0] s_feid_pred[PROT_2REP];
-    logic s_idop_fixed[PROT_2REP], s_int_fcer;
     f_part s_idop_f[PROT_2REP], s_opex_f[PROT_2REP], s_exma_f[PROT_3REP];
     rf_add s_idop_rs1[PROT_2REP], s_idop_rs2[PROT_2REP], s_idop_rd[PROT_2REP], s_opex_rd[PROT_2REP], s_exma_rd[PROT_3REP], s_mawb_rd[PROT_3REP];
     ictrl s_idop_ictrl[PROT_2REP], s_exma_ictrl[PROT_3REP], s_mawb_ictrl[PROT_3REP], s_opex_ictrl[PROT_2REP];
@@ -173,8 +172,7 @@ module hardisc #(
         .s_idop_rs2_o(s_idop_rs2),
         .s_idop_sctrl_o(s_idop_sctrl),
         .s_idop_ictrl_o(s_idop_ictrl),
-        .s_idop_imiscon_o(s_idop_imiscon),
-        .s_idop_fixed_o(s_idop_fixed)
+        .s_idop_imiscon_o(s_idop_imiscon)
     );
     pipeline_3_op m_pipe_3_op
     (
@@ -202,7 +200,6 @@ module hardisc #(
         .s_idop_ictrl_i(s_idop_ictrl),
         .s_idop_sctrl_i(s_idop_sctrl),
         .s_idop_imiscon_i(s_idop_imiscon),
-        .s_idop_fixed_i(s_idop_fixed),
 
         .s_opex_op1_o(s_opex_op1),
         .s_opex_op2_o(s_opex_op2),
@@ -295,7 +292,6 @@ module hardisc #(
 
         .s_int_meip_i(s_int_meip_i),
         .s_int_mtip_i(s_int_mtip_i),
-        .s_int_fcer_i(s_int_fcer),
 
         .s_lsu_ready_i(s_lsu_dp_ready),
         .s_lsu_hresp_i(s_lsu_dp_hresp),
@@ -352,15 +348,5 @@ module hardisc #(
         .s_p1_val_o(s_idop_p1),
         .s_p2_val_o(s_idop_p2)
     );
-
-`ifdef PROT_INTF
-    assign s_int_fcer   = (s_idop_fixed[0] & ((s_opex_ictrl[0] == '0) & (s_exma_ictrl[0] == '0))) 
-`ifdef PROT_PIPE
-                         | s_idop_fixed[1] & ((s_opex_ictrl[1] == '0) & (s_exma_ictrl[1] == '0))
-`endif                         
-                         ;
-`else
-    assign s_int_fcer   = 1'b0;
-`endif
 
 endmodule
