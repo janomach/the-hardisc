@@ -101,8 +101,11 @@ int main(void)
                                                              (total_delay / err_count) / (FREQUENCY / 1000000), 
                                                              max_delay / (FREQUENCY / 1000000));
 
+    delay(FREQUENCY/10);
+
     do {
       data = *(volatile uint32_t *)SEM_ADDRESS;
+      //printf("\t SEM state: %2x\n",data);
     } while((data & 0x30) != 0); //wait until injection and classification is done
 
     if((data & 0x4) != 0) { //observation

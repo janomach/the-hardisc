@@ -447,17 +447,21 @@ endgenerate
     .s_monitor_rx_i(s_uart_rx_sem)
 );
 
-/*ila_0 ila
+ila_0 ila
 (
     .clk(s_clk_i),
     .probe0(s_unrec_err[0]),
     .probe1(dut.rep[0].core.m_pipe_5_ma.m_csru.s_livelock[0]),
-    .probe2(r_noex),
+    .probe2(m_sem.r_status_heartbeat),
     .probe3(dut.rep[0].core.m_pipe_5_ma.m_csru.s_execute[0]),
     .probe4(dut.rep[0].core.m_pipe_5_ma.m_csru.s_rstpp_i[0]),
-    .probe5(m_sem.r_status_injection),
+    .probe5(dut.rep[0].core.m_pipe_5_ma.m_csru.s_mcause[0]),
     .probe6(dut.rep[0].core.m_pipe_5_ma.m_csru.s_mhrdctrl0[0]),
-    .probe7(dut.rep[0].core.m_pipe_5_ma.m_csru.s_pc_i[0])
-);*/
+    .probe7(dut.rep[0].core.m_pipe_5_ma.m_csru.s_pc_i[0]),
+    .probe8(dut.rep[0].core.s_i_hready_i[0]),
+    .probe9(dut.rep[0].core.s_d_hready_i[0]),
+    .probe10(dut.rep[0].core.s_i_hresp_i[0]),
+    .probe11(dut.rep[0].core.s_d_hresp_i[0])
+);
 
 endmodule
