@@ -213,7 +213,6 @@
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_2_id/m_idop_sctrl/r_data 2 4
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_2_id/m_idop_ictrl/r_data 2 7
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_2_id/m_idop_imiscon/r_data 2 3
-/tb_mh_wrapper/dut/rep[0]/core/m_pipe_2_id/m_idop_fixed/r_data 2 1
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_2_id/m_idop_acmadd/r_data 1 5
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_2_id/id_replicator[0]/m_aligner/m_svd_info/r_data 1 4
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_2_id/id_replicator[0]/m_aligner/m_svd_instr/r_data 1 16
