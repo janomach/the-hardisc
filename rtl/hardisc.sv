@@ -16,6 +16,7 @@
 
 `include "settings.sv"
 import p_hardisc::*;
+import p_reri::fault_record_t;
 
 module hardisc #(
     parameter PMA_REGIONS = 3,
@@ -65,11 +66,8 @@ module hardisc #(
     output logic s_unrec_err_o[PROT_2REP],  //unrecoverable error
 
     // RERI fault outputs — connect to reri_error_bank fault bus
-    output logic        s_fault_fetch_ce_o,   //fetch interface correctable error
-    output logic        s_fault_lsu_ce_o,     //LSU data correctable error
-    output logic        s_fault_lsu_uce_o,    //LSU data uncorrectable error
-    output logic [31:0] s_fault_fetch_addr_o, //PC at time of fetch fault
-    output logic [31:0] s_fault_lsu_addr_o    //effective address at LSU fault
+    output fault_record_t s_fault_fetch_o,  //fetch interface fault record (CE)
+    output fault_record_t s_fault_lsu_o     //LSU data fault record (CE or UCE)
 );
 
     logic[4:0] s_stall[PROT_3REP];
@@ -371,21 +369,38 @@ module hardisc #(
 `endif
 
     // -------------------------------------------------------
-    // RERI fault output wiring
-    // s_lsu_einfo format: {ce, error}
-    //   [1] = correctable error (single-bit, SECDED corrected)
-    //   [0] = any error; UCE when [0]=1 and [1]=0 (double-bit)
+    // RERI fault record wiring
+    // s_lsu_einfo[0]: [1]=CE (corrected), [0]=any error
+    //   UCE = [0] & ~[1]; error codes per RERI Table 6
     // -------------------------------------------------------
 `ifdef PROT_INTF
-    assign s_fault_fetch_ce_o  = s_int_fcer;
-    assign s_fault_lsu_ce_o    = s_lsu_einfo[0][1];
-    assign s_fault_lsu_uce_o   = s_lsu_einfo[0][0] & ~s_lsu_einfo[0][1];
+    assign s_fault_fetch_o.valid = s_int_fcer;
+    assign s_fault_lsu_o.valid   = s_lsu_einfo[0][0];
+    assign s_fault_lsu_o.ce      = s_lsu_einfo[0][1];
+    assign s_fault_lsu_o.ued     = s_lsu_einfo[0][0] & ~s_lsu_einfo[0][1];
 `else
-    assign s_fault_fetch_ce_o  = 1'b0;
-    assign s_fault_lsu_ce_o    = 1'b0;
-    assign s_fault_lsu_uce_o   = 1'b0;
+    assign s_fault_fetch_o.valid = 1'b0;
+    assign s_fault_lsu_o.valid   = 1'b0;
+    assign s_fault_lsu_o.ce      = 1'b0;
+    assign s_fault_lsu_o.ued     = 1'b0;
 `endif
-    assign s_fault_fetch_addr_o = s_pc[0];       // current PC (MA stage)
-    assign s_fault_lsu_addr_o   = s_exma_val[0]; // EX→MA effective address
+    // Fetch record — always a CE; fixed RERI metadata
+    assign s_fault_fetch_o.ce   = 1'b1;
+    assign s_fault_fetch_o.ued  = 1'b0;
+    assign s_fault_fetch_o.uec  = 1'b0;
+    assign s_fault_fetch_o.ec   = 8'h11;   // instruction fetch CE
+    assign s_fault_fetch_o.pri  = 2'b01;   // low priority
+    assign s_fault_fetch_o.c    = 1'b1;    // containable — core corrected it
+    assign s_fault_fetch_o.ait  = 4'h1;    // supervisor physical address
+    assign s_fault_fetch_o.addr = s_pc[0]; // current PC (MA stage)
+    assign s_fault_fetch_o.tt   = 3'b110;  // implicit read (instruction fetch)
+    // LSU record — static fields
+    assign s_fault_lsu_o.uec    = 1'b0;
+    assign s_fault_lsu_o.ec     = (s_lsu_einfo[0][0] & ~s_lsu_einfo[0][1]) ? 8'h22 : 8'h21;
+    assign s_fault_lsu_o.pri    = (s_lsu_einfo[0][0] & ~s_lsu_einfo[0][1]) ? 2'b10 : 2'b01;
+    assign s_fault_lsu_o.c      = s_lsu_einfo[0][1]; // CE is containable, UCE is not
+    assign s_fault_lsu_o.ait    = 4'h1;               // supervisor physical address
+    assign s_fault_lsu_o.addr   = s_exma_val[0];      // EX→MA effective address
+    assign s_fault_lsu_o.tt     = 3'b100;             // explicit read (load)
 
 endmodule
