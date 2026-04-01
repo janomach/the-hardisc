@@ -21,6 +21,7 @@ vlog -sv -work work rtl/edac.sv
 vlog -sv -work work +incdir+rtl rtl/ecc_monitor.sv
 
 # reri_error_bank and its AHB controller dependency
+vlog -sv -work work peripherals/p_reri.sv
 vlog -sv -work work peripherals/ahb_controller.sv
 vlog -sv -work work peripherals/reri_error_bank.sv
 

@@ -43,6 +43,8 @@
 
 `timescale 1ns/1ns
 
+import p_reri::fault_record_t;
+
 module tb_reri;
 
 // ========================================================================
@@ -117,7 +119,7 @@ logic        pipe_uce;
 logic [31:0] fetch_addr;
 logic [31:0] lsu_addr;
 
-// ecc_monitor a reri_error_bank fault bus
+// ecc_monitor flat outputs (match ecc_monitor port list)
 logic [N_REC-1:0]        fault_valid;
 logic [N_REC-1:0]        fault_ce_bus;
 logic [N_REC-1:0]        fault_ued_bus;
@@ -128,6 +130,27 @@ logic [N_REC-1:0]        fault_c_bus;
 logic [N_REC-1:0][3:0]   fault_ait_bus;
 logic [N_REC-1:0][31:0]  fault_addr_bus;
 logic [N_REC-1:0][2:0]   fault_tt_bus;
+
+// Packed struct array connecting ecc_monitor outputs to reri_error_bank
+// Assigned as a single packed concatenation (MSB→LSB order matches struct declaration):
+//   valid, ce, ued, uec, ec[7:0], pri[1:0], c, ait[3:0], addr[31:0], tt[2:0]
+fault_record_t fault_in_arr [N_REC];
+generate
+    for (genvar g = 0; g < N_REC; g++) begin : gen_fault_pack
+        assign fault_in_arr[g] = {
+            fault_valid[g],
+            fault_ce_bus[g],
+            fault_ued_bus[g],
+            fault_uec_bus[g],
+            fault_ec_bus[g],
+            fault_pri_bus[g],
+            fault_c_bus[g],
+            fault_ait_bus[g],
+            fault_addr_bus[g],
+            fault_tt_bus[g]
+        };
+    end
+endgenerate
 
 // AHB-Lite signals to reri_error_bank
 logic [31:0] haddr;
@@ -195,16 +218,7 @@ reri_error_bank #(
     .hrdata      (hrdata),
     .hreadyout   (hreadyout),
     .hresp       (hresp),
-    .fault_valid (fault_valid),
-    .fault_ce    (fault_ce_bus),
-    .fault_ued   (fault_ued_bus),
-    .fault_uec   (fault_uec_bus),
-    .fault_ec    (fault_ec_bus),
-    .fault_pri   (fault_pri_bus),
-    .fault_c     (fault_c_bus),
-    .fault_ait   (fault_ait_bus),
-    .fault_addr  (fault_addr_bus),
-    .fault_tt    (fault_tt_bus),
+    .fault_in    (fault_in_arr),
     .ras_lo      (ras_lo),
     .ras_hi      (ras_hi),
     .ras_plat    (ras_plat)
