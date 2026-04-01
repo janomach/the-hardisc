@@ -30,6 +30,8 @@
     TC22  addr_info_i[63:32] (word 5 of record block) reads 0
     TC23  control_i[63:32] sinv/srdp bits always read 0
     TC24  Simultaneous multi-record fault capture (fetch_ce + lsu_ce same cycle)
+    TC25  ceco flag set when ecount overflows (cec at 0xFFFF and CE arrives with cece=1)
+    TC26  scrub_ack sets scrub bit; cleared on new capture and on sinv_clear
 
     Coding conventions
     ========================================================================
@@ -73,6 +75,8 @@ localparam TT_HI      = 10;  // status_i[10:8] – transaction type (high bit)
 localparam AIT_LO     = 12;  // status_i[15:12] – address/info type (low  bit)
 localparam AIT_HI     = 15;  // status_i[15:12] – address/info type (high bit)
 localparam RDIP_BIT   = 23;  // status_i[23] – read-in-progress
+localparam SCRUB_BIT  = 20;  // status_i[20] – scrub recorded
+localparam CECO_BIT   = 21;  // status_i[21] – corrected error count overflow
 localparam EC_LO      = 24;  // status_i[31:24] – error code (low  bit)
 localparam EC_HI      = 31;  // status_i[31:24] – error code (high bit)
 
@@ -170,6 +174,9 @@ logic        hresp;
 // RAS outputs
 logic ras_lo, ras_hi, ras_plat;
 
+// Scrub acknowledge (driven by TB to simulate HW scrubber)
+logic [N_REC-1:0] scrub_ack;
+
 // ========================================================================
 // DUT instantiation
 // ========================================================================
@@ -219,6 +226,7 @@ reri_error_bank #(
     .hreadyout   (hreadyout),
     .hresp       (hresp),
     .fault_in    (fault_in_arr),
+    .scrub_ack_i (scrub_ack),
     .ras_lo      (ras_lo),
     .ras_hi      (ras_hi),
     .ras_plat    (ras_plat)
@@ -373,6 +381,7 @@ initial begin
     hparity   = 6'b0;
     hwdata    = 32'h0;
     clear_faults();
+    scrub_ack = '0;
 
     // Reset 
     rst_n = 1'b0;
@@ -1121,6 +1130,103 @@ initial begin
     `CHECK("TC24 ras_lo==1 (both CEs)", ras_lo, 1'b1)
 
     sinv_clear(0); sinv_clear(1); idle(1);
+
+    // ================================================================
+    // TC25: ceco flag set when ecount overflows
+    //   After TC20 saturation ecount[0]=0xFFFF; rec0 is invalid.
+    //   Enable with cece=1 and inject a CE: ecount is already at max,
+    //   so r_ceco[0] is set to 1 instead of incrementing.
+    //   With cece=1 and ceco=1, RAS fires via ces=01 (ras_lo).
+    //   sinv_clear clears ceco along with valid.
+    // ================================================================
+    $display("\n------ TC25: ceco overflow flag ------");
+    // ecount[0] is 0xFFFF from TC20; rec0 is invalid after TC24 cleanup.
+    ahb_read(STATUS_HI_ADDR(0), rdata);
+    `CHECK("TC25 ecount pre-condition==0xFFFF", rdata[31:16], 16'hFFFF)
+    ahb_read(STATUS_ADDR(0), estatus);
+    `CHECK("TC25 ceco==0 before inject",        estatus[CECO_BIT], 1'b0)
+
+    enable_record_cece(0);  // else=1, cece=1, ces=01(lo) = 0x57
+    @(negedge clk);
+    fetch_ce   = 1'b1;
+    fetch_addr = 32'hEC25_0001;
+    @(posedge clk);
+    @(negedge clk);
+    fetch_ce   = 1'b0; fetch_addr = 32'h0;
+    idle(1);
+
+    ahb_read(STATUS_ADDR(0), estatus);
+    `CHECK("TC25 rec0 valid",              estatus[VALID_BIT], 1'b1)
+    `CHECK("TC25 rec0 ceco==1",            estatus[CECO_BIT],  1'b1)
+    ahb_read(STATUS_HI_ADDR(0), rdata);
+    `CHECK("TC25 ecount stays 0xFFFF",     rdata[31:16],       16'hFFFF)
+    // cece=1 and ceco=1 → RAS fires via ces=01 → ras_lo
+    `CHECK("TC25 ras_lo==1 (ceco+ces=01)", ras_lo,             1'b1)
+
+    sinv_clear(0); idle(1);
+    ahb_read(STATUS_ADDR(0), estatus);
+    `CHECK("TC25 ceco==0 after sinv_clear", estatus[CECO_BIT], 1'b0)
+
+    // ================================================================
+    // TC26: scrub_ack sets scrub bit; cleared on new capture and sinv_clear
+    //   Inject LSU CE into rec0; verify scrub=0 initially.
+    //   Pulse scrub_ack[0]; verify scrub=1.
+    //   sinv_clear → scrub cleared.
+    //   Re-inject with scrub_ack on rec1; overwrite with higher-priority
+    //   UED → scrub cleared by new capture.
+    // ================================================================
+    $display("\n------ TC26: scrub_ack and scrub bit ------");
+    enable_record(0);  // else=1, cece=0, ces=01 = 0x55
+    @(negedge clk);
+    fetch_ce   = 1'b1;
+    fetch_addr = 32'hAB26_0001;
+    @(posedge clk);
+    @(negedge clk);
+    fetch_ce   = 1'b0; fetch_addr = 32'h0;
+    idle(1);
+
+    ahb_read(STATUS_ADDR(0), estatus);
+    `CHECK("TC26 scrub==0 before ack",     estatus[SCRUB_BIT], 1'b0)
+    `CHECK("TC26 rec0 valid",              estatus[VALID_BIT], 1'b1)
+
+    // Pulse scrub_ack[0] for one cycle
+    @(negedge clk); scrub_ack[0] = 1'b1;
+    @(posedge clk);
+    @(negedge clk); scrub_ack[0] = 1'b0;
+    idle(1);
+
+    ahb_read(STATUS_ADDR(0), estatus);
+    `CHECK("TC26 scrub==1 after ack",      estatus[SCRUB_BIT], 1'b1)
+
+    // sinv_clear must also clear scrub
+    sinv_clear(0); idle(1);
+    ahb_read(STATUS_ADDR(0), estatus);
+    `CHECK("TC26 scrub==0 after sinv",     estatus[SCRUB_BIT], 1'b0)
+
+    // New fault capture (overwrite with higher-priority) must clear scrub
+    enable_record(1);
+    @(negedge clk); lsu_ce = 1'b1; lsu_addr = 32'hAB26_0002;
+    @(posedge clk); @(negedge clk); lsu_ce = 1'b0; lsu_addr = 32'h0;
+    idle(1);
+
+    @(negedge clk); scrub_ack[1] = 1'b1;
+    @(posedge clk);
+    @(negedge clk); scrub_ack[1] = 1'b0;
+    idle(1);
+
+    ahb_read(STATUS_ADDR(1), estatus);
+    `CHECK("TC26 rec1 scrub==1 before overwrite", estatus[SCRUB_BIT], 1'b1)
+
+    // Overwrite with UED (pri=2 > CE pri=1) → scrub must be cleared
+    @(negedge clk); lsu_uce = 1'b1; lsu_addr = 32'hAB26_0003;
+    @(posedge clk); @(negedge clk); lsu_uce = 1'b0; lsu_addr = 32'h0;
+    idle(1);
+
+    ahb_read(STATUS_ADDR(1), estatus);
+    `CHECK("TC26 rec1 scrub==0 after overwrite", estatus[SCRUB_BIT], 1'b0)
+    `CHECK("TC26 rec1 ued==1 (new capture)",      estatus[UED_BIT],   1'b1)
+
+    sinv_clear(1); idle(1);
 
     // ================================================================
     // Summary
