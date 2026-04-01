@@ -31,7 +31,11 @@ module reri_error_bank #(
 
     // Fault inputs from Hardisc (one entry per record)
     input  fault_record_t fault_in [N_RECORDS],
-    
+
+    // Scrub acknowledge inputs (one bit per record; pulsed by HW scrubber
+    // when the error location has been successfully scrubbed)
+    input  logic [N_RECORDS-1:0] scrub_ack_i,
+
     // RAS signal outputs
     output logic        ras_lo,   // low-priority RAS
     output logic        ras_hi,   // high-priority RAS
@@ -88,13 +92,13 @@ module reri_error_bank #(
     //      [16]     siv   - supplemental-information-valid field, 1 = report present in suppl_info_i (not implemented, always 0)
     //      [17]     tsv   - timestamp-valid field, 1 = timestamp recorded in timestamp_i (not implemented, always 0)
     //      [19:18]  WPRI  - Writes Preserve values, Reads Ignore values (for future use)
-    //      [20]     scrub - scrub recorded (not implemented, always 0)
-    //      [21]     ceco  - corrected error count overflow, 1 = overflow in the counter occurred (not implemented, always 0)
+    //      [20]     scrub - scrub recorded, 1 = a scrub has been applied to the error location (set via scrub_ack_i)
+    //      [21]     ceco  - corrected error count overflow, 1 = cec saturated at 0xFFFF and another CE arrived while cece=1
     //      [22]     WPRI  - Writes Preserve values, Reads Ignore values (for future use)
     //      [23]     rdip  - read-in-progress field, set on new error capture to invalid register, cleared on overwrite of valid record
     //      [31:24]  ec    - error code (WARL) field, description of the detected error
     //      [47:32]  WPRI  - Writes Preserve values, Reads Ignore values (for future use)
-    //      [63:48]  cec   - corrected error count (WARL) field, saturating at 0xFFFF (not implemented, always 0)
+    //      [63:48]  cec   - corrected error count (WARL) field, saturating at 0xFFFF
     
     //   +0x10  addr_info_i[63:0]      - Address or information register of error record i, reports address or other information about the error, when ait != 0
     //   +0x18  info_i [63:0]          - Information register of error record i, when iv=1 (?not implemented, always 0)
@@ -106,16 +110,18 @@ module reri_error_bank #(
     // -------------------------------------------------------
     // Record storage registers
     logic        r_valid  [N_RECORDS];   // [0]      valid bit
-    logic        r_rdip   [N_RECORDS];   // [23]     read-in-progress bit
     logic        r_ce     [N_RECORDS];   // [1]      corrected error bit
     logic        r_ued    [N_RECORDS];   // [2]      uncorrected error deferred bit
     logic        r_uec    [N_RECORDS];   // [3]      uncorrected error critical bit
-    logic [7:0]  r_ec     [N_RECORDS];   // [31:24]  error code
     logic [1:0]  r_pri    [N_RECORDS];   // [5:4]    priority
     logic        r_c      [N_RECORDS];   // [7]      containable bit
-    logic [3:0]  r_ait    [N_RECORDS];   // [15:12]  address/info type
     logic [2:0]  r_tt     [N_RECORDS];   // [10:8]   transaction type
-    logic [15:0] r_ecount [N_RECORDS];  // [63:48]  corrected error counter (saturating at 0xFFFF)
+    logic [3:0]  r_ait    [N_RECORDS];   // [15:12]  address/info type
+    logic        r_scrub  [N_RECORDS];   // [20]     scrubbed bit
+    logic        r_ceco   [N_RECORDS];   // [21]     corrected error count overflow bit
+    logic        r_rdip   [N_RECORDS];   // [23]     read-in-progress bit
+    logic [7:0]  r_ec     [N_RECORDS];   // [31:24]  error code
+    logic [15:0] r_ecount [N_RECORDS];   // [63:48]  corrected error counter (saturating at 0xFFFF)
 
     logic [63:0] r_addr   [N_RECORDS];   // [63:0]   address or information about the error
     // Control register fields (control_i)
@@ -152,8 +158,8 @@ module reri_error_bank #(
                 r_ec[g],         // [31:24] ec
                 r_rdip[g],       // [23]    rdip
                 1'b0,            // [22]    WPRI
-                1'b0,            // [21]    ceco  (not implemented)
-                1'b0,            // [20]    scrub (not implemented)
+                r_ceco[g],       // [21]    ceco
+                r_scrub[g],      // [20]    scrub
                 2'b0,            // [19:18] WPRI
                 1'b0,            // [17]    tsv   (not implemented)
                 1'b0,            // [16]    siv   (not implemented)
@@ -285,15 +291,11 @@ module reri_error_bank #(
                 r_uecs[i]  <= 2'b0;
                 r_eid[i]   <= 16'h0;
                 r_ecount[i]<= 16'h0;
+                r_scrub[i] <= 1'b0;
+                r_ceco[i]  <= 1'b0;
             end
         end else begin
             for (integer i = 0; i < N_RECORDS; i++) begin
-                // CE counter: increment when cece=1 and fault is a corrected error
-                if (r_else[i] && r_cece[i] && fault_in[i].valid &&
-                        fault_in[i].ce && !fault_in[i].uec && !fault_in[i].ued) begin
-                    r_ecount[i] <= (r_ecount[i] == 16'hFFFF) ? 16'hFFFF
-                                                              : r_ecount[i] + 16'h1;
-                end
                 // ── Hardware fault capture (gated by else) ──────────────────────────
                 if (r_else[i] && fault_in[i].valid &&
                         (!r_valid[i] || (fault_in[i].pri > r_pri[i]))) begin
@@ -309,7 +311,23 @@ module reri_error_bank #(
                     r_ait[i]   <= fault_in[i].ait;
                     r_addr[i]  <= fault_in[i].addr;
                     r_tt[i]    <= fault_in[i].tt;
+                    r_scrub[i] <= 1'b0;  // new capture resets scrub
+                    r_ceco[i]  <= 1'b0;  // new capture resets overflow flag
                 end
+                // CE counter: increment when cece=1 and fault is a corrected error;
+                // set ceco when counter is already at 0xFFFF (overflow).
+                // Placed AFTER fault capture so r_ceco<=1 wins when both fire together.
+                if (r_else[i] && r_cece[i] && fault_in[i].valid &&
+                        fault_in[i].ce && !fault_in[i].uec && !fault_in[i].ued) begin
+                    if (r_ecount[i] == 16'hFFFF)
+                        r_ceco[i] <= 1'b1;
+                    else
+                        r_ecount[i] <= r_ecount[i] + 16'h1;
+                end
+
+                // ── scrub_ack: mark a valid record as scrubbed ───────────────
+                if (scrub_ack_i[i] && r_valid[i])
+                    r_scrub[i] <= 1'b1;
 
                 // ── eid countdown + injection ────────────────────────────
                 if (r_eid[i] != 16'h0) begin
@@ -337,8 +355,11 @@ module reri_error_bank #(
                         if (hwdata[17]) r_rdip[i] <= 1'b1;
                         // sinv (bit16): clear valid if rdip=1
                         // sinv+srdp together: rdip is set first, then valid cleared
-                        if (hwdata[16] && (r_rdip[i] || hwdata[17]))
+                        if (hwdata[16] && (r_rdip[i] || hwdata[17])) begin
                             r_valid[i] <= 1'b0;
+                            r_scrub[i] <= 1'b0;
+                            r_ceco[i]  <= 1'b0;
+                        end
                     end
                 end
             end
@@ -352,8 +373,8 @@ module reri_error_bank #(
     //     0 = disabled, 1 = lo-priority RAS, 2 = hi-priority RAS,
     //     3 = platform-specific RAS
     //   A record only signals when r_else[i]=1 and r_valid[i]=1.
-    //   CE signaling: only when cece=0 (when cece=1 only cec overflow signals;
-    //                 cec/overflow not implemented, so ces unused when cece=1).
+    //   CE signaling: cece=0 → signal via ces on any CE; cece=1 → signal via ces
+    //                 only on count overflow (ceco=1).
     //   ras_plat (overflow): incoming fault cannot displace the stored record.
     // -------------------------------------------------------
     always_comb begin : ras_gen
@@ -362,11 +383,15 @@ module reri_error_bank #(
         ras_plat   = 1'b0;
         for (integer j = 0; j < N_RECORDS; j++) begin
             if (r_else[j] && r_valid[j]) begin
-                // CE signaling (only when cece=0)
-                if (r_ce[j] && !r_uec[j] && !r_ued[j] && !r_cece[j]) begin
-                    if (r_ces[j] == 2'd1) ras_lo   = 1'b1;
-                    if (r_ces[j] == 2'd2) ras_hi   = 1'b1;
-                    if (r_ces[j] == 2'd3) ras_plat = 1'b1;
+                // CE signaling:
+                //   cece=0 → signal via ces on any CE record
+                //   cece=1 → signal via ces only on count overflow (ceco=1)
+                if (r_ce[j] && !r_uec[j] && !r_ued[j]) begin
+                    if (!r_cece[j] || r_ceco[j]) begin
+                        if (r_ces[j] == 2'd1) ras_lo   = 1'b1;
+                        if (r_ces[j] == 2'd2) ras_hi   = 1'b1;
+                        if (r_ces[j] == 2'd3) ras_plat = 1'b1;
+                    end
                 end
                 // UED signaling
                 if (r_ued[j] && !r_uec[j]) begin
