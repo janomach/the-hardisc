@@ -16,6 +16,7 @@
 
 `include "settings.sv"
 import p_hardisc::*;
+import p_reri::fault_record_t;
 
 module hardisc #(
     parameter PMA_REGIONS = 3,
@@ -65,11 +66,8 @@ module hardisc #(
     output logic s_unrec_err_o[PROT_2REP],  //unrecoverable error
 
     // RERI fault outputs — connect to reri_error_bank fault bus
-    output logic        s_fault_fetch_ce_o,   //fetch interface correctable error
-    output logic        s_fault_lsu_ce_o,     //LSU data correctable error
-    output logic        s_fault_lsu_uce_o,    //LSU data uncorrectable error
-    output logic [31:0] s_fault_fetch_addr_o, //PC at time of fetch fault
-    output logic [31:0] s_fault_lsu_addr_o    //effective address at LSU fault
+    output fault_record_t s_fault_fetch_o,  //fetch interface fault record (CE)
+    output fault_record_t s_fault_lsu_o     //LSU data fault record (CE or UCE)
 );
 
     logic[4:0] s_stall[PROT_3REP];
