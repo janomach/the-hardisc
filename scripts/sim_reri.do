@@ -18,7 +18,7 @@ vmap work work
 vlog -sv -work work rtl/edac.sv
 
 # ecc_monitor: needs settings.sv on include path
-vlog -sv -work work +incdir+rtl rtl/ecc_monitor.sv
+vlog -sv -work work +incdir+rtl ver/ecc_monitor.sv
 
 # reri_error_bank and its AHB controller dependency
 vlog -sv -work work peripherals/p_reri.sv
