@@ -1,3 +1,5 @@
+import p_reri::fault_record_t;
+
 module reri_error_bank #(
     parameter integer  N_RECORDS = 1,       // 1..63  (n_err_recs)
     parameter integer  IFP       = 0,       // integrity-field protected bus (0=off)
@@ -28,17 +30,8 @@ module reri_error_bank #(
     output logic        hresp,
 
     // Fault inputs from Hardisc (one entry per record)
-    input  logic [N_RECORDS-1:0]        fault_valid,  // new error present
-    input  logic [N_RECORDS-1:0]        fault_ce,     // corrected error
-    input  logic [N_RECORDS-1:0]        fault_ued,    // uncorrected deferred
-    input  logic [N_RECORDS-1:0]        fault_uec,    // uncorrected critical
-    input  logic [N_RECORDS-1:0][7:0]   fault_ec,     // error code (Table 6)
-    input  logic [N_RECORDS-1:0][1:0]   fault_pri,    // priority 0..3
-    input  logic [N_RECORDS-1:0]        fault_c,      // containable
-    input  logic [N_RECORDS-1:0][3:0]   fault_ait,    // address/info type
-    input  logic [N_RECORDS-1:0][31:0]  fault_addr,   // address (addr_info)
-    input  logic [N_RECORDS-1:0][2:0]   fault_tt,     // transaction type
-
+    input  fault_record_t fault_in [N_RECORDS],
+    
     // RAS signal outputs
     output logic        ras_lo,   // low-priority RAS
     output logic        ras_hi,   // high-priority RAS
@@ -296,26 +289,26 @@ module reri_error_bank #(
         end else begin
             for (integer i = 0; i < N_RECORDS; i++) begin
                 // CE counter: increment when cece=1 and fault is a corrected error
-                if (r_else[i] && r_cece[i] && fault_valid[i] &&
-                        fault_ce[i] && !fault_uec[i] && !fault_ued[i]) begin
+                if (r_else[i] && r_cece[i] && fault_in[i].valid &&
+                        fault_in[i].ce && !fault_in[i].uec && !fault_in[i].ued) begin
                     r_ecount[i] <= (r_ecount[i] == 16'hFFFF) ? 16'hFFFF
                                                               : r_ecount[i] + 16'h1;
                 end
                 // ── Hardware fault capture (gated by else) ──────────────────────────
-                if (r_else[i] && fault_valid[i] &&
-                        (!r_valid[i] || (fault_pri[i] > r_pri[i]))) begin
+                if (r_else[i] && fault_in[i].valid &&
+                        (!r_valid[i] || (fault_in[i].pri > r_pri[i]))) begin
                     // rdip: set on 0→1 (new record), cleared on overwrite of valid record
                     r_rdip[i]  <= !r_valid[i];
                     r_valid[i] <= 1'b1;
-                    r_ce[i]    <= fault_ce[i];
-                    r_ued[i]   <= fault_ued[i];
-                    r_uec[i]   <= fault_uec[i];
-                    r_ec[i]    <= fault_ec[i];
-                    r_pri[i]   <= fault_pri[i];
-                    r_c[i]     <= fault_c[i];
-                    r_ait[i]   <= fault_ait[i];
-                    r_addr[i]  <= fault_addr[i];
-                    r_tt[i]    <= fault_tt[i];
+                    r_ce[i]    <= fault_in[i].ce;
+                    r_ued[i]   <= fault_in[i].ued;
+                    r_uec[i]   <= fault_in[i].uec;
+                    r_ec[i]    <= fault_in[i].ec;
+                    r_pri[i]   <= fault_in[i].pri;
+                    r_c[i]     <= fault_in[i].c;
+                    r_ait[i]   <= fault_in[i].ait;
+                    r_addr[i]  <= fault_in[i].addr;
+                    r_tt[i]    <= fault_in[i].tt;
                 end
 
                 // ── eid countdown + injection ────────────────────────────
@@ -389,7 +382,7 @@ module reri_error_bank #(
                 end
             end
             // Overflow: incoming fault cannot displace the stored record
-            if (fault_valid[j] && r_valid[j] && (fault_pri[j] <= r_pri[j]))
+            if (fault_in[j].valid && r_valid[j] && (fault_in[j].pri <= r_pri[j]))
                 ras_plat = 1'b1;
         end
     end
