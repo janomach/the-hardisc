@@ -20,8 +20,9 @@ vlog -sv -work work rtl/edac.sv
 # ecc_monitor: needs settings.sv on include path
 vlog -sv -work work +incdir+rtl rtl/ecc_monitor.sv
 
-# reri_error_bank: standalone
-vlog -sv -work work rtl/reri_error_bank.sv
+# reri_error_bank and its AHB controller dependency
+vlog -sv -work work peripherals/ahb_controller.sv
+vlog -sv -work work peripherals/reri_error_bank.sv
 
 # Testbench
 vlog -sv -work work ver/tb_reri.sv

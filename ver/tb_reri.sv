@@ -134,6 +134,11 @@ logic [31:0] haddr;
 logic [2:0]  hsize;
 logic [1:0]  htrans;
 logic        hwrite;
+logic        hsel;
+logic [2:0]  hburst;
+logic        hmastlock;
+logic [3:0]  hprot;
+logic [5:0]  hparity;
 logic [31:0] hwdata;
 logic [31:0] hrdata;
 logic        hreadyout;
@@ -168,6 +173,7 @@ ecc_monitor #(.N_RECORDS(N_REC)) dut_mon (
 
 reri_error_bank #(
     .N_RECORDS  (N_REC),
+    .IFP        (0),
     .VENDOR_ID  (VENDOR_ID),
     .IMP_ID     (IMP_ID),
     .INST_ID    (INST_ID),
@@ -180,6 +186,11 @@ reri_error_bank #(
     .hsize       (hsize),
     .htrans      (htrans),
     .hwrite      (hwrite),
+    .hsel        (hsel),
+    .hburst      (hburst),
+    .hmastlock   (hmastlock),
+    .hprot       (hprot),
+    .hparity     (hparity),
     .hwdata      (hwdata),
     .hrdata      (hrdata),
     .hreadyout   (hreadyout),
@@ -236,9 +247,11 @@ task automatic ahb_read(input logic [31:0] addr, output logic [31:0] data);
         htrans = 2'b10;  // NONSEQ
         hwrite = 1'b0;
         hsize  = 3'b010; // 32-bit
+        hsel   = 1'b1;
         @(posedge clk);  // address phase registered inside DUT
         @(negedge clk);
         htrans = 2'b00;  // IDLE
+        hsel   = 1'b0;
         haddr  = 32'h0;
         @(posedge clk);  // data phase combinational output valid
         data = hrdata;
@@ -252,10 +265,12 @@ task automatic ahb_write(input logic [31:0] addr, input logic [31:0] data);
         htrans = 2'b10;  // NONSEQ
         hwrite = 1'b1;
         hsize  = 3'b010;
+        hsel   = 1'b1;
         @(posedge clk);  // address phase registered
         @(negedge clk);
         hwdata = data;
         htrans = 2'b00;
+        hsel   = 1'b0;
         haddr  = 32'h0;
         hwrite = 1'b0;
         @(posedge clk);  // data phase DUT registers write on this edge
@@ -333,11 +348,16 @@ initial begin
     fail_cnt = 0;
 
     // Initialise AHB and fault signals
-    haddr  = 32'h0;
-    hsize  = 3'b010;
-    htrans = 2'b00;
-    hwrite = 1'b0;
-    hwdata = 32'h0;
+    haddr     = 32'h0;
+    hsize     = 3'b010;
+    htrans    = 2'b00;
+    hwrite    = 1'b0;
+    hsel      = 1'b0;
+    hburst    = 3'b000;
+    hmastlock = 1'b0;
+    hprot     = 4'b0000;
+    hparity   = 6'b0;
+    hwdata    = 32'h0;
     clear_faults();
 
     // Reset 

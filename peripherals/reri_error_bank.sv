@@ -1,5 +1,6 @@
 module reri_error_bank #(
     parameter integer  N_RECORDS = 1,       // 1..63  (n_err_recs)
+    parameter integer  IFP       = 0,       // integrity-field protected bus (0=off)
     parameter [31:0]   VENDOR_ID = 32'h0,
     parameter [31:0]   IMP_ID    = 32'h0,
     parameter [15:0]   INST_ID   = 16'h0,  // bank_info[15:0]  - instance ID
@@ -11,10 +12,17 @@ module reri_error_bank #(
 
     // AHB-Lite slave interface (register access by software)
     input  logic [31:0] haddr,
+    input  logic [31:0] hwdata,
+    input  logic [2:0]  hburst,
+    input  logic        hmastlock,
+    input  logic [3:0]  hprot,
     input  logic [2:0]  hsize,
     input  logic [1:0]  htrans,
     input  logic        hwrite,
-    input  logic [31:0] hwdata,
+    input  logic        hsel,
+    input  logic [5:0]  hparity,
+    input  logic [6:0]  hwchecksum_i,
+    output logic [6:0]  hrchecksum_o,
     output logic [31:0] hrdata,
     output logic        hreadyout,
     output logic        hresp,
@@ -127,35 +135,20 @@ module reri_error_bank #(
     logic        r_sinv   [N_RECORDS];   // [48]     status invalidate
     logic        r_srdp   [N_RECORDS];   // [49]     set read in progress
 
-    // ---------------------------------------- <0,62>---------------
-    // AHB-Lite address-phase pipeline register
-    // Register the address phase; respond combinationally in the data phase.
     // -------------------------------------------------------
-    logic [11:0] r_haddr_q;   // lower 12 bits cover the full RERI register map
-    logic        r_hwrite_q;
-    logic        r_active_q;  // valid non-idle transfer in address phase
-
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            r_haddr_q  <= 12'h0;
-            r_hwrite_q <= 1'b0;
-            r_active_q <= 1'b0;
-        end else begin
-            r_haddr_q  <= haddr[11:0];
-            r_hwrite_q <= hwrite;
-            r_active_q <= htrans[1];   // NONSEQ (2) or SEQ (3)
-        end
-    end
-
-    // Zero wait-state: always ready, always OKAY
-    assign hreadyout = 1'b1;
-    assign hresp     = 1'b0;
-
+    // AHB controller interface signals
+    // -------------------------------------------------------
+    logic [31:0] s_dp_address;  // registered address from ahb_controller_m
+    logic        s_dp_write;    // registered write flag
+    logic        s_dp_accepted; // data phase is valid (r_trans & !r_hresp)
+    logic        s_ap_detected; // address phase transfer detected
+    logic [1:0]  s_dp_size;     // registered transfer size
+    
     // -------------------------------------------------------
     // Derived combinational signals
     // -------------------------------------------------------
     logic [N_RECORDS-1:0] s_valid_summary;
-    logic [63:0]           s_valid_summary64;  // zero-padded to 64 bits for AHB read
+    logic [63:0] s_valid_summary64;  // zero-padded to 64 bits for AHB read
     logic [31:0] rec_status [N_RECORDS];
 
     generate
@@ -197,9 +190,8 @@ module reri_error_bank #(
     // -------------------------------------------------------
     wire [5:0] w_blk;   // 64-byte block: 0=header, k+1=record k
     wire [3:0] w_word;  // 32-bit word index within the 64-byte block
-    assign w_blk  = r_haddr_q[11:6];
-    assign w_word = r_haddr_q[5:2];
-
+    assign w_blk  = s_dp_address[11:6];
+    assign w_word = s_dp_address[5:2];
     // Words pre-computed outside always_* (iverilog: no constant selects inside processes)
     wire [31:0] w_bank_info_lo;
     wire [31:0] w_bank_info_hi;
@@ -220,7 +212,7 @@ module reri_error_bank #(
     // -------------------------------------------------------
     always_comb begin : ahb_read_mux
         hrdata = 32'h0;
-        if (r_active_q && !r_hwrite_q) begin
+        if (s_dp_accepted && !s_dp_write) begin
             if (w_blk == 6'h0) begin
                 // ── Header ──────────────────────────────────
                 case (w_word)
@@ -303,12 +295,17 @@ module reri_error_bank #(
             end
         end else begin
             for (integer i = 0; i < N_RECORDS; i++) begin
-
-                // ── Hardware fault capture (gated by else) ──────────────
+                // CE counter: increment when cece=1 and fault is a corrected error
+                if (r_else[i] && r_cece[i] && fault_valid[i] &&
+                        fault_ce[i] && !fault_uec[i] && !fault_ued[i]) begin
+                    r_ecount[i] <= (r_ecount[i] == 16'hFFFF) ? 16'hFFFF
+                                                              : r_ecount[i] + 16'h1;
+                end
+                // ── Hardware fault capture (gated by else) ──────────────────────────
                 if (r_else[i] && fault_valid[i] &&
                         (!r_valid[i] || (fault_pri[i] > r_pri[i]))) begin
-                    // rdip: set on 0→1, clear on overwrite of valid record
-                    r_rdip[i]  <= !r_valid[i];  // 1 if new record, 0 if overwrite
+                    // rdip: set on 0→1 (new record), cleared on overwrite of valid record
+                    r_rdip[i]  <= !r_valid[i];
                     r_valid[i] <= 1'b1;
                     r_ce[i]    <= fault_ce[i];
                     r_ued[i]   <= fault_ued[i];
@@ -319,10 +316,6 @@ module reri_error_bank #(
                     r_ait[i]   <= fault_ait[i];
                     r_addr[i]  <= fault_addr[i];
                     r_tt[i]    <= fault_tt[i];
-                    // CE counter: increment when cece=1 and fault is a corrected error
-                    if (r_cece[i] && fault_ce[i] && !fault_uec[i] && !fault_ued[i])
-                        r_ecount[i] <= (r_ecount[i] == 16'hFFFF) ? 16'hFFFF
-                                                                  : r_ecount[i] + 16'h1;
                 end
 
                 // ── eid countdown + injection ────────────────────────────
@@ -335,7 +328,7 @@ module reri_error_bank #(
                 end
 
                 // ── Control register writes ──────────────────────────────
-                if (r_active_q && r_hwrite_q && (w_blk == (i + 1))) begin
+                if (s_dp_accepted && s_dp_write && (w_blk == (i + 1))) begin
                     if (w_word == 4'd0) begin
                         // control_i[31:0]: else/cece/ces/ueds/uecs
                         r_else[i]  <= hwdata[0];
@@ -355,7 +348,6 @@ module reri_error_bank #(
                             r_valid[i] <= 1'b0;
                     end
                 end
-
             end
         end
     end
@@ -402,4 +394,34 @@ module reri_error_bank #(
         end
     end
 
+    // -------------------------------------------------------
+    // AHB-Lite controller (address-phase pipeline + ready/resp)
+    // -------------------------------------------------------
+    ahb_controller_m #(.IFP(IFP)) ahb_ctrl (
+        .s_clk_i        (clk),
+        .s_resetn_i     (rst_n),
+
+        .s_haddr_i      (haddr),
+        .s_hburst_i     (hburst),
+        .s_hmastlock_i  (hmastlock),
+        .s_hprot_i      (hprot),
+        .s_hsize_i      (hsize),
+        .s_htrans_i     (htrans),
+        .s_hwrite_i     (hwrite),
+        .s_hsel_i       (hsel),
+
+        .s_hparity_i    (hparity),
+
+        .s_hready_o     (hreadyout),
+        .s_hresp_o      (hresp),
+
+        .s_ap_error_i   (1'b0),
+        .s_dp_delay_i   (1'b0),
+
+        .s_ap_detected_o(s_ap_detected),
+        .s_dp_accepted_o(s_dp_accepted),
+        .s_dp_address_o (s_dp_address),
+        .s_dp_write_o   (s_dp_write),
+        .s_dp_size_o    (s_dp_size)
+    );
 endmodule
