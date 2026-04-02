@@ -67,7 +67,7 @@ add wave -noupdate -color Orange /tb_reri/ras_hi
 add wave -noupdate -color Red    /tb_reri/ras_plat
 
 add wave -divider "Internal record storage"
-add wave -noupdate /tb_reri/dut_bank/r_valid
+add wave -noupdate /tb_reri/dut_bank/r_v
 add wave -noupdate /tb_reri/dut_bank/r_rdip
 add wave -noupdate /tb_reri/dut_bank/r_ce
 add wave -noupdate /tb_reri/dut_bank/r_ued
@@ -82,7 +82,7 @@ add wave -noupdate /tb_reri/dut_bank/r_ces
 add wave -noupdate /tb_reri/dut_bank/r_ueds
 add wave -noupdate /tb_reri/dut_bank/r_uecs
 add wave -noupdate -radix hex /tb_reri/dut_bank/r_eid
-add wave -noupdate -radix hex /tb_reri/dut_bank/r_ecount
+add wave -noupdate -radix hex /tb_reri/dut_bank/r_cec
 
 add wave -divider "Valid summary"
 add wave -noupdate -radix hex /tb_reri/dut_bank/s_valid_summary64
