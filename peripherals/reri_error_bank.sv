@@ -65,74 +65,55 @@ module reri_error_bank #(
     //   0x38  Custom[63:0]     = 0 - Designated for custom use
     
     // Per-record i <0,62>, base = 0x40 + 0x40*i  (haddr[11:6] == i+1):
-    //   +0x00  control_i[63:0]: - Control register of error record i
-    //      [0]      else  - WARL, error logging and signaling enable, 1 = on, 0 = off (reset=0/1)
-    //      [1]      cece  - corrected error counting enable, 1 = on, 0 = off (reset=0/1)
-    //      [3:2]    ces   - corrected error signaling, 0 = not signaling RAS signal, 1 = low priority, 2 = high priority, 3 = platform specific
-    //      [5:4]    ueds  - uncorrected error deferred signaling, 0 = not signaling RAS signal, 1 = low priority, 2 = high priority, 3 = platform specific
-    //      [7:6]    uecs  - uncorrected error critical signaling, 0 = not signaling RAS signal, 1 = low priority, 2 = high priority, 3 = platform specific
-    //      [31:8]   WPRI  - Writes Preserve values, Reads Ignore values (for future use)
-    //      [47:32]  eid   - error-injection-delay countdown, is WARL field, 0 = countdown off, 1..0xFFFF = countdown in cycles to error injection (for testing), when reaches 0, valid bit v is set to 1
-    //      [48]     sinv  - status-register-invalidate bit, 1 = causes valid bit v to be cleared if rdip=1 (always reads 0)
-    //      [49]     srdp  - set-read-in-progress field, 1 = set rdip (always reads 0)
-    //      [59:50]  WPRI  - Writes Preserve values, Reads Ignore values (for future use)
-    //      [63:60]  custom
-    
-    //   +0x08  status_i[63:0]: - Status register of error record i
-    //      [0]      v     - valid bit, 1 = record contains an error (do not accept software write), 0 = record is empty
-    //      [1]      ce    - corrected error, 1 = error was corrected by hardware (e.g. SECDED), 0 = uncorrected error or no error
-    //      [2]      ued   - uncorrected error deferred, 1 = error was deferred
-    //      [3]      uec   - uncorrected error critical, 1 = error is critical and needs attention
-    //      [5:4]    pri   - priority of the error in range <0 - lowest,3 - highest>
-    //      [6]      mo    - multiple occurrences of the error (not implemented, always 0)
-    //      [7]      c     - containable (error is not immediately fatal), 1 = containable, 0 = uncontainable (e.g. core detected an uncorrectable error)
-    //      [10:8]   tt    - transaction type (WARL) classification field, 0 = unspecified or not applicable, 1 = custom, 2-3 = future standard use, 4 = explicit read, 5 = explicit write, 6 = implicit read, 7 = implicit write
-    //      [11]     iv    - information-valid field, 1 = report present in info_i (not implemented, always 0)
-    //      [15:12]  ait   - address-or-info-type (WARL) field for addr_info_i register, 0 = unspecified, 1 = supervisor physical address, 2 = guest physical address, 3 = virtual adress, 4-15 = component-specific address or information (local bus address, DRAM adress, internal module ID, etc.)
-    //      [16]     siv   - supplemental-information-valid field, 1 = report present in suppl_info_i (not implemented, always 0)
-    //      [17]     tsv   - timestamp-valid field, 1 = timestamp recorded in timestamp_i (not implemented, always 0)
-    //      [19:18]  WPRI  - Writes Preserve values, Reads Ignore values (for future use)
-    //      [20]     scrub - scrub recorded, 1 = a scrub has been applied to the error location (set via scrub_ack_i)
-    //      [21]     ceco  - corrected error count overflow, 1 = cec saturated at 0xFFFF and another CE arrived while cece=1
-    //      [22]     WPRI  - Writes Preserve values, Reads Ignore values (for future use)
-    //      [23]     rdip  - read-in-progress field, set on new error capture to invalid register, cleared on overwrite of valid record
-    //      [31:24]  ec    - error code (WARL) field, description of the detected error
-    //      [47:32]  WPRI  - Writes Preserve values, Reads Ignore values (for future use)
-    //      [63:48]  cec   - corrected error count (WARL) field, saturating at 0xFFFF
-    
-    //   +0x10  addr_info_i[63:0]      - Address or information register of error record i, reports address or other information about the error, when ait != 0
-    //   +0x18  info_i [63:0]          - Information register of error record i, when iv=1 (?not implemented, always 0)
-    //   +0x1C  suppl_info_i[63:0]     - Supplemental information register of error record i, when siv=1 (?not implemented, always 0)
-    //   +0x20  timestamp_i[63:0]      - Timestamp register of error record i, for the last recorded error, when tsv=1 (?not implemented, always 0)
-    //   +0x30  Reserved[127:0] → 0    - Reserved for future standard use
+    //   +0x00  control_i[63:0]     - Control register of error record i
+    //   +0x08  status_i[63:0]      - Status register of error record i 
+    //   +0x10  addr_info_i[63:0]   - Address or information register of error record i, reports address or other information about the error, when ait != 0
+    //   +0x18  info_i [63:0]       - Information register of error record i, when iv=1 (?not implemented, always 0)
+    //   +0x1C  suppl_info_i[63:0]  - Supplemental information register of error record i, when siv=1 (?not implemented, always 0)
+    //   +0x20  timestamp_i[63:0]   - Timestamp register of error record i, for the last recorded error, when tsv=1 (?not implemented, always 0)
+    //   +0x30  Reserved[127:0] → 0 - Reserved for future standard use
     // -------------------------------------------------------
 
     // -------------------------------------------------------
-    // Record storage registers
-    logic        r_valid  [N_RECORDS];   // [0]      valid bit
-    logic        r_ce     [N_RECORDS];   // [1]      corrected error bit
-    logic        r_ued    [N_RECORDS];   // [2]      uncorrected error deferred bit
-    logic        r_uec    [N_RECORDS];   // [3]      uncorrected error critical bit
-    logic [1:0]  r_pri    [N_RECORDS];   // [5:4]    priority
-    logic        r_c      [N_RECORDS];   // [7]      containable bit
-    logic [2:0]  r_tt     [N_RECORDS];   // [10:8]   transaction type
-    logic [3:0]  r_ait    [N_RECORDS];   // [15:12]  address/info type
-    logic        r_scrub  [N_RECORDS];   // [20]     scrubbed bit
-    logic        r_ceco   [N_RECORDS];   // [21]     corrected error count overflow bit
-    logic        r_rdip   [N_RECORDS];   // [23]     read-in-progress bit
-    logic [7:0]  r_ec     [N_RECORDS];   // [31:24]  error code
-    logic [15:0] r_ecount [N_RECORDS];   // [63:48]  corrected error counter (saturating at 0xFFFF)
-
-    logic [63:0] r_addr   [N_RECORDS];   // [63:0]   address or information about the error
     // Control register fields (control_i)
-    logic        r_else   [N_RECORDS];   // [0]      error logging/signaling enable
-    logic        r_cece   [N_RECORDS];   // [1]      corrected error counting enable
-    logic [1:0]  r_ces    [N_RECORDS];   // [3:2]    CE signaling
-    logic [1:0]  r_ueds   [N_RECORDS];   // [5:4]    UED signaling
-    logic [1:0]  r_uecs   [N_RECORDS];   // [7:6]    UEC signaling
-    logic [15:0] r_eid    [N_RECORDS];   // [47:32]  error injection delay countdown
-    logic        r_sinv   [N_RECORDS];   // [48]     status invalidate
-    logic        r_srdp   [N_RECORDS];   // [49]     set read in progress
+    logic [3:0]  r_custom[N_RECORDS]; // [63:60]  custom control fields
+                                      // [59:50]  WPRI  - Writes Preserve values, Reads Ignore values (for future use)
+    logic        r_srdp[N_RECORDS];   // [49]     set-read-in-progress register, 1 = set rdip (always reads 0)
+    logic        r_sinv[N_RECORDS];   // [48]     status-register-invalidate bit, 1 = causes valid bit v to be cleared if rdip=1 (always reads 0)
+    logic [15:0] r_eid[N_RECORDS];    // [47:32]  error-injection-delay countdown, WARL field, 0 = countdown off, 1..0xFFFF = countdown in cycles to error injection (for testing), when reaches 0, valid bit v is set to 1
+                                      // [31:8]   WPRI  - Writes Preserve values, Reads Ignore values (for future use)
+    logic [1:0]  r_uecs[N_RECORDS];   // [7:6]    uncorrected error critical signaling, 0 = not signaling RAS signal, 1 = low priority, 2 = high priority, 3 = platform specific
+    logic [1:0]  r_ueds[N_RECORDS];   // [5:4]    uncorrected error deferred signaling, 0 = not signaling RAS signal, 1 = low priority, 2 = high priority, 3 = platform specific
+    logic [1:0]  r_ces[N_RECORDS];    // [3:2]    corrected error signaling, 0 = not signaling RAS signal, 1 = low priority, 2 = high priority, 3 = platform specific
+    logic        r_cece[N_RECORDS];   // [1]      corrected error counting enable, 1 = on, 0 = off (reset=0/1)
+    logic        r_else[N_RECORDS];   // [0]      error logging/signaling enable, WARL field, 1 = on, 0 = off (reset=0/1)
+
+
+    // Status register fields (status_i)
+    logic [15:0] r_cec[N_RECORDS];   // [63:48] corrected error count (WARL) field, saturating at 0xFFFF (not implemented, always 0)
+                                     // [47:32] WPRI - Writes Preserve values, Reads Ignore values (for future use)
+    logic [7:0]  r_ec[N_RECORDS];    // [31:24] error code (WARL) field, description of the detected error
+    logic        r_rdip[N_RECORDS];  // [23]    read-in-progress field, set on new error capture to invalid register, cleared on overwrite of valid record
+                                     // [22]    WPRI - Writes Preserve values, Reads Ignore values (for future use)
+    logic        r_ceco[N_RECORDS];  // [21]    corrected error count overflow, 1 = overflow in the counter occurred (not implemented, always 0)
+    logic        r_scrub[N_RECORDS]; // [20]    scrub recorded (not implemented, always 0)
+                                     // [19:18] WPRI - Writes Preserve values, Reads Ignore values (for future use)
+    logic        r_tsv[N_RECORDS];   // [17]    timestamp-valid field, 1 = timestamp recorded in timestamp_i (not implemented, always 0)
+    logic        r_siv[N_RECORDS];   // [16]    supplemental-information-valid field, 1 = report present in suppl_info_i (not implemented, always 0)
+    logic [3:0]  r_ait[N_RECORDS];   // [15:12] address-or-info-type (WARL) field for addr_info_i register, 0 = unspecified, 1 = supervisor physical address, 2 = guest physical address, 3 = virtual adress, 4-15 = component-specific address or information (local bus address, DRAM adress, internal module ID, etc.)
+    logic        r_iv[N_RECORDS];    // [11]    information-valid field, 1 = report present in info_i (not implemented, always 0)
+    logic [2:0]  r_tt[N_RECORDS];    // [10:8]  transaction type (WARL) classification field, 0 = unspecified or not applicable, 1 = custom, 2-3 = future standard use, 4 = explicit read, 5 = explicit write, 6 = implicit read, 7 = implicit write
+    logic        r_c[N_RECORDS];     // [7]     containable (error is not immediately fatal), 1 = containable, 0 = uncontainable (e.g. core detected an uncorrectable error)
+    logic        r_mo[N_RECORDS];    // [6]     multiple occurrences of the error (not implemented, always 0)
+    logic [1:0]  r_pri[N_RECORDS];   // [5:4]   priority of the error in range <0 - lowest,3 - highest>
+    logic        r_uec[N_RECORDS];   // [3]     uncorrected error critical, 1 = error is critical and needs attention
+    logic        r_ued[N_RECORDS];   // [2]     uncorrected error deferred, 1 = error was deferred
+    logic        r_ce[N_RECORDS];    // [1]     corrected error, 1 = error was corrected by hardware (e.g. SECDED), 0 = uncorrected error or no error
+    logic        r_v[N_RECORDS];     // [0]     valid bit, 1 = record contains an error (do not accept software write), 0 = record is empty
+    
+
+
+    logic [63:0] r_addr_info[N_RECORDS]; // [63:0]   address or information about the error
 
     // -------------------------------------------------------
     // AHB controller interface signals
@@ -152,8 +133,8 @@ module reri_error_bank #(
 
     generate
         for (genvar g = 0; g < N_RECORDS; g++) begin : gen_derived
-            assign s_valid_summary[g]      = r_valid[g];
-            assign s_valid_summary64[g+1]  = r_valid[g];  // valid_bitmap: bit[g+1] = record g
+            assign s_valid_summary[g]      = r_v[g];
+            assign s_valid_summary64[g+1]  = r_v[g];  // valid_bitmap: bit[g+1] = record g
             assign rec_status[g] = {
                 r_ec[g],         // [31:24] ec
                 r_rdip[g],       // [23]    rdip
@@ -172,7 +153,7 @@ module reri_error_bank #(
                 r_uec[g],        // [3]     uec
                 r_ued[g],        // [2]     ued
                 r_ce[g],         // [1]     ce
-                r_valid[g]       // [0]     v
+                r_v[g]           // [0]     v
             };
         end
         // Zero-pad unused valid_bitmap bits [N_RECORDS+1 .. 63]
@@ -238,10 +219,10 @@ module reri_error_bank #(
                                                r_else[k]};  // [0]
                             // control_i[63:32]: eid (sinv/srdp always read 0)
                             4'd1:    hrdata = {14'b0, r_eid[k]}; // [15:0]=eid,[31:16]=0(sinv/srdp/WPRI/custom)
-                            4'd2:    hrdata = rec_status[k];       // status_i[31:0]
-                            4'd3:    hrdata = {r_ecount[k], 16'h0}; // status_i[63:32]: cec[31:16] (saturating CE count)
-                            4'd4:    hrdata = r_addr[k];           // addr_info_i[31:0]
-                            4'd5:    hrdata = 32'h0;               // addr_info_i[63:32]
+                            4'd2:    hrdata = rec_status[k];     // status_i[31:0]
+                            4'd3:    hrdata = {r_cec[k], 16'h0}; // status_i[63:32]: cec[31:16] (saturating CE count)
+                            4'd4:    hrdata = r_addr_info[k];    // addr_info_i[31:0]
+                            4'd5:    hrdata = 32'h0;             // addr_info_i[63:32]
                             // info_i, suppl_info_i, timestamp_i → 0
                             default: hrdata = 32'h0;
                         endcase
@@ -256,12 +237,12 @@ module reri_error_bank #(
     //
     // Fault capture (gated by r_else[i]):
     //   New fault on slot i is written only when r_else[i]=1 and:
-    //     (a) slot is empty  (r_valid[i] == 0), OR
+    //     (a) slot is empty  (r_v[i] == 0), OR
     //     (b) incoming priority strictly exceeds stored priority.
     //   rdip is set on 0→1 valid transition; cleared on overwrite of valid record.
     //
     // eid countdown:
-    //   When r_eid[i] > 0, decrements each cycle. Reaching 0 forces r_valid[i]=1
+    //   When r_eid[i] > 0, decrements each cycle. Reaching 0 forces r_v[i]=1
     //   and triggers the injection RAS (uses the class already in rec_status).
     //
     // Control register writes (w_word==0 or w_word==1):
@@ -273,35 +254,35 @@ module reri_error_bank #(
     always_ff @(posedge clk or negedge rst_n) begin : record_update
         if (!rst_n) begin
             for (integer i = 0; i < N_RECORDS; i++) begin
-                r_valid[i] <= 1'b0;
-                r_rdip[i]  <= 1'b0;
-                r_ce[i]    <= 1'b0;
-                r_ued[i]   <= 1'b0;
-                r_uec[i]   <= 1'b0;
-                r_ec[i]    <= 8'h0;
-                r_pri[i]   <= 2'h0;
-                r_c[i]     <= 1'b0;
-                r_ait[i]   <= 4'h0;
-                r_addr[i]  <= 32'h0;
-                r_tt[i]    <= 3'h0;
-                r_else[i]  <= 1'b0;  // disabled at reset (spec recommendation)
-                r_cece[i]  <= 1'b0;
-                r_ces[i]   <= 2'b0;
-                r_ueds[i]  <= 2'b0;
-                r_uecs[i]  <= 2'b0;
-                r_eid[i]   <= 16'h0;
-                r_ecount[i]<= 16'h0;
-                r_scrub[i] <= 1'b0;
-                r_ceco[i]  <= 1'b0;
+                r_v[i]         <= 1'b0;
+                r_rdip[i]      <= 1'b0;
+                r_ce[i]        <= 1'b0;
+                r_ued[i]       <= 1'b0;
+                r_uec[i]       <= 1'b0;
+                r_ec[i]        <= 8'h0;
+                r_pri[i]       <= 2'h0;
+                r_c[i]         <= 1'b0;
+                r_ait[i]       <= 4'h0;
+                r_addr_info[i] <= 32'h0;
+                r_tt[i]        <= 3'h0;
+                r_else[i]      <= 1'b0;  // disabled at reset (spec recommendation)
+                r_cece[i]      <= 1'b0;
+                r_ces[i]       <= 2'b0;
+                r_ueds[i]      <= 2'b0;
+                r_uecs[i]      <= 2'b0;
+                r_eid[i]       <= 16'h0;
+                r_cec[i]       <= 16'h0;
+                r_scrub[i]     <= 1'b0;
+                r_ceco[i]      <= 1'b0;
             end
         end else begin
             for (integer i = 0; i < N_RECORDS; i++) begin
                 // ── Hardware fault capture (gated by else) ──────────────────────────
                 if (r_else[i] && fault_in[i].valid &&
-                        (!r_valid[i] || (fault_in[i].pri > r_pri[i]))) begin
+                        (!r_v[i] || (fault_in[i].pri > r_pri[i]))) begin
                     // rdip: set on 0→1 (new record), cleared on overwrite of valid record
-                    r_rdip[i]  <= !r_valid[i];
-                    r_valid[i] <= 1'b1;
+                    r_rdip[i]  <= !r_v[i];
+                    r_v[i]     <= 1'b1;
                     r_ce[i]    <= fault_in[i].ce;
                     r_ued[i]   <= fault_in[i].ued;
                     r_uec[i]   <= fault_in[i].uec;
@@ -309,7 +290,7 @@ module reri_error_bank #(
                     r_pri[i]   <= fault_in[i].pri;
                     r_c[i]     <= fault_in[i].c;
                     r_ait[i]   <= fault_in[i].ait;
-                    r_addr[i]  <= fault_in[i].addr;
+                    r_addr_info[i]  <= fault_in[i].addr;
                     r_tt[i]    <= fault_in[i].tt;
                     r_scrub[i] <= 1'b0;  // new capture resets scrub
                     r_ceco[i]  <= 1'b0;  // new capture resets overflow flag
@@ -319,22 +300,22 @@ module reri_error_bank #(
                 // Placed AFTER fault capture so r_ceco<=1 wins when both fire together.
                 if (r_else[i] && r_cece[i] && fault_in[i].valid &&
                         fault_in[i].ce && !fault_in[i].uec && !fault_in[i].ued) begin
-                    if (r_ecount[i] == 16'hFFFF)
+                    if (r_cec[i] == 16'hFFFF)
                         r_ceco[i] <= 1'b1;
                     else
-                        r_ecount[i] <= r_ecount[i] + 16'h1;
+                        r_cec[i] <= r_cec[i] + 16'h1;
                 end
 
                 // ── scrub_ack: mark a valid record as scrubbed ───────────────
-                if (scrub_ack_i[i] && r_valid[i])
+                if (scrub_ack_i[i] && r_v[i])
                     r_scrub[i] <= 1'b1;
 
                 // ── eid countdown + injection ────────────────────────────
                 if (r_eid[i] != 16'h0) begin
                     r_eid[i] <= r_eid[i] - 16'h1;
                     if (r_eid[i] == 16'h1) begin  // reaching 0 next cycle
-                        r_valid[i] <= 1'b1;
-                        r_rdip[i]  <= !r_valid[i];
+                        r_v[i] <= 1'b1;
+                        r_rdip[i] <= !r_v[i];
                     end
                 end
 
@@ -356,7 +337,7 @@ module reri_error_bank #(
                         // sinv (bit16): clear valid if rdip=1
                         // sinv+srdp together: rdip is set first, then valid cleared
                         if (hwdata[16] && (r_rdip[i] || hwdata[17])) begin
-                            r_valid[i] <= 1'b0;
+                            r_v[i]     <= 1'b0;
                             r_scrub[i] <= 1'b0;
                             r_ceco[i]  <= 1'b0;
                         end
@@ -372,7 +353,7 @@ module reri_error_bank #(
     //   its ces/ueds/uecs signaling field (Table 3 encoding):
     //     0 = disabled, 1 = lo-priority RAS, 2 = hi-priority RAS,
     //     3 = platform-specific RAS
-    //   A record only signals when r_else[i]=1 and r_valid[i]=1.
+    //   A record only signals when r_else[i]=1 and r_v[i]=1.
     //   CE signaling: cece=0 → signal via ces on any CE; cece=1 → signal via ces
     //                 only on count overflow (ceco=1).
     //   ras_plat (overflow): incoming fault cannot displace the stored record.
@@ -382,7 +363,7 @@ module reri_error_bank #(
         ras_hi     = 1'b0;
         ras_plat   = 1'b0;
         for (integer j = 0; j < N_RECORDS; j++) begin
-            if (r_else[j] && r_valid[j]) begin
+            if (r_else[j] && r_v[j]) begin
                 // CE signaling:
                 //   cece=0 → signal via ces on any CE record
                 //   cece=1 → signal via ces only on count overflow (ceco=1)
@@ -407,7 +388,7 @@ module reri_error_bank #(
                 end
             end
             // Overflow: incoming fault cannot displace the stored record
-            if (fault_in[j].valid && r_valid[j] && (fault_in[j].pri <= r_pri[j]))
+            if (fault_in[j].valid && r_v[j] && (fault_in[j].pri <= r_pri[j]))
                 ras_plat = 1'b1;
         end
     end

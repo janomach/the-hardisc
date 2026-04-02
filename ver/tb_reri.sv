@@ -24,7 +24,7 @@
     TC16  rdip set on first capture; readable in status_i[23]
     TC17  RAS level selection: ces=10->ras_hi, ces=11->ras_plat for CE faults
     TC18  RAS level selection: ueds=10->ras_hi, uecs=11->ras_plat for UED/UEC
-    TC19  eid countdown injection: r_valid set after N cycles, rdip set
+    TC19  eid countdown injection: r_v set after N cycles, rdip set
     TC20  ecount saturation: counter stays at 0xFFFF on overflow
     TC21  valid_summary[63:32] high word reads 0 (unused bits)
     TC22  addr_info_i[63:32] (word 5 of record block) reads 0
@@ -489,7 +489,7 @@ initial begin
 
     // ================================================================
     // TC04: LSU UED on record 1 priority 2 > stored 1 at overwrite
-    //   After overwrite: rdip=0  (overwrite sets rdip = !r_valid = 0)
+    //   After overwrite: rdip=0  (overwrite sets rdip = !r_v = 0)
     // ================================================================
     $display("\n------ TC04: LSU UED overwrites LSU CE (priority upgrade) ------");
     @(negedge clk);
@@ -644,7 +644,7 @@ initial begin
     // ================================================================
     // TC11: sinv alone (hwdata[16]=1, hwdata[17]=0) with rdip=0 does NOT clear
     //   Record 1 rdip=0 after TC04 overwrite
-    //   (overwrite sets rdip = !r_valid = !1 = 0)
+    //   (overwrite sets rdip = !r_v = !1 = 0)
     // ================================================================
     $display("\n------ TC11: sinv alone with rdip=0 does not clear ------");
     // Write only sinv (bit16=1), no srdp (bit17=0) at 0x0001_0000
@@ -746,7 +746,7 @@ initial begin
     //   (ecount[0] is 0: cece was 0 for all prior rec0 captures)
     // ================================================================
     $display("\n------ TC15: ECOUNT with cece=1 ------");
-    sinv_clear(0);  // rec0 invalid; r_ecount[0] persists but was 0 (cece=0 before)
+    sinv_clear(0);  // rec0 invalid; r_cec[0] persists but was 0 (cece=0 before)
     sinv_clear(1);  // rec1 invalid; now no valid records at ras_lo baseline=0
     idle(2);
 
@@ -773,7 +773,7 @@ initial begin
     `CHECK("TC15 cec[0]==1 after first CE",              rdata[31:16], 16'h1)
 
     // Second CE: clear valid (preserves cece=1), re-inject at counter++
-    sinv_clear(0);  // clears only r_valid; r_cece[0]=1 and r_ecount[0]=1 preserved
+    sinv_clear(0);  // clears only r_v; r_cece[0]=1 and r_cec[0]=1 preserved
     idle(1);
     @(negedge clk);
     fetch_ce   = 1'b1;
@@ -924,7 +924,7 @@ initial begin
 
     // ================================================================
     // TC19: eid countdown injection
-    //   Write eid=3 to a fresh record; after 3 decrements r_valid forces to 1.
+    //   Write eid=3 to a fresh record; after 3 decrements r_v forces to 1.
     //   RAS is generated once valid is set (record 1, ces=01 -> ras_lo)
     // ================================================================
     $display("\n------ TC19: eid countdown injection ------");
@@ -951,7 +951,7 @@ initial begin
 
     // ================================================================
     // TC20: ecount saturation at 0xFFFF
-    //   Pre-load r_ecount[0] to 0xFFFE by enabling cece and injecting
+    //   Pre-load r_cec[0] to 0xFFFE by enabling cece and injecting
     //   two CEs. Then inject one more to reach 0xFFFF, then one more
     //   to confirm it stays at 0xFFFF (no wrap).
     //   We do this by directly writing eid to get multiple captures.
@@ -960,7 +960,7 @@ initial begin
     // Clear rec0 state; reset ecount by re-enabling with cece=1 after full reset
     // ecount is never reset except by hardware reset, so we drive it to
     // 0xFFFE by issuing many CE pulses with cece=1.
-    // Current r_ecount[0] = 2 from TC15. We need 0xFFFF - 2 = 65533 more.
+    // Current r_cec[0] = 2 from TC15. We need 0xFFFF - 2 = 65533 more.
     // Instead: use a fast loop with eid injection (1 cycle each) to increment.
     // Practical approach: just verify saturation from current value.
     // Set up: rec0 cleared, cece=1, then hammer 65534 - current_count CEs.
@@ -974,7 +974,7 @@ initial begin
     enable_record_cece(0); // cece=1
 
     // Inject enough CEs to bring ecount to 0xFFFE.
-    // r_ecount[0] is currently 2 (from TC15 last 0x55 segment did not count,
+    // r_cec[0] is currently 2 (from TC15 last 0x55 segment did not count,
     // then the cece=1 segment added 2). Need 0xFFFE - 2 = 65532 more pulses.
     // That is too expensive for simulation. Instead, test that ecount starts
     // at its current value and saturates: inject until overshoot.
