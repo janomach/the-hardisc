@@ -1,4 +1,5 @@
 import p_reri::fault_record_t;
+import edac::*;
 
 module reri_error_bank #(
     parameter integer  N_RECORDS = 1,       // 1..63  (n_err_recs)
@@ -229,6 +230,11 @@ module reri_error_bank #(
                     end
                 end
             end
+        end
+        if (IFP == 1) begin
+            assign hrchecksum_o = edac_checksum(hrdata);
+        end else begin
+            assign hrchecksum_o = 7'b0;
         end
     end
 
