@@ -8,12 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
  - Resources for FPGA Fault Injection in configuration memory 
- - Fault injection test
  - Possibility to fire an interrupt if unrecoverable error is removed (e.g., by SEM on FPGA)
+ - Fault injection test
 
 ### Changed
- - FETCH_X error codes were replaced by corresponding IMISCON_X error codes
- - Handling of the correctable error on the fetch interface
+ - FETCH_x error codes replaced by corresponding IMISCON_x error codes
+ - Handling of the correctable error on the fetch interface (m_idop_fixed removed)
 
 ### Fixed
  - No progress on the permanent memory fault (#31)

@@ -105,7 +105,6 @@ int main(void)
 
     do {
       data = *(volatile uint32_t *)SEM_ADDRESS;
-      //printf("\t SEM state: %2x\n",data);
     } while((data & 0x30) != 0); //wait until injection and classification is done
 
     if((data & 0x4) != 0) { //observation

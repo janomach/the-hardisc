@@ -64,3 +64,7 @@ For this purpose, you can leverage a [prepared script](https://github.com/janoma
 ```bash
 ./scripts/send_to_serial.sh 20000 /dev/ttyUSB1 ./example/fault_injector/test.bin
 ```
+
+> [!IMPORTANT]
+> The FPGA platform (except Hardisc) is not protected against faults (yet). 
+> It is therefore possible that a fault will cause the system to fail in an unexpected manner.

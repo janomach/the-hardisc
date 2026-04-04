@@ -1,5 +1,5 @@
 
-./example/error_injector/test.o: formát súboru elf32-littleriscv
+./example/fault_injector/test.o: formát súboru elf32-littleriscv
 
 
 Rozloženie sekcie .init:
