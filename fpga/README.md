@@ -10,8 +10,8 @@ The default configuration is:
 * 1 stop bit
 * No parity bit
 
-The platform uses SW0 slider as a reset input.
-Before you upload the bitstream, set the slider to the low state (position closer to the edge of the board).
+The platform uses the SW0 slider as a reset input and the SW1 slider as an UART selector.
+Before you upload the bitstream, set both sliders to the low state (position closer to the edge of the board).
 
 ![Arty A7](https://digilent.com/reference/_media/reference/programmable-logic/arty/arty-2.png)
 
@@ -19,7 +19,8 @@ Before you upload the bitstream, set the slider to the low state (position close
 
 1. Open Vivado from this directory 
 2. Run the [TCL script](https://github.com/janomach/the-hardisc/tree/main/fpga/project_setup.tcl) in Vivado
-3. Check RTL [configuration](https://github.com/janomach/the-hardisc/wiki/Configuration) before a synthesis.
+    * This step will also generate and open a SEM project that can be closed
+3. Check RTL [configuration](https://github.com/janomach/the-hardisc/wiki/Configuration) before a synthesis
 
 More information can be found [here](https://digilent.com/reference/programmable-logic/guides/getting-started-with-vivado).
 
@@ -55,3 +56,15 @@ Example:
 bin2hex --bit-width 32 test.bin matrix.mem
 ```
 
+## Fault Injection
+It is possible to test the dependability (to some extend) of the Hardisc with the [SEM peripheral](https://github.com/janomach/the-hardisc/tree/main/peripherals/ahb_sem.sv) that can be instructed to inject and correct configuration memory errors.
+With the bootloader enabled, you can send the binary of the [fault-injector test](https://github.com/janomach/the-hardisc/tree/main/example/fault_injector/test.c) to the device.
+For this purpose, you can leverage a [prepared script](https://github.com/janomach/the-hardisc/tree/main/scripts/send_to_serial.sh) that will also randomize (it is necessary for the fault injection) the rest of the RAM:
+
+```bash
+./scripts/send_to_serial.sh 20000 /dev/ttyUSB1 ./example/fault_injector/test.bin
+```
+
+> [!IMPORTANT]
+> The FPGA platform (except Hardisc) is not protected against faults (yet). 
+> It is therefore possible that a fault will cause the system to fail in an unexpected manner.

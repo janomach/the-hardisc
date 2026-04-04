@@ -34,7 +34,7 @@ vector_table:
 	j _no_irq_handler   //Reserved for future standard use
 	j _no_irq_handler   //Reserved for future standard use
 	j _no_irq_handler   //Reserved for future standard use
-	j _no_irq_handler   //Uncorrectable error in the register file - early indication
+	j _llck_irq_handler //Livelock event
     j _fcer_irq_handler //Fetch correctable error
     j _lcer_irq_handler //Load correctable error
     j _no_irq_handler   //NMI - Fetch uncorrectable error
@@ -46,6 +46,22 @@ _no_irq_handler:
 
 _exc_handler:
     tail abort
+
+_llck_irq_handler:
+    csrw mscratch, a0   //save context of a0
+    csrr a0,0x7c0       //content of mhrdctrl0
+    andi a0, a0, 0x4    //mask all bits except livelock
+    bnez a0, _llck_recovered
+    // there is a livelock that did not affected the trap handler (so far)
+    csrsi 0x7c0,0x1     //re-enable signalization of livelock interrupt enable
+_llck_recovered:
+    // if the previous branch was taken, the livelock disappeared
+    csrci 0x7c0,0x4     //clear signalization of livelock
+    li a0, 1
+	slli a0, a0, 12
+    csrc mip, a0        //clear interrupt
+    csrr a0, mscratch   //restore context of a0
+    mret                //return after recovery
 
 _fcer_irq_handler:
     csrw mscratch, a0   //save context of a0

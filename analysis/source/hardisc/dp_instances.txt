@@ -756,8 +756,6 @@
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_2_id/m_idop_imiscon/r_data[1][0]
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_2_id/m_idop_imiscon/r_data[1][1]
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_2_id/m_idop_imiscon/r_data[1][2]
-/tb_mh_wrapper/dut/rep[0]/core/m_pipe_2_id/m_idop_fixed/r_data[0][0]
-/tb_mh_wrapper/dut/rep[0]/core/m_pipe_2_id/m_idop_fixed/r_data[1][0]
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_2_id/m_idop_acmadd/r_data[0][0]
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_2_id/m_idop_acmadd/r_data[0][1]
 /tb_mh_wrapper/dut/rep[0]/core/m_pipe_2_id/m_idop_acmadd/r_data[0][2]

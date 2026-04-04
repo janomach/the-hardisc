@@ -81,7 +81,7 @@ module ifb #(
     assign s_syndrome       = s_achecksum ^ s_rchecksum[0];
 
     //Check only once and only if the fetch was succesful
-    assign s_fetch_check    = s_rbuffer[0][35:33] == FETCH_VALID;
+    assign s_fetch_check    = s_rbuffer[0][35:33] == IMISCON_FREE;
     //Delay poping if the IFB has only a single entry that has an error; if the error is corretable, it will be corrected
     assign s_valid_o        = s_roccupied[0][0] & (~s_fetch_check | s_roccupied[0][1] | ~s_error);
     //Corrected data; the decoder does not change data that are not faulty
@@ -92,9 +92,9 @@ module ifb #(
         s_ubuffer[0][35:33] = s_rbuffer[0][35:33];
         if(s_roccupied[0][0] & s_fetch_check & s_error)begin
             if(s_ce) //Save information that the data contains a correctable error
-                s_ubuffer[0][35:33] = FETCH_INCER;
+                s_ubuffer[0][35:33] = IMISCON_FCCE;
             else  //Save information that the data contains an uncorrectable error
-                s_ubuffer[0][35:33] = FETCH_INUCE;
+                s_ubuffer[0][35:33] = IMISCON_FUCE;
         end
     end
 `else

@@ -170,9 +170,9 @@ module aligner (
             end else begin
                 if(s_input_is_valid) begin
                     //Unaligned RVI, report information with higher prority
-                    s_info[3:1] = ((s_info_i[4:2] != FETCH_VALID) 
+                    s_info[3:1] = ((s_info_i[4:2] != IMISCON_FREE) 
 `ifdef PROT_INTF                    
-                                 & (s_info_i[4:2] != FETCH_INCER)
+                                 & (s_info_i[4:2] != IMISCON_FCCE)
 `endif
                                   ) ? s_info_i[4:2] : s_rsvd_info[0][3:1];
                     s_info[0]   = s_rsvd_info[0][0];

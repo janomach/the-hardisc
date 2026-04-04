@@ -86,20 +86,11 @@ package p_hardisc;
                 IMISCON_FREE    = 3'd0, //no misconduct
                 IMISCON_FERR    = 3'd1, //fetch bus error
                 IMISCON_PMAV    = 3'd2, //pma violation
-                //reserved
+                IMISCON_FCCE    = 3'd3, //fetch correctable error
                 IMISCON_FUCE    = 3'd4, //fetch uncorrectable error
                 IMISCON_ILLE    = 3'd5, //illegal instruction
                 IMISCON_DSCR    = 3'd6; //discrepancy in pipeline
                 //reserved
-    parameter [2:0]
-                FETCH_VALID     = 3'd0, //no fetch error
-                FETCH_BSERR     = 3'd1, //fetch bus error
-                FETCH_PMAVN     = 3'd2, //fetch address PMA violation
-                //reserved
-                FETCH_INUCE     = 3'd4, //fetch interface uncorrectable error
-                //reserved
-                FETCH_DSCR      = 3'd6, //fetch discrepancy
-                FETCH_INCER     = 3'd7; //fetch interface correctable error
     parameter [1:0]
                 //LEVEL_USER      = 2'b00,
                 //LEVEL_SUVISOR   = 2'b01,
@@ -197,7 +188,7 @@ package p_hardisc;
                 INT_MSI_VAL      = 5'd3,
                 INT_MTI_VAL      = 5'd7,
                 INT_MEI_VAL      = 5'd11,
-                INT_UCE_VAL      = 5'd16,
+                INT_LLCK_VAL     = 5'd16,
                 INT_FCER_VAL     = 5'd17,
                 INT_LCER_VAL     = 5'd18,
                 INT_FUCE_VAL     = 5'd19,

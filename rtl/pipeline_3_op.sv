@@ -42,7 +42,6 @@ module pipeline_3_op (
     input sctrl s_idop_sctrl_i[PROT_2REP],          //source control indicator
     input ictrl s_idop_ictrl_i[PROT_2REP],          //instruction control indicator
     input imiscon s_idop_imiscon_i[PROT_2REP],      //instruction misconduct indicator
-    input logic s_idop_fixed_i[PROT_2REP],          //fix indicator
 
     output logic[31:0] s_opex_op1_o[PROT_2REP],     //prepared operand 1 for EX stage
     output logic[31:0] s_opex_op2_o[PROT_2REP],     //prepared operand 2 for EX stage
@@ -136,7 +135,6 @@ module pipeline_3_op (
                 .s_idop_rs2_i(s_idop_rs2_i[i]),
                 .s_idop_ictrl_i(s_idop_ictrl_i[i]),
                 .s_idop_sctrl_i(s_idop_sctrl_i[i]),
-                .s_idop_fixed_i(s_idop_fixed_i[i]),
 
                 .s_operand1_o(s_operand1[i]),
                 .s_operand2_o(s_operand2[i]),

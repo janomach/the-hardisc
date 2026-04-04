@@ -35,7 +35,6 @@ module preparer (
     input rf_add s_idop_rs2_i,          //source register 2 address
     input sctrl s_idop_sctrl_i,         //source control indicator
     input ictrl s_idop_ictrl_i,         //instruction control indicator
-    input logic s_idop_fixed_i,         //fix indicator
 
     output logic[31:0] s_operand1_o,    //prepared operand 1
     output logic[31:0] s_operand2_o,    //prepared operand 2
@@ -48,7 +47,7 @@ module preparer (
     logic s_rs1_cmpr_exma, s_rs2_cmpr_exma, s_rs1_cmpr_mawb, s_rs2_cmpr_mawb,
             s_rs1_need_exma, s_rs2_need_exma, s_rs1_need_mawb, s_rs2_need_mawb,
             s_rs1_cmpr_opex, s_rs2_cmpr_opex, s_rs1_need_opex, s_rs2_need_opex,
-            s_lsu_hazard, s_data_hazard, s_bubble, s_fix_hazard, s_no_res_in_ex, s_result_in_ma;
+            s_lsu_hazard, s_data_hazard, s_bubble, s_no_res_in_ex, s_result_in_ma;
 
     assign s_bubble_o   = s_bubble;
     assign s_operand1_o = s_operand1;  
@@ -79,10 +78,8 @@ module preparer (
     assign s_lsu_hazard     = (s_rs1_need_opex | (s_rs1_need_exma & s_result_in_ma)) & s_idop_ictrl_i.lsu;
     //Data hazard, forwardable result is produced in the MA stage
     assign s_data_hazard    = (s_rs1_need_opex | s_rs2_need_opex) & s_no_res_in_ex;                           
-    //Fix hazard - prevent propagation until EX and MA stages are empty
-    assign s_fix_hazard     = s_idop_fixed_i & ((s_opex_ictrl_i != '0) | (s_exma_ictrl_i != '0));
     //Each fulfilled hazard condition leads to bubble (NOP) in the EX stage
-    assign s_bubble         = s_lsu_hazard | s_data_hazard | s_fix_hazard;
+    assign s_bubble         = s_lsu_hazard | s_data_hazard;
 
     //Forwarding logic from upper pipeline registers
     assign s_operand1_fw    = (~s_rs1_need_exma & ~s_rs1_need_mawb & ~s_idop_sctrl_i.zero1) ? s_idop_p1_i :

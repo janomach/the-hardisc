@@ -28,7 +28,6 @@ module csru (
     input logic s_int_mtip_i,                       //timer interrupt
     input logic s_int_msip_i,                       //software interrupt
     input logic s_int_lcer_i[PROT_3REP],            //correctable error on load interface
-    input logic s_int_fcer_i,                       //fetch correctable error
     input logic s_nmi_luce_i[PROT_3REP],            //uncorrectable error on load interface
 
     input logic s_hresp_i[PROT_3REP],               //registered hresp signal
@@ -70,7 +69,7 @@ module csru (
                 s_rmtvec[PROT_3REP],s_rmepc[PROT_3REP],s_rmcause[PROT_3REP],s_rmtval[PROT_3REP],s_rmhrdctrl0[PROT_3REP], 
                 s_mscratch[PROT_3REP],s_minstret[PROT_3REP],s_minstreth[PROT_3REP],s_mcycle[PROT_3REP],s_mcycleh[PROT_3REP],
                 s_mtvec[PROT_3REP],s_mepc[PROT_3REP],s_mcause[PROT_3REP],s_mtval[PROT_3REP],s_mhrdctrl0[PROT_3REP];
-    logic s_mstatus_we[PROT_3REP], s_minstret_we[PROT_3REP], s_minstreth_we[PROT_3REP], s_mcycle_we[PROT_3REP], s_mcycleh_we[PROT_3REP],
+    logic s_mstatus_we[PROT_3REP], s_minstret_we[PROT_3REP], s_minstreth_we[PROT_3REP], s_mcycle_we[PROT_3REP], s_mcycleh_we[PROT_3REP], s_int_fcer[PROT_3REP],
           s_mscratch_we[PROT_3REP], s_mtvec_we[PROT_3REP], s_mepc_we[PROT_3REP], s_mcause_we[PROT_3REP], s_mtval_we[PROT_3REP], s_mie_we[PROT_3REP], s_mip_we[PROT_3REP], s_mhrdctrl0_we[PROT_3REP];
 `ifdef PROT_INTF
     logic s_mcsr_addr_free[PROT_3REP], s_maddrerr_we[PROT_3REP];
@@ -180,9 +179,11 @@ module csru (
 `ifdef PROT_INTF
             assign s_nmi[i][0]         = s_nmi_luce_i[i];
             assign s_nmi[i][1]         = (s_imiscon_i[i] == IMISCON_FUCE);
+            assign s_int_fcer[i]       = (s_imiscon_i[i] == IMISCON_FCCE);
 `else
             assign s_nmi[i][0]         = 1'b0; //Load UCE cannot happen
             assign s_nmi[i][1]         = 1'b0; //Fetch UCE cannot happen
+            assign s_int_fcer[i]       = 1'b0; //Fetch CCE cannot happen
 `endif
 
             assign s_interrupt[i]      = |(s_mie[i] & s_mip[i]) & s_mstatus[i][3];
@@ -196,7 +197,7 @@ module csru (
                                          (s_mie[i][3]  & s_mip[i][3])  ? INT_MSI_VAL : 
                                          (s_mie[i][7]  & s_mip[i][7])  ? INT_MTI_VAL : 
                                          (s_mie[i][14] & s_mip[i][14]) ? INT_LCER_VAL : 
-                                         (s_mie[i][13] & s_mip[i][13]) ? INT_FCER_VAL : INT_UCE_VAL;
+                                         (s_mie[i][13] & s_mip[i][13]) ? INT_FCER_VAL : INT_LLCK_VAL;
             assign s_exc_trap[i]       = {s_mtvec[i][31:2],2'b0};
             assign s_int_trap[i]       = (s_mtvec[i][0]) ? s_int_vectored[i] : s_exc_trap[i];
 
@@ -365,13 +366,13 @@ module csru (
             assign s_mip_we[i] = 1'b1;
             always_comb begin : mip_writer
 `ifdef PROT_INTF
-                s_wmip[i][14]     = (s_int_lcer_i[i] & s_mie[i][14]) | s_mip[i][14];
-                s_wmip[i][13]     = (s_int_fcer_i & s_mie[i][13]) | s_mip[i][13];
+                s_wmip[i][14]     = s_int_lcer_i[i] | s_mip[i][14];
+                s_wmip[i][13]     = s_int_fcer[i] | s_mip[i][13];
 `else
                 s_wmip[i][14:13]  = 2'b0;
 `endif
 `ifdef PROT_PIPE
-                s_wmip[i][12]     = s_livelock_int[i]  | s_mip[i][12];
+                s_wmip[i][12]     = s_livelock_int[i] | s_mip[i][12];
 `else
                 s_wmip[i][12]     = 1'b0;
 `endif
@@ -407,7 +408,7 @@ module csru (
             // Signalize reaching of maximum number of consecutive restarts
             assign s_max_reached[i] = s_mhrdctrl0[i][19:16] == s_mhrdctrl0[i][11:8];
             assign s_livelock[i]    = s_max_reached[i] && s_mhrdctrl0[i][20] && (s_mhrdctrl0[i][3] || ~s_mhrdctrl0[i][1]);
-            assign s_livelock_int[i]= s_livelock[i] && s_mhrdctrl0[i][0] && !s_execute[i];
+            assign s_livelock_int[i]= s_execute[i] ? s_mhrdctrl0[i][2] : (s_mhrdctrl0[i][0] && s_livelock[i]);
 `else
             assign s_pc_uce[i]      = 1'b0;
             assign s_max_reached[i] = 1'b0;
@@ -431,9 +432,10 @@ module csru (
                      - bit 0 : proactive error search - read address increments whenever possible
                      - bit 1 : proactive checksum analysis - even if error is not detected in data 
                 03: disable predictor
-                02: unrecoverable system error - sticky
+                02: livelock, sticky, wired to unrecoverable error port
                 01: after the max number of consecutive restarts, try to disable the predictor at first
-                00: fire interrupt on livelock instead of signalization of unrecoverable error         
+                00: fire interrupt on livelock instead of signalization of setting the bit 2 (respecting RISCV's MIE CSR)
+                     - NOTE: the interrupt is fired also if the livelock suddenly disappears (regardless of this bit)        
             */
             assign s_mhrdctrl0_we[i] = 1'b1;
             always_comb begin : mrhdctrl0_writer
@@ -469,7 +471,7 @@ module csru (
                     if(s_execute[i] | (s_mhrdctrl0[i][20] & s_mhrdctrl0[i][1] & ~s_mhrdctrl0[i][3] & s_max_reached[i]))begin
                         //reset counter on valid instruction, or at a try to disable the predictor
                         s_wmhrdctrl0[i][19:16] = 4'b0;
-                    end else if(s_mhrdctrl0[i][20] & (s_mhrdctrl0[i][19:16] != s_mhrdctrl0[i][11:8]) & s_rstpp_i[i])begin
+                    end else if(s_mhrdctrl0[i][20] & !s_max_reached[i] & s_rstpp_i[i])begin
                         //continue counting until the maximum number of restarts is reached
                         s_wmhrdctrl0[i][19:16] = s_mhrdctrl0[i][19:16] + 4'b1;
                     end
@@ -480,13 +482,13 @@ module csru (
                     if(!s_mhrdctrl0[i][2])begin
                         s_wmhrdctrl0[i][2] = s_pc_uce[i];
                         if(!s_execute[i] && s_livelock[i] && !s_mhrdctrl0[i][0])begin
-                            //signalize lock-up / unrecoverable error
+                            //livelock
                             s_wmhrdctrl0[i][2] = 1'b1;
                         end
                     end
-                    if(!s_execute[i] && s_livelock[i])begin
+                    if(!s_execute[i] && s_livelock[i] && s_mhrdctrl0[i][0])begin
                         //automatic clear of the livelock interrupt enable
-                        s_wmhrdctrl0[i][0] = 1'b1;
+                        s_wmhrdctrl0[i][0] = 1'b0;
                     end
                 end                
             end
@@ -496,10 +498,10 @@ module csru (
             assign s_mcsr_addr_free[i] = (~s_mie[i][13] | (s_mie[i][13] & ~s_mip[i][13])) & (~s_mie[i][14] | (s_mie[i][14] & ~s_mip[i][14]));
 
             //If both, FCER and LCER, interrupt sources are enabled, the FCER has higher priority
-            assign s_maddrerr_we[i] = ((s_int_fcer_i & s_mie[i][13]) | (s_mie[i][14] & s_ictrl_i[i].lsu)) || s_csr_refresh[i];
+            assign s_maddrerr_we[i] = ((s_int_fcer[i] & s_mie[i][13]) | (s_mie[i][14] & s_ictrl_i[i].lsu)) || s_csr_refresh[i];
             always_comb begin
                 s_wmaddrerr[i] = s_maddrerr[i];
-                if(s_mcsr_addr_free[i] & s_int_fcer_i & s_mie[i][13])begin
+                if(s_mcsr_addr_free[i] & s_int_fcer[i] & s_mie[i][13])begin
                     //Save address of instruction with correctable error
                     s_wmaddrerr[i] = {s_pc_i[i][31:2],2'b0};
                 end else if(s_mcsr_addr_free[i] & s_mie[i][14] & s_ictrl_i[i].lsu)begin
