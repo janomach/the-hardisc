@@ -32,5 +32,18 @@ set_property -dict [list \
   CONFIG.RESET_TYPE {ACTIVE_LOW} \
 ] [get_ips clk_wiz_0]
 
+# add soft error mitigation controller
+create_ip -name sem -vendor xilinx.com -library ip -version 4.1 -module_name sem_0
+set_property CONFIG.CLOCK_FREQ {75} [get_ips sem_0]
+
+open_example_project -force -dir ./sem [get_ips  sem_0]
+
+# read fpga platform source
+add_files "./sem/sem_0_ex/imports"
+
 # enable generation of binary file 
 set_property STEPS.WRITE_BITSTREAM.ARGS.BIN_FILE true [get_runs impl_1]
+
+# enable generation of ebd files
+add_files -fileset utils_1 -norecurse "./bitstream_test.tcl"
+set_property STEPS.WRITE_BITSTREAM.TCL.PRE [ get_files "./bitstream_test.tcl" -of [get_fileset utils_1] ] [get_runs impl_1]

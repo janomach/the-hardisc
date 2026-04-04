@@ -112,9 +112,9 @@ logic s_uart_tx_sem, s_uart_rx_sem, s_uart_tx_dut, s_uart_rx_dut;
 
 always_ff @(posedge s_sys_clk) r_uart_txd_in <= uart_txd_in;
 
-
 assign uart_rxd_out = s_uart_sel_deb ? s_uart_tx_sem : s_uart_tx_dut;
 
+// Select which devide is connected to UART bus
 always_comb begin
     if(s_uart_sel_deb)begin
         s_uart_rx_sem = r_uart_txd_in;
@@ -125,6 +125,7 @@ always_comb begin
     end
 end
 
+// Observe unrecoverable error signalization
 always_ff @(posedge s_sys_clk or negedge s_sys_rstn) begin
     if(!s_sys_rstn) begin
         r_uerr_cntr <= 32'b0;
@@ -136,6 +137,7 @@ always_ff @(posedge s_sys_clk or negedge s_sys_rstn) begin
     if(!s_sys_rstn) begin
         r_uerr_halt <= 1'b0;
     end else if(!r_uerr_halt) begin
+        // Give the SEM time to fix the error and DUT to recover
         r_uerr_halt <= r_uerr_cntr > (`CLK_FREQUENCY / 32'd30);
     end
 end
@@ -162,9 +164,9 @@ assign s_dut_clk[0] = s_sys_clk;
 assign s_dut_clk[1] = s_sys_clk;
 assign s_dut_clk[2] = s_sys_clk;
 
-assign s_dut_rstn[0] = s_sys_rstn & !r_uerr_halt;
-assign s_dut_rstn[1] = s_sys_rstn & !r_uerr_halt;
-assign s_dut_rstn[2] = s_sys_rstn & !r_uerr_halt;
+assign s_dut_rstn[0] = s_sys_rstn;
+assign s_dut_rstn[1] = s_sys_rstn;
+assign s_dut_rstn[2] = s_sys_rstn;
 
 (* dont_touch = "yes" *) `SYSTEM #(.PMA_REGIONS(SUBORDINATES),.PMA_CFG(PMA_CONFIG)) dut
 (
@@ -408,18 +410,6 @@ dahb_ram #(.MEM_SIZE(MEM_SIZE),.SIMULATION(0),.ENABLE_LOG(0),.SAVE_CHECKSUM(!INI
     .s_hresp_o(s_m_hresp)
 );
 
-genvar s;
-generate
-    for(s=1;s<SUBORDINATES;s++)begin
-        assign s_ahb_sbase[s-1]   = PMA_CONFIG[s].base;
-        assign s_ahb_smask[s-1]   = PMA_CONFIG[s].mask;
-    end
-    for(s=0;s<2;s++)begin
-        assign s_ahb_cbase[s]   = PMA_CONFIG[s].base;
-        assign s_ahb_cmask[s]   = PMA_CONFIG[s].mask;
-    end
-endgenerate
-
 (* dont_touch = "yes" *) ahb_sem #(.IFP(`MEMORY_IFP)) m_sem
 (
     .s_clk_i(s_sys_clk),
@@ -447,7 +437,19 @@ endgenerate
     .s_monitor_rx_i(s_uart_rx_sem)
 );
 
-ila_0 ila
+genvar s;
+generate
+    for(s=1;s<SUBORDINATES;s++)begin
+        assign s_ahb_sbase[s-1]   = PMA_CONFIG[s].base;
+        assign s_ahb_smask[s-1]   = PMA_CONFIG[s].mask;
+    end
+    for(s=0;s<2;s++)begin
+        assign s_ahb_cbase[s]   = PMA_CONFIG[s].base;
+        assign s_ahb_cmask[s]   = PMA_CONFIG[s].mask;
+    end
+endgenerate
+
+/*ila_0 ila
 (
     .clk(s_clk_i),
     .probe0(s_unrec_err[0]),
@@ -462,6 +464,6 @@ ila_0 ila
     .probe9(dut.rep[0].core.s_d_hready_i[0]),
     .probe10(dut.rep[0].core.s_i_hresp_i[0]),
     .probe11(dut.rep[0].core.s_d_hresp_i[0])
-);
+);*/
 
 endmodule
