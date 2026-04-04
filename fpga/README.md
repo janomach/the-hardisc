@@ -56,3 +56,11 @@ Example:
 bin2hex --bit-width 32 test.bin matrix.mem
 ```
 
+## Fault Injection
+It is possible to test the dependability (to some extend) of the Hardisc with the [SEM peripheral](https://github.com/janomach/the-hardisc/tree/main/peripherals/ahb_sem.sv) that can be instructed to inject and correct configuration memory errors.
+With the bootloader enabled, you can send the binary of the [fault-injector test](https://github.com/janomach/the-hardisc/tree/main/example/fault_injector/test.c) to the device.
+For this purpose, you can leverage a [prepared script](https://github.com/janomach/the-hardisc/tree/main/scripts/send_to_serial.sh) that will also randomize (it is necessary for the fault injection) the rest of the RAM:
+
+```bash
+./scripts/send_to_serial.sh 20000 /dev/ttyUSB1 ./example/fault_injector/test.bin
+```
