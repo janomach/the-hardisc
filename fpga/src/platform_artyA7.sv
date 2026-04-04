@@ -19,7 +19,7 @@ import edac::*;
 
 //`timescale 1ps/1ps
 
-`define USE_BOOTLOADER
+//`define USE_BOOTLOADER
 `define CLK_FREQUENCY 32'd75000000
 
 `ifdef PROT_INTF
@@ -138,7 +138,7 @@ always_ff @(posedge s_sys_clk or negedge s_sys_rstn) begin
         r_uerr_halt <= 1'b0;
     end else if(!r_uerr_halt) begin
         // Give the SEM time to fix the error and DUT to recover
-        r_uerr_halt <= r_uerr_cntr > (`CLK_FREQUENCY / 32'd30);
+        r_uerr_halt <= r_uerr_cntr > `CLK_FREQUENCY;
     end
 end
 
