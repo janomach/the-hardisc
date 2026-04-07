@@ -133,7 +133,7 @@ module pipeline_5_ma (
             assign s_resetn_prw[i]  = s_resetn_i[i];
 `ifdef PROT_PIPE
             //Only two executors are present in the EX stage, if they were used, their results must be compared
-            assign s_ex_discrepancy[i]  = (s_exma_val_i[0] != s_exma_val_i[1]) & (s_exma_ictrl_i[i].bru | s_exma_ictrl_i[i].alu | s_exma_ictrl_i[i].mdu);
+            assign s_ex_discrepancy[i]  = (s_exma_val_i[0] != s_exma_val_i[1]) & (s_exma_ictrl_i[i].bru | s_exma_ictrl_i[i].alu | s_exma_ictrl_i[i].mdu | s_exma_ictrl_i[i].bmu);
             //Only two BOPs are present in the pipeline, if BRUs signalize distinct outcome, the execution should be restarted
             assign s_bru_discrepancy[i] = (s_bru_toc[0] != s_bru_toc[1]) & s_exma_ictrl_i[i].bru;
 `else
