@@ -75,16 +75,7 @@ module pipeline_2_id (
     //Instruction misconduct indicator
     seu_ff_we_rst #(.LABEL("IDOP_IMISCON"),.W($size(imiscon)),.N(PROT_2REP)) m_idop_imiscon (.s_c_i(s_clk_prw),.s_we_i(s_idop_we_esn),.s_r_i(s_resetn_prw),.s_d_i(s_widop_imiscon),.s_q_o(s_ridop_imiscon));
 
-`ifdef PROT_PIPE
-    rf_add s_widop_acmadd[1], s_ridop_acmadd[1];
-    logic[5:0] s_widop_acmcnt[1], s_ridop_acmcnt[1];
-    //ACM address
-    seu_ff_rst #(.LABEL("IDOP_ACMADD"),.W($size(rf_add)),.N(1),.RSTVAL(5'd1)) m_idop_acmadd (.s_c_i({s_clk_i[0]}),.s_r_i({s_resetn_i[0]}),.s_d_i(s_widop_acmadd),.s_q_o(s_ridop_acmadd));
-    seu_ff_rst #(.LABEL("IDOP_ACMCNT"),.W(6),.N(1),.RSTVAL(6'd0)) m_idop_acmcnt (.s_c_i({s_clk_i[0]}),.s_r_i({s_resetn_i[0]}),.s_d_i(s_widop_acmcnt),.s_q_o(s_ridop_acmcnt));
-
-    logic s_acmadd_update, s_acmadd_enable, s_acm_restart;
-    logic[1:0] s_op_free_rp[2];
-`endif
+    logic s_internal_flush;
     logic [1:0] s_id_free_rp[PROT_2REP];
 	logic s_flush_id[PROT_2REP], s_stall_id[PROT_2REP];
     logic[31:0] s_aligner_instr[PROT_2REP];
@@ -109,11 +100,7 @@ module pipeline_2_id (
 
             //Stall is valid, only if IDOP registers contains executable instruction
             assign s_stall_id[i]   = (|s_stall_i[i][PIPE_MA:PIPE_OP]) & ~s_idop_empty[i];
-            assign s_flush_id[i]   = s_flush_i[i]
-`ifdef PROT_PIPE
-                                    || s_acm_restart
-`endif
-                ; 
+            assign s_flush_id[i]   = s_flush_i[i] || s_internal_flush;
             
             //Instruction alignment 
             aligner m_aligner
@@ -172,7 +159,7 @@ module pipeline_2_id (
                     s_widop_ictrl[i]    = '0;
                     s_widop_imiscon[i]  = IMISCON_FREE;
 `ifdef PROT_PIPE 
-                    if(s_acm_restart)begin
+                    if(s_internal_flush)begin
                         s_widop_imiscon[i] = IMISCON_DSCR;
                     end
 `endif
@@ -190,41 +177,6 @@ module pipeline_2_id (
             assign s_idop_we_rs2[i] = s_idop_we_aux[i] && ~s_id_free_rp[i][1];
             assign s_widop_rs1[i]   = s_rs1[i];
             assign s_widop_rs2[i]   = s_rs2[i];
-`else
-            /* Read-Port Address Scrubbing */
-
-            //The instruction in OP stage does not need read port 1
-            assign s_op_free_rp[i][0]   = (s_ridop_sctrl[i].zero1 | ~s_ridop_sctrl[i].rfrp1 | (s_ridop_imiscon[i] == IMISCON_DSCR));
-            //The instruction in OP stage does not need read port 1
-            assign s_op_free_rp[i][1]   = (s_ridop_sctrl[i].zero2 | ~s_ridop_sctrl[i].rfrp2 | (s_ridop_imiscon[i] == IMISCON_DSCR));
-
-            //Update values for IDOP read-address registers
-            always_comb begin : rsx_we_add_en
-                if(s_acmadd_enable)begin
-                    s_idop_we_rs1[i] = ~s_aligner_nop[i] && ~(s_id_free_rp[i][0] && s_id_free_rp[i][1]);
-                    s_idop_we_rs2[i] = 1'b1;
-                    if(s_flush_id[i])begin
-                        s_idop_we_rs1[i] = 1'b0;
-                    end else if(s_stall_id[i])begin
-                        s_idop_we_rs1[i] = s_op_free_rp[i][0] && ~s_op_free_rp[i][1];
-                        s_idop_we_rs2[i] = s_op_free_rp[i][1];
-                    end                  
-                end else begin
-                    s_idop_we_rs1[i] = s_idop_we_aux[i] && ~s_id_free_rp[i][0];
-                    s_idop_we_rs2[i] = s_idop_we_aux[i] && ~s_id_free_rp[i][1];                    
-                end
-            end
-
-            always_comb begin : pipe_2_writer_1
-                s_widop_rs1[i]  = s_ridop_acmadd[0];
-                s_widop_rs2[i]  = s_ridop_acmadd[0];
-                if(~s_flush_id[i] & ~s_stall_id[i] & ~s_aligner_nop[i])begin
-                    if(~s_id_free_rp[i][0])
-                        s_widop_rs1[i]  = s_rs1[i];
-                    if(~s_id_free_rp[i][1])
-                        s_widop_rs2[i]  = s_rs2[i];
-                end
-            end
 `endif
         end
     endgenerate
@@ -232,41 +184,26 @@ module pipeline_2_id (
 `ifdef PROT_PIPE
     /* Read-Port Address Scrubbing */
 
-    //The HRDCTRL register enables pro-active search of the register file 
-    assign s_acmadd_enable = s_mhrdctrl0_i[0][5];
-    //Increment the ACM's search address
-    assign s_acmadd_update = s_stall_id[0] ? (s_op_free_rp[0] != 2'b00) : ((s_id_free_rp[0] != 2'b00) | s_aligner_nop[0]);
-    //Artification insertion of pipeline restart, if ACM counter cannot increment for more than 7 clock cycles
-    assign s_acm_restart   = (s_ridop_acmcnt[0][3:0] == 4'b1111) && (s_mhrdctrl0_i[0][5:4] == 2'b11);
-
-    //Update ACM search address
-    always_comb begin
-        //Enabled from Level 2
-        s_widop_acmadd[0] = s_ridop_acmadd[0];
-        if(s_acmadd_enable)begin
-            if(s_flush_id[0] | s_acmadd_update)begin
-                if(s_ridop_acmadd[0] != 5'd31) begin
-                    s_widop_acmadd[0] = s_ridop_acmadd[0] + 5'b1;
-                end else begin
-                    s_widop_acmadd[0] = 5'd1;
-                end
-            end            
-        end
-        //Enabled from Level 3
-        s_widop_acmcnt[0] = s_ridop_acmcnt[0];
-        if(s_mhrdctrl0_i[0][5:4] == 2'b11)begin
-            s_widop_acmcnt[0][3:0] = s_ridop_acmcnt[0][3:0] + 4'd1;
-            if(s_flush_id[0] | s_acmadd_update)begin
-                s_widop_acmcnt[0][5:4] = s_ridop_acmcnt[0][5:4] + 2'd1;
-                if(s_ridop_acmcnt[0][5:4] == 2'b11)begin
-                    s_widop_acmcnt[0][3:0] = 4'b0;
-                end
-            end 
-            if(s_ridop_acmcnt[0][3:0] == 4'b1111)begin
-                s_widop_acmcnt[0][5:4] = 2'b0;
-            end           
-        end
-    end
+    id_scrubber m_id_scrubber (
+        .s_clk_i(s_clk_i[0]),
+        .s_resetn_i(s_resetn_i[0]),
+        .s_mhrdctrl0_i(s_mhrdctrl0_i[0]),
+        .s_stall_id_i(s_stall_id),
+        .s_flush_id_i(s_flush_id),
+        .s_id_free_rp_i(s_id_free_rp),
+        .s_aligner_nop_i(s_aligner_nop),
+        .s_rs1_i(s_rs1),
+        .s_rs2_i(s_rs2),
+        .s_ridop_sctrl_i(s_ridop_sctrl),
+        .s_ridop_imiscon_i(s_ridop_imiscon),
+        .s_acm_restart_o(s_internal_flush),
+        .s_idop_we_rs1_o(s_idop_we_rs1),
+        .s_idop_we_rs2_o(s_idop_we_rs2),
+        .s_widop_rs1_o(s_widop_rs1),
+        .s_widop_rs2_o(s_widop_rs2)
+    );
+`else
+    assign s_internal_flush = 1'b0;
 `endif
 
 endmodule
