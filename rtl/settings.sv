@@ -2,8 +2,8 @@
 `define SETTINGS
 
 //`define SEE_TESTING
-//`define PROT_PIPE
-//`define PROT_INTF
+`define PROT_PIPE
+`define PROT_INTF
  
 `define SEE_MAX 1000000
 
