@@ -66,7 +66,7 @@ module pipeline_5_ma (
 );
 
     logic s_flush_ma[PROT_3REP], s_stall_ma[PROT_3REP], s_initialize[PROT_3REP];
-    logic[31:0] s_write_val[PROT_3REP], s_lsurdata[PROT_3REP], s_int_trap[PROT_3REP], s_exc_trap[PROT_3REP], s_mepc[PROT_3REP], 
+    logic[31:0] s_write_val[PROT_3REP], s_lsurdata[PROT_3REP], s_trap[PROT_3REP], s_mepc[PROT_3REP], 
                 s_ma_toc_addr[PROT_3REP], s_csr_val[PROT_3REP], s_bru_add[PROT_3REP], 
                 s_new_pc[PROT_3REP], s_next_pc[PROT_3REP], s_wpc[PROT_3REP], s_rpc[PROT_3REP], s_pc[PROT_3REP];
     logic[2:0] s_pc_incr[PROT_3REP];
@@ -172,8 +172,7 @@ module pipeline_5_ma (
             fast_adder m_next_pc(.s_base_val_i(s_pc[i]),.s_add_val_i({13'd0,s_pc_incr[i]}),.s_val_o(s_next_pc[i])); 
 
             //Selection of the value the program counter should be updated with
-            assign s_new_pc[i]  = (s_interrupt[i] | s_initialize[i]) ? (s_initialize[i] ? s_boot_add_i : s_int_trap[i]) : 
-                                  (s_exception[i]) ? s_exc_trap[i] : 
+            assign s_new_pc[i]  = (s_exception[i] | s_interrupt[i] | s_initialize[i]) ? (s_initialize[i] ? s_boot_add_i : s_trap[i]) :
                                   (s_tereturn[i]) ? s_mepc[i] : 
                                   (s_itaken[i]) ? s_bru_add[i] : s_next_pc[i];
 
@@ -273,8 +272,7 @@ module pipeline_5_ma (
         .s_function_i(s_exma_f_i),
         .s_payload_i(s_exma_payload_i),
         .s_val_i(s_exma_val_i),
-        .s_exc_trap_o(s_exc_trap), 
-        .s_int_trap_o(s_int_trap), 
+        .s_trap_o(s_trap),  
         .s_pc_i(s_rpc),
         .s_csr_r_o(s_csr_val),
         .s_mepc_o(s_mepc),

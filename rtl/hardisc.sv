@@ -89,11 +89,9 @@ module hardisc #(
     logic s_bop_pred[PROT_2REP], s_bop_pop, s_lsu_dp_ready[PROT_3REP], s_lsu_dp_hresp[PROT_3REP], s_lsu_dp_save[PROT_3REP];
     logic[1:0] s_lsu_einfo[PROT_3REP];
 
-`ifdef PROT_PIPE
     assign s_unrec_err_o[0]   = s_mhrdctrl0[0][2];
-    assign s_unrec_err_o[1]   = s_mhrdctrl0[1][2];
-`else                        
-    assign s_unrec_err_o[0]   = 1'b0;                   
+`ifdef PROT_PIPE
+    assign s_unrec_err_o[1]   = s_mhrdctrl0[1][2];                
 `endif
     
     //AHB instruction bus - hardwired signals

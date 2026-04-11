@@ -90,8 +90,8 @@ logic[2:0] s_rdbus_hsize[2][1], s_rdbus_hsize_cmp[2][1];
 logic s_unrec_err[2][1], s_i_discrepancy[2], s_d_discrepancy[2], s_resetn[2][1], s_int_meip[2][1], s_int_mtip[2][1];
 
 // Discrepancy is signalized by comparators
-assign s_unrec_err_o[0] = s_i_discrepancy[0] || s_d_discrepancy[0];
-assign s_unrec_err_o[1] = s_i_discrepancy[1] || s_d_discrepancy[1];
+assign s_unrec_err_o[0] = s_i_discrepancy[0] || s_d_discrepancy[0] || s_unrec_err[0][0];
+assign s_unrec_err_o[1] = s_i_discrepancy[1] || s_d_discrepancy[1] || s_unrec_err[1][0];
 
 // Interface outputs are driven by the leading core
 assign s_i_htrans_o     = s_i_htrans[0];

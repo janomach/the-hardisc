@@ -97,9 +97,9 @@ package p_hardisc;
                 LEVEL_MACHINE   = 2'b11; 
 
 `ifdef PROT_INTF
-    parameter MAX_MCSR    = 15;
+    parameter MAX_MCSR    = 16;
 `else
-    parameter MAX_MCSR    = 14;
+    parameter MAX_MCSR    = 15;
 `endif
     parameter [4:0]
                 MCSR_STATUS      = 5'd00,
@@ -114,10 +114,11 @@ package p_hardisc;
                 MCSR_TVAL        = 5'd09,
                 MCSR_IP          = 5'd10,
                 MCSR_SCRATCH     = 5'd11,
-                MCSR_HARTID      = 5'd12, 
+                MCSR_HARTID      = 5'd12,
                 MCSR_ISA         = 5'd13,
                 MCSR_HRDCTRL0    = 5'd14,
-                MCSR_ADDRERR     = 5'd15;
+                MCSR_ADDRERR     = 5'd15,
+                MCSR_STATUSH     = 5'd16;
     parameter [7:0]
                 CSR_STATUS      = 8'h00,
                 CSR_CYCLE       = 8'h00,
@@ -126,6 +127,7 @@ package p_hardisc;
                 CSR_IE          = 8'h04,
                 CSR_TVEC        = 8'h05,
                 //CSR_COUNTEREN   = 8'h06,
+                CSR_STATUSH     = 8'h10,
                 CSR_HARTID      = 8'h14,
                 CSR_SCRATCH     = 8'h40,
                 CSR_EPC         = 8'h41,
@@ -146,6 +148,7 @@ package p_hardisc;
                 //CSR_UTVAL       = {2'b00,LEVEL_USER,CSR_TVAL},
                 //CSR_UIP         = {2'b00,LEVEL_USER,CSR_IP},
                 CSR_MSTATUS     = {2'b00,LEVEL_MACHINE,CSR_STATUS},
+                CSR_MSTATUSH    = {2'b00,LEVEL_MACHINE,CSR_STATUSH},
                 CSR_MISA        = {2'b00,LEVEL_MACHINE,CSR_ISA},
                 CSR_MIE         = {2'b00,LEVEL_MACHINE,CSR_IE},
                 CSR_MTVEC       = {2'b00,LEVEL_MACHINE,CSR_TVEC},

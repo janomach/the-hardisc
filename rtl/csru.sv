@@ -41,8 +41,7 @@ module csru (
     input logic[31:0] s_val_i[PROT_3REP],           //result from EX stage
     input logic[31:0] s_pc_i[PROT_3REP],            //program counter address
     output logic[31:0] s_csr_r_o[PROT_3REP],        //value read from requested CSR
-    output logic[31:0] s_exc_trap_o[PROT_3REP],     //exception trap-handler address
-    output logic[31:0] s_int_trap_o[PROT_3REP],     //interrupt trap-handler address
+    output logic[31:0] s_trap_o[PROT_3REP],         //trap-handler address
     output logic[31:0] s_mepc_o[PROT_3REP],         //address saved in MEPC CSR
     output logic s_treturn_o[PROT_3REP],            //return from trap-handler
     output logic s_int_pending_o[PROT_3REP],        //pending interrupt
@@ -52,25 +51,26 @@ module csru (
     output logic s_initialize_o[PROT_3REP],         //core has been reseted, jump to the program counter
     output logic[31:0] s_mhrdctrl0_o[PROT_3REP]     //settings
 );
-    logic[31:0] s_mcsr_r_val[PROT_3REP], s_read_val[PROT_3REP], s_csr_w_val[PROT_3REP], s_int_vectored[PROT_3REP], s_exc_trap[PROT_3REP], s_int_trap[PROT_3REP];
+    logic[31:0] s_mcsr_r_val[PROT_3REP], s_read_val[PROT_3REP], s_csr_w_val[PROT_3REP], s_int_vectored[PROT_3REP], s_trap[PROT_3REP];
     logic s_machine_csr[PROT_3REP], s_write_machine[PROT_3REP], s_csr_op[PROT_3REP], s_csr_fun[PROT_3REP], s_uadd_00[PROT_3REP], s_uadd_01[PROT_3REP], s_uadd_10[PROT_3REP], s_mret[PROT_3REP], s_exc_active[PROT_3REP], s_int_exc[PROT_3REP], 
           s_mtval_zero[PROT_3REP], s_interrupt[PROT_3REP], s_int_pending[PROT_3REP], s_commit[PROT_3REP], s_exception[PROT_3REP], s_execute[PROT_3REP], s_max_reached[PROT_3REP], s_transfer_misaligned[PROT_3REP], 
-          s_pma_violation[PROT_3REP], s_csr_refresh[PROT_3REP], s_livelock[PROT_3REP], s_livelock_int[PROT_3REP], s_pc_uce[PROT_3REP];
+          s_pma_violation[PROT_3REP], s_csr_refresh[PROT_3REP], s_livelock[PROT_3REP], s_livelock_int[PROT_3REP], s_pc_uce[PROT_3REP], s_unexp_trap[PROT_3REP];
     logic[63:0] s_mcycle_counter[PROT_3REP], s_minstret_counter[PROT_3REP];
     logic[4:0] s_int_code[PROT_3REP], s_csr_add[PROT_3REP], s_exc_code[PROT_3REP];
     logic[1:0] s_nmi[PROT_3REP];
     exception s_exceptions[PROT_3REP];
 
     logic[7:0] s_wmstatus[PROT_3REP], s_rmstatus[PROT_3REP], s_mstatus[PROT_3REP];
+    logic[10:0] s_wmstatush[PROT_3REP], s_rmstatush[PROT_3REP], s_mstatush[PROT_3REP];
     logic[14:0]s_wmie[PROT_3REP], s_rmie[PROT_3REP], s_wmip[PROT_3REP], s_rmip[PROT_3REP],s_mie[PROT_3REP], s_mip[PROT_3REP];
     logic[31:0]s_wmscratch[PROT_3REP],s_wminstret[PROT_3REP],s_wminstreth[PROT_3REP],s_wmcycle[PROT_3REP],s_wmcycleh[PROT_3REP],
                 s_wmtvec[PROT_3REP],s_wmepc[PROT_3REP],s_wmcause[PROT_3REP],s_wmtval[PROT_3REP],s_wmhrdctrl0[PROT_3REP],
                 s_rmscratch[PROT_3REP],s_rminstret[PROT_3REP],s_rminstreth[PROT_3REP],s_rmcycle[PROT_3REP],s_rmcycleh[PROT_3REP],
-                s_rmtvec[PROT_3REP],s_rmepc[PROT_3REP],s_rmcause[PROT_3REP],s_rmtval[PROT_3REP],s_rmhrdctrl0[PROT_3REP], 
+                s_rmtvec[PROT_3REP],s_rmepc[PROT_3REP],s_rmcause[PROT_3REP],s_rmtval[PROT_3REP],s_rmhrdctrl0[PROT_3REP],
                 s_mscratch[PROT_3REP],s_minstret[PROT_3REP],s_minstreth[PROT_3REP],s_mcycle[PROT_3REP],s_mcycleh[PROT_3REP],
                 s_mtvec[PROT_3REP],s_mepc[PROT_3REP],s_mcause[PROT_3REP],s_mtval[PROT_3REP],s_mhrdctrl0[PROT_3REP];
     logic s_mstatus_we[PROT_3REP], s_minstret_we[PROT_3REP], s_minstreth_we[PROT_3REP], s_mcycle_we[PROT_3REP], s_mcycleh_we[PROT_3REP], s_int_fcer[PROT_3REP],
-          s_mscratch_we[PROT_3REP], s_mtvec_we[PROT_3REP], s_mepc_we[PROT_3REP], s_mcause_we[PROT_3REP], s_mtval_we[PROT_3REP], s_mie_we[PROT_3REP], s_mip_we[PROT_3REP], s_mhrdctrl0_we[PROT_3REP];
+          s_mscratch_we[PROT_3REP], s_mtvec_we[PROT_3REP], s_mepc_we[PROT_3REP], s_mcause_we[PROT_3REP], s_mtval_we[PROT_3REP], s_mie_we[PROT_3REP], s_mip_we[PROT_3REP], s_mhrdctrl0_we[PROT_3REP], s_mstatush_we[PROT_3REP];
 `ifdef PROT_INTF
     logic s_mcsr_addr_free[PROT_3REP], s_maddrerr_we[PROT_3REP];
     logic[31:0]s_wmaddrerr[PROT_3REP],s_rmaddrerr[PROT_3REP], s_maddrerr[PROT_3REP];
@@ -78,6 +78,7 @@ module csru (
 
     //CSR registers
     seu_ff_we_rst #(.LABEL("CSR_MSTATUS"),.W(8),.N(PROT_3REP)) m_mstatus (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mstatus_we),.s_d_i(s_wmstatus),.s_q_o(s_rmstatus));
+    seu_ff_we_rst #(.LABEL("CSR_MSTATUSH"),.W(11),.N(PROT_3REP),.RSTVAL(11'h400)) m_mstatush (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mstatush_we),.s_d_i(s_wmstatush),.s_q_o(s_rmstatush));
     seu_ff_we_rst #(.LABEL("CSR_MINSTRET"),.N(PROT_3REP)) m_minstret (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_minstret_we),.s_d_i(s_wminstret),.s_q_o(s_rminstret));
     seu_ff_we_rst #(.LABEL("CSR_MINSTRETH"),.N(PROT_3REP)) m_minstreth (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_minstreth_we),.s_d_i(s_wminstreth),.s_q_o(s_rminstreth));
     seu_ff_we_rst #(.LABEL("CSR_MCYCLE"),.N(PROT_3REP)) m_mcycle (.s_c_i(s_clk_i),.s_r_i(s_resetn_i),.s_we_i(s_mcycle_we),.s_d_i(s_wmcycle),.s_q_o(s_rmcycle));
@@ -96,6 +97,7 @@ module csru (
 `ifdef PROT_PIPE
     //Triple-Modular-Redundancy
     tmr_comb #(.W(8))m_tmr_mstatus (.s_d_i(s_rmstatus),.s_d_o(s_mstatus));
+    tmr_comb #(.W(11))m_tmr_mstatush (.s_d_i(s_rmstatush),.s_d_o(s_mstatush));
     tmr_comb m_tmr_minstret (.s_d_i(s_rminstret),.s_d_o(s_minstret));
     tmr_comb m_tmr_minstreth (.s_d_i(s_rminstreth),.s_d_o(s_minstreth));
     tmr_comb m_tmr_mcycle (.s_d_i(s_rmcycle),.s_d_o(s_mcycle));
@@ -111,6 +113,7 @@ module csru (
     tmr_comb m_tmr_maddrerr (.s_d_i(s_rmaddrerr),.s_d_o(s_maddrerr));
 `else
     assign s_mstatus    = s_rmstatus;
+    assign s_mstatush   = s_rmstatush;
     assign s_minstret   = s_rminstret;
     assign s_minstreth  = s_rminstreth;
     assign s_mcycle     = s_rmcycle;
@@ -134,8 +137,7 @@ module csru (
     assign s_csr_r_o        = s_read_val;  
     assign s_treturn_o      = s_mret;
     assign s_mepc_o         = s_mepc;
-    assign s_exc_trap_o     = s_exc_trap;
-    assign s_int_trap_o     = s_int_trap;  
+    assign s_trap_o         = s_trap;  
 
     generate
         for (genvar i = 0; i<PROT_3REP ;i++ ) begin : csr_replicator
@@ -190,6 +192,7 @@ module csru (
             assign s_exc_active[i]     = s_exception[i] & s_execute[i] & ~s_interrupted_i[i];
             assign s_int_exc[i]        = s_interrupted_i[i] | (s_exception[i] & s_execute[i]);
             assign s_int_pending[i]    = s_interrupt[i] | (|s_nmi[i]);
+            assign s_unexp_trap[i]     = s_mstatush[i][10];
             assign s_mtval_zero[i]     = (s_exc_code[i] != EXC_MISALIGI_VAL) & (s_exc_code[i] != EXC_LADD_MISS_VAL) & (s_exc_code[i] != EXC_SADD_MISS_VAL);
             assign s_int_code[i]       = (s_nmi[i][0]) ? INT_LUCE_VAL : 
                                          (s_nmi[i][1]) ? INT_FUCE_VAL :
@@ -198,10 +201,19 @@ module csru (
                                          (s_mie[i][7]  & s_mip[i][7])  ? INT_MTI_VAL : 
                                          (s_mie[i][14] & s_mip[i][14]) ? INT_LCER_VAL : 
                                          (s_mie[i][13] & s_mip[i][13]) ? INT_FCER_VAL : INT_LLCK_VAL;
-            assign s_exc_trap[i]       = {s_mtvec[i][31:2],2'b0};
-            assign s_int_trap[i]       = (s_mtvec[i][0]) ? s_int_vectored[i] : s_exc_trap[i];
 
-            fast_adder m_int_vector(.s_base_val_i(s_exc_trap[i]),.s_add_val_i({9'b0,s_int_code[i],2'b0} ),.s_val_o(s_int_vectored[i]));
+            always_comb begin : trap_selector
+                s_trap[i] = {s_mtvec[i][31:2],2'b0};
+                if(s_unexp_trap[i]) begin
+                    // preserve PC on unexpected trap
+                    s_trap[i] = s_pc_i[i];
+                end else if(s_mtvec[i][0] & !s_exc_active[i]) begin
+                    s_trap[i] = s_int_vectored[i];
+                end
+            end
+
+            //Vectored interrupt handler 
+            fast_adder m_int_vector(.s_base_val_i({s_mtvec[i][31:2],2'b0}),.s_add_val_i({9'b0,s_int_code[i],2'b0} ),.s_val_o(s_int_vectored[i]));
 
             //Machine counters
             fast_adder #(.WIDTH(64)) m_mcycle_cntr(.s_base_val_i({s_mcycleh[i],s_mcycle[i]}),.s_add_val_i(32'd1),.s_val_o(s_mcycle_counter[i]));
@@ -211,6 +223,7 @@ module csru (
             always_comb begin : machine_csr_read_value
                 case (s_csr_add[i])
                     MCSR_STATUS:     s_mcsr_r_val[i] = {24'b11000,s_rmstatus[i]};
+                    MCSR_STATUSH:    s_mcsr_r_val[i] = {21'b0,s_rmstatush[i]};
                     MCSR_IE:         s_mcsr_r_val[i] = {17'b0,s_rmie[i]};
                     MCSR_TVEC:       s_mcsr_r_val[i] = s_rmtvec[i];
                     MCSR_EPC:        s_mcsr_r_val[i] = s_rmepc[i];
@@ -262,14 +275,34 @@ module csru (
                 s_wmstatus[i][3]    = s_mstatus[i][3];
                 s_wmstatus[i][2:0]  = 3'b0;
                 if(s_int_exc[i])begin
-                    s_wmstatus[i][7]    = s_mstatus[i][3];
-                    s_wmstatus[i][3]    = 1'b0;
+                    if(!s_unexp_trap[i]) begin
+                        s_wmstatus[i][7] = s_mstatus[i][3];
+                        s_wmstatus[i][3] = 1'b0;
+                    end
                 end else if(s_mret[i])begin
                     s_wmstatus[i][7]    = 1'b1;
                     s_wmstatus[i][3]    = s_mstatus[i][7];
-                end else if (s_write_machine[i] & (s_csr_add[i] == MCSR_STATUS) & s_uadd_00[i]) begin
-                    s_wmstatus[i][7]    = s_csr_w_val[i][7];   //MPIE
-                    s_wmstatus[i][3]    = s_csr_w_val[i][3];   //MIE
+                end else if (s_write_machine[i] & s_uadd_00[i]) begin
+                    if(s_csr_add[i] == MCSR_STATUS) begin
+                        s_wmstatus[i][7] = s_csr_w_val[i][7];   //MPIE
+                        if(!s_csr_w_val[i][3] || !s_mstatush[i][10]) begin
+                            s_wmstatus[i][3] = s_csr_w_val[i][3];   //MIE
+                        end
+                    end else if((s_csr_add[i] == MCSR_STATUSH) & s_csr_w_val[i][10]) begin 
+                        s_wmstatus[i][3] = 1'b0;
+                    end
+                end
+            end
+
+            assign s_mstatush_we[i] = s_write_machine[i] || s_csr_refresh[i];
+            always_comb begin : mstatush_writer
+                s_wmstatush[i] = s_mstatush[i];
+                if(s_int_exc[i])begin
+                    s_wmstatush[i][10] = 1'b1;
+                end else if(s_mret[i])begin
+                    s_wmstatush[i][10] = 1'b0;
+                end else if (s_write_machine[i] & (s_csr_add[i] == MCSR_STATUSH) & s_uadd_00[i]) begin
+                    s_wmstatush[i][10] = s_csr_w_val[i][10];
                 end
             end
 
@@ -331,7 +364,9 @@ module csru (
             always_comb begin : mepc_writer
                 s_wmepc[i]   = s_mepc[i];
                 if(s_int_exc[i]) begin
-                    s_wmepc[i]   = s_pc_i[i];
+                    if(!s_unexp_trap[i]) begin
+                        s_wmepc[i] = s_pc_i[i];
+                    end
                 end else if (s_write_machine[i] & (s_csr_add[i] == MCSR_EPC) & s_uadd_00[i]) begin
                     s_wmepc[i]   = s_csr_w_val[i];
                 end
@@ -343,9 +378,11 @@ module csru (
                 s_wmcause[i][30:5]  = s_mcause[i][30:5];
                 s_wmcause[i][4:0]   = s_mcause[i][4:0];
                 if(s_int_exc[i]) begin
-                    s_wmcause[i][31]    = s_interrupted_i[i];
-                    s_wmcause[i][30:5]  = 26'b0;
-                    s_wmcause[i][4:0]   = (s_interrupted_i[i]) ? s_int_code[i] : s_exc_code[i];
+                    if(!s_unexp_trap[i]) begin
+                        s_wmcause[i][31]    = s_interrupted_i[i];
+                        s_wmcause[i][30:5]  = 26'b0;
+                        s_wmcause[i][4:0]   = (s_interrupted_i[i]) ? s_int_code[i] : s_exc_code[i];
+                    end
                 end else if (s_write_machine[i] & (s_csr_add[i] == MCSR_CAUSE) & s_uadd_00[i]) begin
                     s_wmcause[i][31]    = s_csr_w_val[i][31];
                     s_wmcause[i][30:5]  = s_csr_w_val[i][30:5];
@@ -357,7 +394,9 @@ module csru (
             always_comb begin : mtval_writer
                 s_wmtval[i] = s_mtval[i];
                 if(s_exc_active[i]) begin
-                    s_wmtval[i]   = s_mtval_zero[i] ? 32'h0 : s_val_i[i];
+                    if(!s_unexp_trap[i]) begin
+                        s_wmtval[i]   = s_mtval_zero[i] ? 32'h0 : s_val_i[i];
+                    end
                 end else if (s_write_machine[i] & (s_csr_add[i] == MCSR_TVAL) & s_uadd_00[i]) begin
                     s_wmtval[i]   = s_csr_w_val[i];
                 end
@@ -480,7 +519,7 @@ module csru (
                         s_wmhrdctrl0[i][3] = 1'b1;
                     end
                     if(!s_mhrdctrl0[i][2])begin
-                        s_wmhrdctrl0[i][2] = s_pc_uce[i];
+                        s_wmhrdctrl0[i][2] = s_pc_uce[i] || (s_unexp_trap[i] && s_int_exc[i]);
                         if(!s_execute[i] && s_livelock[i] && !s_mhrdctrl0[i][0])begin
                             //livelock
                             s_wmhrdctrl0[i][2] = 1'b1;

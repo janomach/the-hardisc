@@ -188,6 +188,7 @@ module decoder (
     always_comb begin : machine_csr_address
         case (s_instr_i[31:20])
             CSR_MSTATUS:     s_csr_add = MCSR_STATUS;
+            CSR_MSTATUSH:    s_csr_add = MCSR_STATUSH;
             CSR_MIE:         s_csr_add = MCSR_IE;
             CSR_MTVEC:       s_csr_add = MCSR_TVEC;
             CSR_MEPC:        s_csr_add = MCSR_EPC;
