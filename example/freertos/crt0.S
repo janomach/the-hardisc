@@ -30,6 +30,7 @@ _start:
 	la a0, __vector_start
     ori a0, a0, 0x1
 	csrw mtvec, a0
+	csrw mstatush, x0 // enable traps
 
 /* clear the bss segment */
 	la a0, __bss_start
@@ -44,10 +45,10 @@ _start:
 	call __libc_init_array
 
 /* enable interrupts */
-	li a0, 3
-	slli a0, a0, 13
+	li a0, 6
+	slli a0, a0, 12
 	csrs mie, a0
-	csrsi mstatus, 8 
+	csrsi mstatus, 8  //enable machine interrupts
 
 /* call main */
 	li  a0, 0
