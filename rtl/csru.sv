@@ -294,7 +294,7 @@ module csru (
                 end
             end
 
-            assign s_mstatush_we[i] = s_write_machine[i] || s_int_exc[i] || s_csr_refresh[i];
+            assign s_mstatush_we[i] = s_mstatus_we[i];
             always_comb begin : mstatush_writer
                 s_wmstatush[i] = s_mstatush[i];
                 if(s_int_exc[i])begin
