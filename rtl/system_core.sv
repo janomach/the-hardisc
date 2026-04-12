@@ -67,8 +67,8 @@ module system_core #(
 
 logic s_unrec_err[1];
 
-assign s_unrec_err_o[0] = 1'b0;
-assign s_unrec_err_o[1] = 1'b0;
+assign s_unrec_err_o[0] = s_unrec_err[0];
+assign s_unrec_err_o[1] = s_unrec_err[0];
 
 generate
     for (genvar i = 0; i < 1;i++ ) begin : rep

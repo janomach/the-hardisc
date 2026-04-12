@@ -13,29 +13,30 @@ Rozloženie sekcie .init:
 10000014:	06050513          	addi	a0,a0,96 # 10000070 <__vector_start>
 10000018:	00156513          	ori	a0,a0,1
 1000001c:	30551073          	csrw	mtvec,a0
-10000020:	00012517          	auipc	a0,0x12
-10000024:	30050513          	addi	a0,a0,768 # 10012320 <xQueue>
-10000028:	0001c617          	auipc	a2,0x1c
-1000002c:	7e860613          	addi	a2,a2,2024 # 1001c810 <__BSS_END__>
-10000030:	8e09                	sub	a2,a2,a0
-10000032:	4581                	li	a1,0
-10000034:	6d8020ef          	jal	1000270c <memset>
-10000038:	00002517          	auipc	a0,0x2
-1000003c:	67850513          	addi	a0,a0,1656 # 100026b0 <__libc_fini_array>
-10000040:	5a1010ef          	jal	10001de0 <atexit>
-10000044:	5d8020ef          	jal	1000261c <__libc_init_array>
-10000048:	450d                	li	a0,3
-1000004a:	0536                	slli	a0,a0,0xd
-1000004c:	30452073          	csrs	mie,a0
-10000050:	30046073          	csrsi	mstatus,8
-10000054:	4501                	li	a0,0
-10000056:	4581                	li	a1,0
-10000058:	4601                	li	a2,0
-1000005a:	1da000ef          	jal	10000234 <main>
-1000005e:	a26d                	j	10000208 <exit>
+10000020:	31001073          	csrw	0x310,zero
+10000024:	00012517          	auipc	a0,0x12
+10000028:	2fc50513          	addi	a0,a0,764 # 10012320 <xQueue>
+1000002c:	0001c617          	auipc	a2,0x1c
+10000030:	7e460613          	addi	a2,a2,2020 # 1001c810 <__BSS_END__>
+10000034:	8e09                	sub	a2,a2,a0
+10000036:	4581                	li	a1,0
+10000038:	6d4020ef          	jal	1000270c <memset>
+1000003c:	00002517          	auipc	a0,0x2
+10000040:	67450513          	addi	a0,a0,1652 # 100026b0 <__libc_fini_array>
+10000044:	59d010ef          	jal	10001de0 <atexit>
+10000048:	5d4020ef          	jal	1000261c <__libc_init_array>
+1000004c:	4519                	li	a0,6
+1000004e:	0532                	slli	a0,a0,0xc
+10000050:	30452073          	csrs	mie,a0
+10000054:	30046073          	csrsi	mstatus,8
+10000058:	4501                	li	a0,0
+1000005a:	4581                	li	a1,0
+1000005c:	4601                	li	a2,0
+1000005e:	1d6000ef          	jal	10000234 <main>
+10000062:	a25d                	j	10000208 <exit>
 
-10000060 <_fini>:
-10000060:	8082                	ret
+10000064 <_fini>:
+10000064:	8082                	ret
 
 Rozloženie sekcie .vectors:
 

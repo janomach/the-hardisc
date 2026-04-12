@@ -3,7 +3,7 @@ The Hardisc is a 32-bit [RISC-V](https://en.wikipedia.org/wiki/RISC-V) IP core f
 The core contains an in-order 6-stage pipeline with AMBA 3 AHB-Lite instruction/data bus interfaces.
 
 > [!NOTE]
-> Supported architecture: `rv32imc_zicsr_zba_zbb_zbc_zbs_zcb_zicond`
+> Supported architecture: `rv32imc_zicsr_zba_zbb_zbc_zbs_zcb_zicond` + `smdbltrp`
 
 The Hardisc's protection is based on a selective replication of resources inside the execution pipeline, complemented by ECCs and bus-interface protection.
 It provides **fault-tolerance** with minimal area and power consumtion overhead when compared to industry-standard Dual-Core Lockstep (DCLS) systems.
