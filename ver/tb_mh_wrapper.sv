@@ -17,6 +17,7 @@
 `include "../rtl/settings.sv"
 import p_hardisc::*;
 import edac::*;
+import p_reri::fault_record_t;
 
 `ifdef PROT_INTF
     `define MEMORY_IFP 1
@@ -32,7 +33,7 @@ import edac::*;
 
 module tb_mh_wrapper();
 
-localparam SUBORDINATES = 3;
+localparam SUBORDINATES = 4;
 localparam BOOTADD  = 32'h10000000;
 localparam MEM_SIZE = 32'h20000;
 localparam MEM_MASK = 32'hFFFFFFFF - MEM_SIZE + 32'h1;
@@ -41,7 +42,8 @@ localparam MEM_MSB  = $clog2(MEM_SIZE) - 32'h1;
 localparam pma_cfg_t PMA_CONFIG[SUBORDINATES] = '{
     '{base  : BOOTADD,                mask  : MEM_MASK, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
     '{base  : BOOTADD + 32'h70000000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
-    '{base  : BOOTADD + 32'h70001000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1}
+    '{base  : BOOTADD + 32'h70001000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1},
+    '{base  : BOOTADD + 32'h70002000, mask  : 32'hFFFFF400, read_only  : 1'b0, executable: 1'b1, idempotent : 1'b1}
 };
 
 logic[5:0] s_i_hparity[1], s_i_hparity_see[1];
@@ -67,6 +69,8 @@ logic[31:0] s_ahb_sbase[SUBORDINATES], s_ahb_smask[SUBORDINATES], s_shrdata[SUBO
 logic s_shready[SUBORDINATES], s_shresp[SUBORDINATES], s_shsel[SUBORDINATES];
 
 logic s_int_meip, s_int_mtip, s_unrec_err[2];
+fault_record_t s_reri[4];
+logic s_ras_lo, s_ras_hi, s_ras_plat;
 logic[31:0] r_timeout;
 
 logic s_halt, s_sim_timeout, s_ecall_halt, r_ecall_halt;
@@ -227,7 +231,9 @@ assign s_int_meip = 1'b0;
     .s_d_hwchecksum_o(s_d_hwchecksum[0]),
     .s_d_hparity_o(s_d_hparity[0]),
 
-    .s_unrec_err_o(s_unrec_err)
+    .s_unrec_err_o(s_unrec_err),
+
+    .s_reri_o(s_reri)
 );
 
 ahb_interconnect #(.SLAVES(SUBORDINATES)) data_interconnect
@@ -311,6 +317,38 @@ ahb_timer #(.IFP(`MEMORY_IFP)) m_mtimer
     .s_hresp_o(s_shresp[2]),
 
     .s_timeout_o(s_int_mtip)
+);
+
+reri_error_bank #(.N_RECORDS(4),.IFP(`MEMORY_IFP)) m_reri_error_bank
+(
+    .clk(r_ver_clk),
+    .rst_n(r_ver_rstn),
+
+    //AHB3-Lite
+    .haddr(s_d_haddr[0]),
+    .hwdata(s_d_hwdata[0]),
+    .hburst(s_d_hburst[0]),
+    .hmastlock(s_d_hmastlock[0]),
+    .hprot(s_d_hprot[0]),
+    .hsize(s_d_hsize[0]),
+    .htrans(s_d_htrans[0]),
+    .hwrite(s_d_hwrite[0]),
+    .hsel(s_shsel[3]),
+
+    .hparity(s_d_hparity[0]),
+    .hwchecksum_i(s_d_hwchecksum[0]),
+    .hrchecksum_o(s_shrchecksum[3]),
+
+    .hrdata(s_shrdata[3]),
+    .hreadyout(s_shready[3]),
+    .hresp(s_shresp[3]),
+
+    .fault_in(s_reri),
+    .scrub_ack_i(4'b0),
+
+    .ras_lo(s_ras_lo),
+    .ras_hi(s_ras_hi),
+    .ras_plat(s_ras_plat)
 );
 
 logic s_m_hmastlock[2], s_m_hwrite[2], s_m_hsel[2], s_m_shready[2], s_m_hresp[2];

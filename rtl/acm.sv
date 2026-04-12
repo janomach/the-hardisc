@@ -16,6 +16,7 @@
 
 `include "settings.sv"
 import p_hardisc::*;
+import p_reri::*;
 
 module acm
 (
@@ -35,7 +36,9 @@ module acm
 
     output logic[31:0] s_val_o[2],      //write value
     output rf_add s_add_o[2],           //write address
-    output logic s_we_o[2]              //write request
+    output logic s_we_o[2],             //write request
+
+    output fault_record_t s_reri_o
 );
 
     logic[6:0] s_w_checksum[2], s_acm_achecksum[2], s_acm_syndrome[2],
@@ -57,6 +60,17 @@ module acm
     assign s_val_o  = s_file_w_val;
     assign s_add_o  = s_file_w_add;
     assign s_we_o   = s_file_we;
+
+    assign s_reri_o.valid    = s_fix_ce[0];  // new error present
+    assign s_reri_o.ce       = s_fix_ce[0];    // corrected error - TODO
+    assign s_reri_o.ued      = 1'b0;    // uncorrected deferred
+    assign s_reri_o.uec      = 1'b0;    // uncorrected critical - TODO
+    assign s_reri_o.ec       = 8'd1;     // error code (Table 6)
+    assign s_reri_o.pri      = 2'b00;      // priority 0..3 - TODO
+    assign s_reri_o.c        = 1'b1;       // containable
+    assign s_reri_o.ait      = 4'b0000;    // address/info type
+    assign s_reri_o.addr     = {27'b0,s_racm_add[0]};    // address (addr_info)
+    assign s_reri_o.tt       = 3'd4;       // transaction type - TODO
     
     generate
         /* Automatic Correction Module*/

@@ -16,6 +16,7 @@
 
 `include "settings.sv"
 import p_hardisc::*;
+import p_reri::*;
 
 module hardisc #(
     parameter PMA_REGIONS = 3,
@@ -62,7 +63,10 @@ module hardisc #(
     output logic[6:0] s_d_hwchecksum_o,     //AHB data bus - outgoing checksum
     output logic[5:0] s_d_hparity_o,        //AHB data bus - outgoing parity
 
-    output logic s_unrec_err_o[PROT_2REP]   //unrecoverable error
+    output logic s_unrec_err_o[PROT_2REP],  //unrecoverable error
+
+    // RERI records
+    output fault_record_t s_reri_o[4] // TODO register output to avoid timing issues
 );
 
     logic[4:0] s_stall[PROT_3REP];
@@ -326,7 +330,10 @@ module hardisc #(
         .s_read_data_o(s_read_data),
 
         .s_pc_o(s_pc),
-        .s_mhrdctrl0_o(s_mhrdctrl0)
+        .s_mhrdctrl0_o(s_mhrdctrl0),
+        .s_reri_fetch(s_reri_o[0]),
+        .s_reri_ldst(s_reri_o[1]),
+        .s_reri_pipe(s_reri_o[2])
     );
 
     rf_controller m_rfc
@@ -344,7 +351,8 @@ module hardisc #(
         .s_mhrdctrl0_i(s_mhrdctrl0),
 
         .s_p1_val_o(s_idop_p1),
-        .s_p2_val_o(s_idop_p2)
+        .s_p2_val_o(s_idop_p2),
+        .s_reri_o(s_reri_o[3])
     );
 
 endmodule

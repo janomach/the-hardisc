@@ -16,6 +16,7 @@
 
 `include "settings.sv"
 import p_hardisc::*;
+import p_reri::*;
 
 module pipeline_5_ma (
     input logic s_clk_i[PROT_3REP],                 //clock signal
@@ -62,7 +63,11 @@ module pipeline_5_ma (
     output logic[31:0] s_read_data_o[PROT_3REP],    //direct access to read value
     
     output logic[31:0] s_pc_o[PROT_3REP],           //program counter address
-    output logic[31:0] s_mhrdctrl0_o[PROT_3REP]     //settings
+    output logic[31:0] s_mhrdctrl0_o[PROT_3REP],    //settings
+
+    output fault_record_t s_reri_fetch,
+    output fault_record_t s_reri_ldst,
+    output fault_record_t s_reri_pipe
 );
 
     logic s_flush_ma[PROT_3REP], s_stall_ma[PROT_3REP], s_initialize[PROT_3REP];
@@ -126,6 +131,42 @@ module pipeline_5_ma (
     assign s_ma_pred_jpu_o      = s_pred_jpu[0] & ~s_rstpp[0];
     assign s_ma_toc_addr_o      = s_ma_toc_addr;
     assign s_flush_o            = s_ma_toc;
+
+    //RERI - fetch interface
+    assign s_reri_fetch.valid    = s_reri_fetch.ce || ((s_exma_imiscon_i[0] == IMISCON_FERR) & s_ibus_rst_en[0]) || s_reri_fetch.uec;  // new error present
+    assign s_reri_fetch.ce       = (s_exma_imiscon_i[0] == IMISCON_FCCE);     // corrected error
+    assign s_reri_fetch.ued      = 1'b0;    // uncorrected deferred
+    assign s_reri_fetch.uec      = (s_exma_imiscon_i[0] == IMISCON_FUCE);    // uncorrected critical
+    assign s_reri_fetch.ec       = ((s_exma_imiscon_i[0] == IMISCON_FERR) & s_ibus_rst_en[0]) ? 8'd15 : 8'd14;     // error code (Table 6)
+    assign s_reri_fetch.pri      = 2'b00;      // priority 0..3 - TODO
+    assign s_reri_fetch.c        = 1'b1;       // containable
+    assign s_reri_fetch.ait      = 4'b0000;    // address/info type
+    assign s_reri_fetch.addr     = s_pc[0];    // address (addr_info)
+    assign s_reri_fetch.tt       = 3'd4;       // transaction type
+
+    //RERI - load/store interface
+    assign s_reri_ldst.valid    = s_reri_ldst.ce || ((s_dbus_rst_en[0] & s_lsu_hresp_i[0] & s_exma_ictrl_i[0].lsu)) || s_reri_ldst.uec;  // new error present
+    assign s_reri_ldst.ce       = s_int_lcer[0];     // corrected error
+    assign s_reri_ldst.ued      = 1'b0;    // uncorrected deferred
+    assign s_reri_ldst.uec      = s_nmi_luce[0];    // uncorrected critical
+    assign s_reri_ldst.ec       = s_reri_ldst.ued ? 8'd15 : 8'd14;     // error code (Table 6)
+    assign s_reri_ldst.pri      = 2'b00;      // priority 0..3 - TODO
+    assign s_reri_ldst.c        = 1'b1;       // containable
+    assign s_reri_ldst.ait      = 4'b0000;    // address/info type
+    assign s_reri_ldst.addr     = m_csru.s_maddrerr[0];    // address (addr_info)
+    assign s_reri_ldst.tt       = 3'd4;       // transaction type - TODO
+
+    //RERI - pipeline discrepancy
+    assign s_reri_pipe.valid    = s_prior_rstpp[0] || s_ex_discrepancy[0] || s_bru_discrepancy[0];  // new error present
+    assign s_reri_pipe.ce       = 1'b1;    // corrected error - TODO
+    assign s_reri_pipe.ued      = 1'b0;    // uncorrected deferred
+    assign s_reri_pipe.uec      = 1'b0;    // uncorrected critical
+    assign s_reri_pipe.ec       = 8'd1;     // error code (Table 6)
+    assign s_reri_pipe.pri      = 2'b00;      // priority 0..3 - TODO
+    assign s_reri_pipe.c        = 1'b1;       // containable
+    assign s_reri_pipe.ait      = 4'b0000;    // address/info type
+    assign s_reri_pipe.addr     = s_pc[0];    // address (addr_info)
+    assign s_reri_pipe.tt       = 3'd4;       // transaction type - TODO
 
     generate
         for (genvar i = 0; i<PROT_3REP ; i++ ) begin : ma_replicator
