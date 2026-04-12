@@ -66,14 +66,14 @@ module pipeline_5_ma (
 );
 
     logic s_flush_ma[PROT_3REP], s_stall_ma[PROT_3REP], s_initialize[PROT_3REP];
-    logic[31:0] s_write_val[PROT_3REP], s_lsurdata[PROT_3REP], s_trap[PROT_3REP], s_mepc[PROT_3REP], 
+    logic[31:0] s_write_val[PROT_3REP], s_lsurdata[PROT_3REP], s_trap_addr[PROT_3REP], s_mepc[PROT_3REP], 
                 s_ma_toc_addr[PROT_3REP], s_csr_val[PROT_3REP], s_bru_add[PROT_3REP], 
                 s_new_pc[PROT_3REP], s_next_pc[PROT_3REP], s_wpc[PROT_3REP], s_rpc[PROT_3REP], s_pc[PROT_3REP];
     logic[2:0] s_pc_incr[PROT_3REP];
-    logic s_int_pending[PROT_3REP], s_exception[PROT_3REP], s_tereturn[PROT_3REP], s_ma_toc[PROT_3REP];
+    logic s_int_pending[PROT_3REP], s_trap_ret[PROT_3REP], s_ma_toc[PROT_3REP], s_trap[PROT_3REP];
     logic s_bru_toc[PROT_3REP], s_rstpp[PROT_3REP], s_prior_rstpp[PROT_3REP], s_pred_bpu[PROT_3REP], s_pred_jpu[PROT_3REP], 
             s_ma_pred_btbu[PROT_3REP], s_ma_pred_btrue[PROT_3REP];
-    logic s_interrupt[PROT_3REP], s_itaken[PROT_3REP];
+    logic s_itaken[PROT_3REP];
     rf_add s_wmawb_rd[PROT_3REP], s_rmawb_rd[PROT_3REP]; 
     logic[31:0] s_wmawb_val[PROT_3REP],s_rmawb_val[PROT_3REP],s_mawb_val[PROT_3REP];  
     ictrl s_wmawb_ictrl[PROT_3REP], s_rmawb_ictrl[PROT_3REP];
@@ -122,8 +122,8 @@ module pipeline_5_ma (
     assign s_ma_pred_clean_o    = s_exma_imiscon_i[0] == IMISCON_DSCR;
     assign s_ma_pred_btbu_o     = s_ma_pred_btbu[0];
     assign s_ma_pred_btrue_o    = s_ma_pred_btrue[0];
-    assign s_ma_pred_bpu_o      = s_pred_bpu[0] & ~s_exception[0] & ~s_rstpp[0];
-    assign s_ma_pred_jpu_o      = s_pred_jpu[0] & ~s_exception[0] & ~s_rstpp[0];
+    assign s_ma_pred_bpu_o      = s_pred_bpu[0] & ~s_rstpp[0];
+    assign s_ma_pred_jpu_o      = s_pred_jpu[0] & ~s_rstpp[0];
     assign s_ma_toc_addr_o      = s_ma_toc_addr;
     assign s_flush_o            = s_ma_toc;
 
@@ -172,23 +172,20 @@ module pipeline_5_ma (
             fast_adder m_next_pc(.s_base_val_i(s_pc[i]),.s_add_val_i({13'd0,s_pc_incr[i]}),.s_val_o(s_next_pc[i])); 
 
             //Selection of the value the program counter should be updated with
-            assign s_new_pc[i]  = (s_exception[i] | s_interrupt[i] | s_initialize[i]) ? (s_initialize[i] ? s_boot_add_i : s_trap[i]) :
-                                  (s_tereturn[i]) ? s_mepc[i] : 
+            assign s_new_pc[i]  = (s_initialize[i]) ? s_boot_add_i :
+                                  (s_trap[i] | s_trap_ret[i]) ? (s_trap[i] ? s_trap_addr[i] : s_mepc[i]) : 
                                   (s_itaken[i]) ? s_bru_add[i] : s_next_pc[i];
 
-            assign s_wpc[i]     = (~(s_rstpp[i] | s_ma_empty[i] | s_stall_ma[i]) | s_interrupt[i] | s_initialize[i]) ? s_new_pc[i] : s_pc[i];
+            assign s_wpc[i]     = (~(s_rstpp[i] | s_ma_empty[i] | s_stall_ma[i]) | s_trap[i] | s_initialize[i]) ? s_new_pc[i] : s_pc[i];
 
             //Transfer of control
-            assign s_ma_toc_addr[i] = (~(s_rstpp[i] | s_ma_empty[i]) | s_interrupt[i]) ? s_new_pc[i] : s_rpc[i];
-            assign s_ma_toc[i]      = (s_interrupt[i] | s_bru_toc[i] | s_exception[i] | s_tereturn[i] | s_rstpp[i]);
-
-            //Interrupts - delay until LSU operation is finished
-            assign s_interrupt[i]   = s_int_pending[i] & ~s_exma_ictrl_i[i].lsu;
+            assign s_ma_toc_addr[i] = (~(s_rstpp[i] | s_ma_empty[i]) | s_trap[i]) ? s_new_pc[i] : s_rpc[i];
+            assign s_ma_toc[i]      = (s_trap[i] | s_bru_toc[i] | s_trap_ret[i] | s_rstpp[i]);
 
             //Stall if a data-bus transfer is extended
             assign s_stall_ma[i]    = (~s_lsu_ready_i[i] | s_lsu_busy_i[i]) & s_exma_ictrl_i[i].lsu;
             //Invalidate MA instruction if reset, interrupt, or exception is detected
-            assign s_flush_ma[i]    = s_rstpp[i] | s_interrupt[i] | s_exception[i];
+            assign s_flush_ma[i]    = s_rstpp[i] | s_trap[i];
             //Stall lower stages on extended data-bus transfer
             assign s_stall_o[i]     = s_stall_ma[i];
             //Hold signal - do not start new instruction in EX stage
@@ -267,18 +264,17 @@ module pipeline_5_ma (
         .s_hresp_i(s_lsu_hresp_i),
         .s_imiscon_i(s_exma_imiscon_i),
         .s_rstpp_i(s_rstpp),
-        .s_interrupted_i(s_interrupt),
         .s_ictrl_i(s_exma_ictrl_i),
         .s_function_i(s_exma_f_i),
         .s_payload_i(s_exma_payload_i),
         .s_val_i(s_exma_val_i),
-        .s_trap_o(s_trap),  
+        .s_trap_o(s_trap),
+        .s_trap_addr_o(s_trap_addr),  
         .s_pc_i(s_rpc),
         .s_csr_r_o(s_csr_val),
         .s_mepc_o(s_mepc),
-        .s_treturn_o(s_tereturn),
+        .s_trap_ret_o(s_trap_ret),
         .s_int_pending_o(s_int_pending),
-        .s_exception_o(s_exception),
         .s_ibus_rst_en_o(s_ibus_rst_en),
         .s_dbus_rst_en_o(s_dbus_rst_en),
         .s_initialize_o(s_initialize),

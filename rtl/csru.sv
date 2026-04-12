@@ -33,7 +33,6 @@ module csru (
     input logic s_hresp_i[PROT_3REP],               //registered hresp signal
     input imiscon s_imiscon_i[PROT_3REP],           //instruction misconduct indicator
     input logic s_rstpp_i[PROT_3REP],               //pipeline reset
-    input logic s_interrupted_i[PROT_3REP],         //interrupt approval
 
     input ictrl s_ictrl_i[PROT_3REP],               //instruction control indicator
     input f_part s_function_i[PROT_3REP],           //instruction function
@@ -41,19 +40,19 @@ module csru (
     input logic[31:0] s_val_i[PROT_3REP],           //result from EX stage
     input logic[31:0] s_pc_i[PROT_3REP],            //program counter address
     output logic[31:0] s_csr_r_o[PROT_3REP],        //value read from requested CSR
-    output logic[31:0] s_trap_o[PROT_3REP],         //trap-handler address
+    output logic[31:0] s_trap_addr_o[PROT_3REP],    //trap-handler address
     output logic[31:0] s_mepc_o[PROT_3REP],         //address saved in MEPC CSR
-    output logic s_treturn_o[PROT_3REP],            //return from trap-handler
+    output logic s_trap_o[PROT_3REP],               //trap active
+    output logic s_trap_ret_o[PROT_3REP],           //return from trap
     output logic s_int_pending_o[PROT_3REP],        //pending interrupt
-    output logic s_exception_o[PROT_3REP],          //exception
     output logic s_ibus_rst_en_o[PROT_3REP],        //enables the repetition of transfer that resulted in a instruction bus error
     output logic s_dbus_rst_en_o[PROT_3REP],        //enables the repetition of transfer that resulted in a data bus error
     output logic s_initialize_o[PROT_3REP],         //core has been reseted, jump to the program counter
     output logic[31:0] s_mhrdctrl0_o[PROT_3REP]     //settings
 );
-    logic[31:0] s_mcsr_r_val[PROT_3REP], s_read_val[PROT_3REP], s_csr_w_val[PROT_3REP], s_int_vectored[PROT_3REP], s_trap[PROT_3REP];
+    logic[31:0] s_mcsr_r_val[PROT_3REP], s_read_val[PROT_3REP], s_csr_w_val[PROT_3REP], s_int_vectored[PROT_3REP], s_trap_addr[PROT_3REP];
     logic s_machine_csr[PROT_3REP], s_write_machine[PROT_3REP], s_csr_op[PROT_3REP], s_csr_fun[PROT_3REP], s_uadd_00[PROT_3REP], s_uadd_01[PROT_3REP], s_uadd_10[PROT_3REP], s_mret[PROT_3REP], s_exc_active[PROT_3REP], s_int_exc[PROT_3REP], 
-          s_mtval_zero[PROT_3REP], s_interrupt[PROT_3REP], s_int_pending[PROT_3REP], s_commit[PROT_3REP], s_exception[PROT_3REP], s_execute[PROT_3REP], s_max_reached[PROT_3REP], s_transfer_misaligned[PROT_3REP], 
+          s_mtval_zero[PROT_3REP], s_interrupt[PROT_3REP], s_interrupted[PROT_3REP], s_int_pending[PROT_3REP], s_commit[PROT_3REP], s_exception[PROT_3REP], s_execute[PROT_3REP], s_max_reached[PROT_3REP], s_transfer_misaligned[PROT_3REP], 
           s_pma_violation[PROT_3REP], s_csr_refresh[PROT_3REP], s_livelock[PROT_3REP], s_livelock_int[PROT_3REP], s_pc_uce[PROT_3REP], s_unexp_trap[PROT_3REP];
     logic[63:0] s_mcycle_counter[PROT_3REP], s_minstret_counter[PROT_3REP];
     logic[4:0] s_int_code[PROT_3REP], s_csr_add[PROT_3REP], s_exc_code[PROT_3REP];
@@ -133,11 +132,11 @@ module csru (
 
     assign s_mhrdctrl0_o    = s_mhrdctrl0;
     assign s_int_pending_o  = s_int_pending; 
-    assign s_exception_o    = s_exception;
+    assign s_trap_o         = s_int_exc;
     assign s_csr_r_o        = s_read_val;  
-    assign s_treturn_o      = s_mret;
+    assign s_trap_ret_o     = s_mret;
     assign s_mepc_o         = s_mepc;
-    assign s_trap_o         = s_trap;  
+    assign s_trap_addr_o    = s_trap_addr;  
 
     generate
         for (genvar i = 0; i<PROT_3REP ;i++ ) begin : csr_replicator
@@ -189,8 +188,9 @@ module csru (
 `endif
 
             assign s_interrupt[i]      = |(s_mie[i] & s_mip[i]) & s_mstatus[i][3];
-            assign s_exc_active[i]     = s_exception[i] & s_execute[i] & ~s_interrupted_i[i];
-            assign s_int_exc[i]        = s_interrupted_i[i] | (s_exception[i] & s_execute[i]);
+            assign s_interrupted[i]    = s_interrupt[i] & ~s_ictrl_i[i].lsu;
+            assign s_exc_active[i]     = s_exception[i] & s_execute[i] & ~s_interrupted[i];
+            assign s_int_exc[i]        = s_interrupted[i] | (s_exception[i] & s_execute[i]);
             assign s_int_pending[i]    = s_interrupt[i] | (|s_nmi[i]);
             assign s_unexp_trap[i]     = s_mstatush[i][10];
             assign s_mtval_zero[i]     = (s_exc_code[i] != EXC_MISALIGI_VAL) & (s_exc_code[i] != EXC_LADD_MISS_VAL) & (s_exc_code[i] != EXC_SADD_MISS_VAL);
@@ -203,12 +203,12 @@ module csru (
                                          (s_mie[i][13] & s_mip[i][13]) ? INT_FCER_VAL : INT_LLCK_VAL;
 
             always_comb begin : trap_selector
-                s_trap[i] = {s_mtvec[i][31:2],2'b0};
+                s_trap_addr[i] = {s_mtvec[i][31:2],2'b0};
                 if(s_unexp_trap[i]) begin
                     // preserve PC on unexpected trap
-                    s_trap[i] = s_pc_i[i];
+                    s_trap_addr[i] = s_pc_i[i];
                 end else if(s_mtvec[i][0] & !s_exc_active[i]) begin
-                    s_trap[i] = s_int_vectored[i];
+                    s_trap_addr[i] = s_int_vectored[i];
                 end
             end
 
@@ -294,7 +294,7 @@ module csru (
                 end
             end
 
-            assign s_mstatush_we[i] = s_write_machine[i] || s_csr_refresh[i];
+            assign s_mstatush_we[i] = s_write_machine[i] || s_int_exc[i] || s_csr_refresh[i];
             always_comb begin : mstatush_writer
                 s_wmstatush[i] = s_mstatush[i];
                 if(s_int_exc[i])begin
@@ -379,9 +379,9 @@ module csru (
                 s_wmcause[i][4:0]   = s_mcause[i][4:0];
                 if(s_int_exc[i]) begin
                     if(!s_unexp_trap[i]) begin
-                        s_wmcause[i][31]    = s_interrupted_i[i];
+                        s_wmcause[i][31]    = s_interrupted[i];
                         s_wmcause[i][30:5]  = 26'b0;
-                        s_wmcause[i][4:0]   = (s_interrupted_i[i]) ? s_int_code[i] : s_exc_code[i];
+                        s_wmcause[i][4:0]   = (s_interrupted[i]) ? s_int_code[i] : s_exc_code[i];
                     end
                 end else if (s_write_machine[i] & (s_csr_add[i] == MCSR_CAUSE) & s_uadd_00[i]) begin
                     s_wmcause[i][31]    = s_csr_w_val[i][31];
