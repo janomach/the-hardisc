@@ -1,4 +1,4 @@
-import p_reri::fault_record_t;
+import p_reri::*;
 import edac::*;
 
 module reri_error_bank #(
@@ -69,52 +69,25 @@ module reri_error_bank #(
     //   +0x00  control_i[63:0]     - Control register of error record i
     //   +0x08  status_i[63:0]      - Status register of error record i 
     //   +0x10  addr_info_i[63:0]   - Address or information register of error record i, reports address or other information about the error, when ait != 0
-    //   +0x18  info_i [63:0]       - Information register of error record i, when iv=1 (?not implemented, always 0)
-    //   +0x1C  suppl_info_i[63:0]  - Supplemental information register of error record i, when siv=1 (?not implemented, always 0)
-    //   +0x20  timestamp_i[63:0]   - Timestamp register of error record i, for the last recorded error, when tsv=1 (?not implemented, always 0)
+    //   +0x18  info_i[63:0]        - Information register of error record i, when iv=1 (?not implemented, always 0)
+    //   +0x20  suppl_info_i[63:0]  - Supplemental information register of error record i, when siv=1 (?not implemented, always 0)
+    //   +0x28  timestamp_i[63:0]   - Timestamp register of error record i, for the last recorded error, when tsv=1 (?not implemented, always 0)
     //   +0x30  Reserved[127:0] → 0 - Reserved for future standard use
     // -------------------------------------------------------
 
     // -------------------------------------------------------
-    // Control register fields (control_i)
-    logic [3:0]  r_custom[N_RECORDS]; // [63:60]  custom control fields
-                                      // [59:50]  WPRI  - Writes Preserve values, Reads Ignore values (for future use)
-    logic        r_srdp[N_RECORDS];   // [49]     set-read-in-progress register, 1 = set rdip (always reads 0)
-    logic        r_sinv[N_RECORDS];   // [48]     status-register-invalidate bit, 1 = causes valid bit v to be cleared if rdip=1 (always reads 0)
-    logic [15:0] r_eid[N_RECORDS];    // [47:32]  error-injection-delay countdown, WARL field, 0 = countdown off, 1..0xFFFF = countdown in cycles to error injection (for testing), when reaches 0, valid bit v is set to 1
-                                      // [31:8]   WPRI  - Writes Preserve values, Reads Ignore values (for future use)
-    logic [1:0]  r_uecs[N_RECORDS];   // [7:6]    uncorrected error critical signaling, 0 = not signaling RAS signal, 1 = low priority, 2 = high priority, 3 = platform specific
-    logic [1:0]  r_ueds[N_RECORDS];   // [5:4]    uncorrected error deferred signaling, 0 = not signaling RAS signal, 1 = low priority, 2 = high priority, 3 = platform specific
-    logic [1:0]  r_ces[N_RECORDS];    // [3:2]    corrected error signaling, 0 = not signaling RAS signal, 1 = low priority, 2 = high priority, 3 = platform specific
-    logic        r_cece[N_RECORDS];   // [1]      corrected error counting enable, 1 = on, 0 = off (reset=0/1)
-    logic        r_else[N_RECORDS];   // [0]      error logging/signaling enable, WARL field, 1 = on, 0 = off (reset=0/1)
+    // Parameter validation
+    // -------------------------------------------------------
+    initial begin
+        if (N_RECORDS < 1 || N_RECORDS > 63)
+            $fatal(1, "reri_error_bank: N_RECORDS must be in range [1,63], got %0d", N_RECORDS);
+    end
 
-
-    // Status register fields (status_i)
-    logic [15:0] r_cec[N_RECORDS];   // [63:48] corrected error count (WARL) field, saturating at 0xFFFF (not implemented, always 0)
-                                     // [47:32] WPRI - Writes Preserve values, Reads Ignore values (for future use)
-    logic [7:0]  r_ec[N_RECORDS];    // [31:24] error code (WARL) field, description of the detected error
-    logic        r_rdip[N_RECORDS];  // [23]    read-in-progress field, set on new error capture to invalid register, cleared on overwrite of valid record
-                                     // [22]    WPRI - Writes Preserve values, Reads Ignore values (for future use)
-    logic        r_ceco[N_RECORDS];  // [21]    corrected error count overflow, 1 = overflow in the counter occurred (not implemented, always 0)
-    logic        r_scrub[N_RECORDS]; // [20]    scrub recorded (not implemented, always 0)
-                                     // [19:18] WPRI - Writes Preserve values, Reads Ignore values (for future use)
-    logic        r_tsv[N_RECORDS];   // [17]    timestamp-valid field, 1 = timestamp recorded in timestamp_i (not implemented, always 0)
-    logic        r_siv[N_RECORDS];   // [16]    supplemental-information-valid field, 1 = report present in suppl_info_i (not implemented, always 0)
-    logic [3:0]  r_ait[N_RECORDS];   // [15:12] address-or-info-type (WARL) field for addr_info_i register, 0 = unspecified, 1 = supervisor physical address, 2 = guest physical address, 3 = virtual adress, 4-15 = component-specific address or information (local bus address, DRAM adress, internal module ID, etc.)
-    logic        r_iv[N_RECORDS];    // [11]    information-valid field, 1 = report present in info_i (not implemented, always 0)
-    logic [2:0]  r_tt[N_RECORDS];    // [10:8]  transaction type (WARL) classification field, 0 = unspecified or not applicable, 1 = custom, 2-3 = future standard use, 4 = explicit read, 5 = explicit write, 6 = implicit read, 7 = implicit write
-    logic        r_c[N_RECORDS];     // [7]     containable (error is not immediately fatal), 1 = containable, 0 = uncontainable (e.g. core detected an uncorrectable error)
-    logic        r_mo[N_RECORDS];    // [6]     multiple occurrences of the error (not implemented, always 0)
-    logic [1:0]  r_pri[N_RECORDS];   // [5:4]   priority of the error in range <0 - lowest,3 - highest>
-    logic        r_uec[N_RECORDS];   // [3]     uncorrected error critical, 1 = error is critical and needs attention
-    logic        r_ued[N_RECORDS];   // [2]     uncorrected error deferred, 1 = error was deferred
-    logic        r_ce[N_RECORDS];    // [1]     corrected error, 1 = error was corrected by hardware (e.g. SECDED), 0 = uncorrected error or no error
-    logic        r_v[N_RECORDS];     // [0]     valid bit, 1 = record contains an error (do not accept software write), 0 = record is empty
-    
-
-
-    logic [63:0] r_addr_info[N_RECORDS]; // [63:0]   address or information about the error
+    // -------------------------------------------------------
+    // Control and status struct arrays (p_reri)
+    reri_control_i r_ctrl [N_RECORDS];  // control register per record (see p_reri::reri_control_i)
+    reri_status_i  r_stat [N_RECORDS];  // status register per record  (see p_reri::reri_status_i)
+    logic [63:0] r_addr_info[N_RECORDS]; // [63:0] address or information about the error
 
     // -------------------------------------------------------
     // AHB controller interface signals
@@ -128,100 +101,82 @@ module reri_error_bank #(
     // -------------------------------------------------------
     // Derived combinational signals
     // -------------------------------------------------------
-    logic [N_RECORDS-1:0] s_valid_summary;
-    logic [63:0] s_valid_summary64;  // zero-padded to 64 bits for AHB read
-    logic [31:0] rec_status [N_RECORDS];
+    logic [63:0] s_valid_summary;  // valid_summary register, [0]=sv, [N_RECORDS:1]=valid_bitmap
+    logic [63:0] rec_status [N_RECORDS];
 
     generate
         for (genvar g = 0; g < N_RECORDS; g++) begin : gen_derived
-            assign s_valid_summary[g]      = r_v[g];
-            assign s_valid_summary64[g+1]  = r_v[g];  // valid_bitmap: bit[g+1] = record g
+            assign s_valid_summary[g+1]  = r_stat[g].v;  // valid_bitmap: bit[g+1] = record g
             assign rec_status[g] = {
-                r_ec[g],         // [31:24] ec
-                r_rdip[g],       // [23]    rdip
+                r_stat[g].cec,   // [63:48] cec
+                16'b0,           // [47:32] WPRI
+                r_stat[g].ec,    // [31:24] ec
+                r_stat[g].rdip,  // [23]    rdip
                 1'b0,            // [22]    WPRI
-                r_ceco[g],       // [21]    ceco
-                r_scrub[g],      // [20]    scrub
+                r_stat[g].ceco,  // [21]    ceco
+                r_stat[g].scrub, // [20]    scrub
                 2'b0,            // [19:18] WPRI
                 1'b0,            // [17]    tsv   (not implemented)
                 1'b0,            // [16]    siv   (not implemented)
-                r_ait[g],        // [15:12] ait
+                r_stat[g].ait,   // [15:12] ait
                 1'b0,            // [11]    iv    (not implemented)
-                r_tt[g],         // [10:8]  tt
-                r_c[g],          // [7]     c
+                r_stat[g].tt,    // [10:8]  tt
+                r_stat[g].c,     // [7]     c
                 1'b0,            // [6]     mo    (not implemented)
-                r_pri[g],        // [5:4]   pri
-                r_uec[g],        // [3]     uec
-                r_ued[g],        // [2]     ued
-                r_ce[g],         // [1]     ce
-                r_v[g]           // [0]     v
+                r_stat[g].pri,   // [5:4]   pri
+                r_stat[g].uec,   // [3]     uec
+                r_stat[g].ued,   // [2]     ued
+                r_stat[g].ce,    // [1]     ce
+                r_stat[g].v      // [0]     v
             };
         end
         // Zero-pad unused valid_bitmap bits [N_RECORDS+1 .. 63]
         for (genvar g = N_RECORDS + 1; g < 64; g++) begin : gen_vs_pad
-            assign s_valid_summary64[g] = 1'b0;
+            assign s_valid_summary[g] = 1'b0;
         end
     endgenerate
-    // sv bit [0] = 1: this bank always provides a valid_bitmap (Figure 3)
-    assign s_valid_summary64[0] = 1'b1;
-
-    // -------------------------------------------------------
-    // Address decode helpers: extract part-selects into wires so they
-    // are not used directly inside always_* processes (iverilog limit).
-    // -------------------------------------------------------
-    wire [5:0] w_blk;   // 64-byte block: 0=header, k+1=record k
-    wire [3:0] w_word;  // 32-bit word index within the 64-byte block
-    assign w_blk  = s_dp_address[11:6];
-    assign w_word = s_dp_address[5:2];
-    // Words pre-computed outside always_* (iverilog: no constant selects inside processes)
-    wire [31:0] w_bank_info_lo;
-    wire [31:0] w_bank_info_hi;
-    wire [31:0] w_valid_sum_lo;
-    wire [31:0] w_valid_sum_hi;
-    assign w_bank_info_lo = {8'h0, LAYOUT, N_RECORDS[5:0], INST_ID};
-    assign w_bank_info_hi = {VERSION, 24'h0};
-    assign w_valid_sum_lo = s_valid_summary64[31:0];
-    assign w_valid_sum_hi = s_valid_summary64[63:32];
+    // sv bit [0] = 1: this bank signals a valid_bitmap
+    assign s_valid_summary[0] = 1'b1;
 
     // -------------------------------------------------------
     // AHB read mux - combinational, data phase
     //
     // Address decode:
-    //   w_blk  → 0        = header
-    //            k+1      = record k  (k < N_RECORDS)
-    //   w_word → 32-bit word within the 64-byte block
+    //   s_dp_address[11:6] → 0   = header
+    //                        k+1 = record k  (k < N_RECORDS)
+    //   s_dp_address[5:2]  → 32-bit word index within the 64-byte block
     // -------------------------------------------------------
     always_comb begin : ahb_read_mux
         hrdata = 32'h0;
         if (s_dp_accepted && !s_dp_write) begin
-            if (w_blk == 6'h0) begin
+            if (s_dp_address[11:6] == 6'h0) begin
                 // ── Header ──────────────────────────────────
-                case (w_word)
-                    4'd0:    hrdata = VENDOR_ID;       // vendor_n_imp_id[31:0]
-                    4'd1:    hrdata = IMP_ID;          // vendor_n_imp_id[63:32]
-                    4'd2:    hrdata = w_bank_info_lo;  // bank_info[31:0]
-                    4'd3:    hrdata = w_bank_info_hi;  // bank_info[63:32]
-                    4'd4:    hrdata = w_valid_sum_lo;  // valid_summary[31:0]
-                    4'd5:    hrdata = w_valid_sum_hi;  // valid_summary[63:32]
+                case (s_dp_address[5:2])
+                    4'd0:    hrdata = VENDOR_ID;                               // vendor_n_imp_id[31:0]
+                    4'd1:    hrdata = IMP_ID;                                  // vendor_n_imp_id[63:32]
+                    4'd2:    hrdata = {8'h0, LAYOUT, N_RECORDS[5:0], INST_ID}; // bank_info[31:0]
+                    4'd3:    hrdata = {VERSION, 24'h0};                        // bank_info[63:32]
+                    4'd4:    hrdata = s_valid_summary[31:0];                   // valid_summary[31:0]
+                    4'd5:    hrdata = s_valid_summary[63:32];                  // valid_summary[63:32]
                     // 0x18-0x37 reserved, 0x38-0x3F custom → 0
                     default: hrdata = 32'h0;
                 endcase
             end else begin
                 // ── Per-record ──────────────────────────────
                 for (integer k = 0; k < N_RECORDS; k++) begin
-                    if (w_blk == (k + 1)) begin
-                        case (w_word)
-                            // control_i[31:0]: else/cece/ces/ueds/uecs
+                    if (s_dp_address[11:6] == (k + 1)) begin
+                        case (s_dp_address[5:2])
+                            // control_i[31:0]: elase/cece/ces/ueds/uecs
                             4'd0:    hrdata = {24'b0,
-                                               r_uecs[k],   // [7:6]
-                                               r_ueds[k],   // [5:4]
-                                               r_ces[k],    // [3:2]
-                                               r_cece[k],   // [1]
-                                               r_else[k]};  // [0]
+                                               r_ctrl[k].uecs,   // [7:6]
+                                               r_ctrl[k].ueds,   // [5:4]
+                                               r_ctrl[k].ces,    // [3:2]
+                                               r_ctrl[k].cece,   // [1]
+                                               r_ctrl[k].elase}; // [0]
                             // control_i[63:32]: eid (sinv/srdp always read 0)
-                            4'd1:    hrdata = {14'b0, r_eid[k]}; // [15:0]=eid,[31:16]=0(sinv/srdp/WPRI/custom)
-                            4'd2:    hrdata = rec_status[k];     // status_i[31:0]
-                            4'd3:    hrdata = {r_cec[k], 16'h0}; // status_i[63:32]: cec[31:16] (saturating CE count)
+                            4'd1:    hrdata = {14'b0, r_ctrl[k].eid}; // [15:0]=eid,[31:16]=0(sinv/srdp/WPRI/custom)
+                            4'd2:    hrdata = rec_status[k];           // status_i[31:0]
+                            4'd3:    hrdata = {r_stat[k].cec, 16'h0}; // status_i[63:32]: cec[31:16] (saturating CE count)
                             4'd4:    hrdata = r_addr_info[k];    // addr_info_i[31:0]
                             4'd5:    hrdata = 32'h0;             // addr_info_i[63:32]
                             // info_i, suppl_info_i, timestamp_i → 0
@@ -232,120 +187,102 @@ module reri_error_bank #(
             end
         end
         if (IFP == 1) begin
-            assign hrchecksum_o = edac_checksum(hrdata);
+            hrchecksum_o = edac_checksum(hrdata);
         end else begin
-            assign hrchecksum_o = 7'b0;
+            hrchecksum_o = 7'b0;
         end
     end
 
     // -------------------------------------------------------
     // Record update: hardware fault capture + control register writes
     //
-    // Fault capture (gated by r_else[i]):
-    //   New fault on slot i is written only when r_else[i]=1 and:
-    //     (a) slot is empty  (r_v[i] == 0), OR
+    // Fault capture (gated by r_ctrl[i].elase):
+    //   New fault on slot i is written only when r_ctrl[i].elase=1 and:
+    //     (a) slot is empty  (r_stat[i].v == 0), OR
     //     (b) incoming priority strictly exceeds stored priority.
     //   rdip is set on 0→1 valid transition; cleared on overwrite of valid record.
     //
     // eid countdown:
-    //   When r_eid[i] > 0, decrements each cycle. Reaching 0 forces r_v[i]=1
+    //   When r_ctrl[i].eid > 0, decrements each cycle. Reaching 0 forces r_stat[i].v=1
     //   and triggers the injection RAS (uses the class already in rec_status).
     //
     // Control register writes (w_word==0 or w_word==1):
-    //   word 0: else, cece, ces, ueds, uecs
-    //   word 1: eid written directly; sinv (bit16): if rdip=1 clears valid;
-    //           srdp (bit17): sets rdip.
+    //   s_dp_address[5:2]==0: elase, cece, ces, ueds, uecs
+    //   s_dp_address[5:2]==1: eid written directly; sinv (bit16): if rdip=1 clears valid;
+    //                         srdp (bit17): sets rdip.
     //   sinv+srdp written together: rdip set then valid cleared (spec §2.3.3).
     // -------------------------------------------------------
     always_ff @(posedge clk or negedge rst_n) begin : record_update
         if (!rst_n) begin
             for (integer i = 0; i < N_RECORDS; i++) begin
-                r_v[i]         <= 1'b0;
-                r_rdip[i]      <= 1'b0;
-                r_ce[i]        <= 1'b0;
-                r_ued[i]       <= 1'b0;
-                r_uec[i]       <= 1'b0;
-                r_ec[i]        <= 8'h0;
-                r_pri[i]       <= 2'h0;
-                r_c[i]         <= 1'b0;
-                r_ait[i]       <= 4'h0;
-                r_addr_info[i] <= 32'h0;
-                r_tt[i]        <= 3'h0;
-                r_else[i]      <= 1'b0;  // disabled at reset (spec recommendation)
-                r_cece[i]      <= 1'b0;
-                r_ces[i]       <= 2'b0;
-                r_ueds[i]      <= 2'b0;
-                r_uecs[i]      <= 2'b0;
-                r_eid[i]       <= 16'h0;
-                r_cec[i]       <= 16'h0;
-                r_scrub[i]     <= 1'b0;
-                r_ceco[i]      <= 1'b0;
+                r_ctrl[i]      <= '0;  // elase=0: disabled at reset (spec recommendation)
+                r_stat[i]      <= '0;
+                r_addr_info[i] <= '0;
             end
         end else begin
             for (integer i = 0; i < N_RECORDS; i++) begin
-                // ── Hardware fault capture (gated by else) ──────────────────────────
-                if (r_else[i] && fault_in[i].valid &&
-                        (!r_v[i] || (fault_in[i].pri > r_pri[i]))) begin
+                // ── Hardware fault capture (gated by elase) ─────────────────────────
+                if (r_ctrl[i].elase && fault_in[i].valid && (!r_stat[i].v || (fault_in[i].pri > r_stat[i].pri))) begin
                     // rdip: set on 0→1 (new record), cleared on overwrite of valid record
-                    r_rdip[i]  <= !r_v[i];
-                    r_v[i]     <= 1'b1;
-                    r_ce[i]    <= fault_in[i].ce;
-                    r_ued[i]   <= fault_in[i].ued;
-                    r_uec[i]   <= fault_in[i].uec;
-                    r_ec[i]    <= fault_in[i].ec;
-                    r_pri[i]   <= fault_in[i].pri;
-                    r_c[i]     <= fault_in[i].c;
-                    r_ait[i]   <= fault_in[i].ait;
+                    r_stat[i].rdip  <= !r_stat[i].v;
+                    r_stat[i].v     <= 1'b1;
+                    r_stat[i].ce    <= fault_in[i].ce;
+                    r_stat[i].ued   <= fault_in[i].ued;
+                    r_stat[i].uec   <= fault_in[i].uec;
+                    r_stat[i].ec    <= fault_in[i].ec;
+                    r_stat[i].pri   <= fault_in[i].pri;
+                    r_stat[i].c     <= fault_in[i].c;
+                    r_stat[i].ait   <= fault_in[i].ait;
                     r_addr_info[i]  <= fault_in[i].addr;
-                    r_tt[i]    <= fault_in[i].tt;
-                    r_scrub[i] <= 1'b0;  // new capture resets scrub
-                    r_ceco[i]  <= 1'b0;  // new capture resets overflow flag
+                    r_stat[i].tt    <= fault_in[i].tt;
+                    r_stat[i].scrub <= 1'b0;  // new capture resets scrub
+                    r_stat[i].ceco  <= 1'b0;  // new capture resets overflow flag
                 end
                 // CE counter: increment when cece=1 and fault is a corrected error;
                 // set ceco when counter is already at 0xFFFF (overflow).
-                // Placed AFTER fault capture so r_ceco<=1 wins when both fire together.
-                if (r_else[i] && r_cece[i] && fault_in[i].valid &&
+                // Placed AFTER fault capture so r_stat[i].ceco<=1 wins when both fire together.
+                if (r_ctrl[i].elase && r_ctrl[i].cece && fault_in[i].valid &&
                         fault_in[i].ce && !fault_in[i].uec && !fault_in[i].ued) begin
-                    if (r_cec[i] == 16'hFFFF)
-                        r_ceco[i] <= 1'b1;
+                    if (r_stat[i].cec == 16'hFFFF)
+                        r_stat[i].ceco <= 1'b1;
                     else
-                        r_cec[i] <= r_cec[i] + 16'h1;
+                        r_stat[i].cec <= r_stat[i].cec + 16'h1;
                 end
 
                 // ── scrub_ack: mark a valid record as scrubbed ───────────────
-                if (scrub_ack_i[i] && r_v[i])
-                    r_scrub[i] <= 1'b1;
+                if (scrub_ack_i[i] && r_stat[i].v)
+                    r_stat[i].scrub <= 1'b1;
 
                 // ── eid countdown + injection ────────────────────────────
-                if (r_eid[i] != 16'h0) begin
-                    r_eid[i] <= r_eid[i] - 16'h1;
-                    if (r_eid[i] == 16'h1) begin  // reaching 0 next cycle
-                        r_v[i] <= 1'b1;
-                        r_rdip[i] <= !r_v[i];
+                if (r_ctrl[i].eid != 16'h0) begin
+                    r_ctrl[i].eid <= r_ctrl[i].eid - 16'h1;
+                    if (r_ctrl[i].eid == 16'h1) begin  // reaching 0 next cycle
+                        r_stat[i].v    <= 1'b1;
+                        r_stat[i].rdip <= !r_stat[i].v;
                     end
                 end
 
                 // ── Control register writes ──────────────────────────────
-                if (s_dp_accepted && s_dp_write && (w_blk == (i + 1))) begin
-                    if (w_word == 4'd0) begin
-                        // control_i[31:0]: else/cece/ces/ueds/uecs
-                        r_else[i]  <= hwdata[0];
-                        r_cece[i]  <= hwdata[1];
-                        r_ces[i]   <= hwdata[3:2];
-                        r_ueds[i]  <= hwdata[5:4];
-                        r_uecs[i]  <= hwdata[7:6];
+                if (s_dp_accepted && s_dp_write && (s_dp_address[11:6] == (i + 1))) begin
+                    if (s_dp_address[5:2] == 4'd0) begin
+                        // control_i[31:0]: elase/cece/ces/ueds/uecs
+                        r_ctrl[i].elase <= hwdata[0];
+                        r_ctrl[i].cece  <= hwdata[1];
+                        r_ctrl[i].ces   <= hwdata[3:2];
+                        r_ctrl[i].ueds  <= hwdata[5:4];
+                        r_ctrl[i].uecs  <= hwdata[7:6];
                     end
-                    if (w_word == 4'd1) begin
+                    if (s_dp_address[5:2] == 4'd1) begin
                         // control_i[63:32]: eid[15:0] at bits[15:0]
-                        r_eid[i] <= hwdata[15:0];
+                        r_ctrl[i].eid <= hwdata[15:0];
                         // srdp (bit17): set rdip
-                        if (hwdata[17]) r_rdip[i] <= 1'b1;
+                        if (hwdata[17]) r_stat[i].rdip <= 1'b1;
                         // sinv (bit16): clear valid if rdip=1
                         // sinv+srdp together: rdip is set first, then valid cleared
-                        if (hwdata[16] && (r_rdip[i] || hwdata[17])) begin
-                            r_v[i]     <= 1'b0;
-                            r_scrub[i] <= 1'b0;
-                            r_ceco[i]  <= 1'b0;
+                        if (hwdata[16] && (r_stat[i].rdip || hwdata[17])) begin
+                            r_stat[i].v     <= 1'b0;
+                            r_stat[i].scrub <= 1'b0;
+                            r_stat[i].ceco  <= 1'b0;
                         end
                     end
                 end
@@ -356,10 +293,9 @@ module reri_error_bank #(
     // -------------------------------------------------------
     // RAS signal generation
     //   Each record drives ras_lo/ras_hi/ras_plat independently based on
-    //   its ces/ueds/uecs signaling field (Table 3 encoding):
-    //     0 = disabled, 1 = lo-priority RAS, 2 = hi-priority RAS,
-    //     3 = platform-specific RAS
-    //   A record only signals when r_else[i]=1 and r_v[i]=1.
+    //   its ces/ueds/uecs signaling field:
+    //     0 = disabled, 1 = lo-priority RAS, 2 = hi-priority RAS, 3 = platform-specific RAS
+    //   A record only signals when r_ctrl[i].elase=1 and r_stat[i].v=1.
     //   CE signaling: cece=0 → signal via ces on any CE; cece=1 → signal via ces
     //                 only on count overflow (ceco=1).
     //   ras_plat (overflow): incoming fault cannot displace the stored record.
@@ -369,32 +305,32 @@ module reri_error_bank #(
         ras_hi     = 1'b0;
         ras_plat   = 1'b0;
         for (integer j = 0; j < N_RECORDS; j++) begin
-            if (r_else[j] && r_v[j]) begin
+            if (r_ctrl[j].elase && r_stat[j].v) begin
                 // CE signaling:
                 //   cece=0 → signal via ces on any CE record
                 //   cece=1 → signal via ces only on count overflow (ceco=1)
-                if (r_ce[j] && !r_uec[j] && !r_ued[j]) begin
-                    if (!r_cece[j] || r_ceco[j]) begin
-                        if (r_ces[j] == 2'd1) ras_lo   = 1'b1;
-                        if (r_ces[j] == 2'd2) ras_hi   = 1'b1;
-                        if (r_ces[j] == 2'd3) ras_plat = 1'b1;
+                if (r_stat[j].ce && !r_stat[j].uec && !r_stat[j].ued) begin
+                    if (!r_ctrl[j].cece || r_stat[j].ceco) begin
+                        if (r_ctrl[j].ces == 2'd1) ras_lo   = 1'b1;
+                        if (r_ctrl[j].ces == 2'd2) ras_hi   = 1'b1;
+                        if (r_ctrl[j].ces == 2'd3) ras_plat = 1'b1;
                     end
                 end
                 // UED signaling
-                if (r_ued[j] && !r_uec[j]) begin
-                    if (r_ueds[j] == 2'd1) ras_lo   = 1'b1;
-                    if (r_ueds[j] == 2'd2) ras_hi   = 1'b1;
-                    if (r_ueds[j] == 2'd3) ras_plat = 1'b1;
+                if (r_stat[j].ued && !r_stat[j].uec) begin
+                    if (r_ctrl[j].ueds == 2'd1) ras_lo   = 1'b1;
+                    if (r_ctrl[j].ueds == 2'd2) ras_hi   = 1'b1;
+                    if (r_ctrl[j].ueds == 2'd3) ras_plat = 1'b1;
                 end
                 // UEC signaling
-                if (r_uec[j]) begin
-                    if (r_uecs[j] == 2'd1) ras_lo   = 1'b1;
-                    if (r_uecs[j] == 2'd2) ras_hi   = 1'b1;
-                    if (r_uecs[j] == 2'd3) ras_plat = 1'b1;
+                if (r_stat[j].uec) begin
+                    if (r_ctrl[j].uecs == 2'd1) ras_lo   = 1'b1;
+                    if (r_ctrl[j].uecs == 2'd2) ras_hi   = 1'b1;
+                    if (r_ctrl[j].uecs == 2'd3) ras_plat = 1'b1;
                 end
             end
             // Overflow: incoming fault cannot displace the stored record
-            if (fault_in[j].valid && r_v[j] && (fault_in[j].pri <= r_pri[j]))
+            if (fault_in[j].valid && r_stat[j].v && (fault_in[j].pri <= r_stat[j].pri))
                 ras_plat = 1'b1;
         end
     end

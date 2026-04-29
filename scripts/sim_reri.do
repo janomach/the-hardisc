@@ -21,9 +21,9 @@ vlog -sv -work work rtl/edac.sv
 vlog -sv -work work +incdir+rtl ver/ecc_monitor.sv
 
 # reri_error_bank and its AHB controller dependency
-vlog -sv -work work peripherals/p_reri.sv
+vlog -sv -work work peripherals/reri/p_reri.sv
 vlog -sv -work work peripherals/ahb_controller.sv
-vlog -sv -work work peripherals/reri_error_bank.sv
+vlog -sv -work work peripherals/reri/reri_error_bank.sv
 
 # Testbench
 vlog -sv -work work ver/tb_reri.sv
@@ -67,25 +67,14 @@ add wave -noupdate -color Orange /tb_reri/ras_hi
 add wave -noupdate -color Red    /tb_reri/ras_plat
 
 add wave -divider "Internal record storage"
-add wave -noupdate /tb_reri/dut_bank/r_v
-add wave -noupdate /tb_reri/dut_bank/r_rdip
-add wave -noupdate /tb_reri/dut_bank/r_ce
-add wave -noupdate /tb_reri/dut_bank/r_ued
-add wave -noupdate /tb_reri/dut_bank/r_uec
-add wave -noupdate -radix hex /tb_reri/dut_bank/r_ec
-add wave -noupdate /tb_reri/dut_bank/r_pri
+add wave -noupdate /tb_reri/dut_bank/r_stat
+add wave -noupdate /tb_reri/dut_bank/r_addr_info
 
 add wave -divider "Control register fields"
-add wave -noupdate /tb_reri/dut_bank/r_else
-add wave -noupdate /tb_reri/dut_bank/r_cece
-add wave -noupdate /tb_reri/dut_bank/r_ces
-add wave -noupdate /tb_reri/dut_bank/r_ueds
-add wave -noupdate /tb_reri/dut_bank/r_uecs
-add wave -noupdate -radix hex /tb_reri/dut_bank/r_eid
-add wave -noupdate -radix hex /tb_reri/dut_bank/r_cec
+add wave -noupdate /tb_reri/dut_bank/r_ctrl
 
 add wave -divider "Valid summary"
-add wave -noupdate -radix hex /tb_reri/dut_bank/s_valid_summary64
+add wave -noupdate -radix hex /tb_reri/dut_bank/s_valid_summary
 
 # ── 5. Run ──────────────────────────────────────────────────────────────────
 run -all

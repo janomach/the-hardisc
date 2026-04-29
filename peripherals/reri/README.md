@@ -105,7 +105,7 @@ Each error bank occupies a naturally aligned 4 KiB page (or at minimum 128 bytes
 
 | Bits | Field | Description |
 |---|---|---|
-| `[0]` | `else` | Error-logging-and-signaling enable. `1` = hardware captures and signals errors. Reset to `0`. |
+| `[0]` | `elase` | Error-logging-and-signaling enable. `1` = hardware captures and signals errors. Reset to `0`. |
 | `[1]` | `cece` | Corrected-error-counting enable. When `1`, the `cec` counter in `status_i` increments on each CE. |
 | `[3:2]` | `ces` | CE signaling: `0`=off, `1`=`ras_lo`, `2`=`ras_hi`, `3`=`ras_plat` |
 | `[5:4]` | `ueds` | UED signaling (same encoding as `ces`) |
@@ -139,7 +139,7 @@ Each error bank occupies a naturally aligned 4 KiB page (or at minimum 128 bytes
 
 ## Error Capture and Overwrite Rules
 
-A new fault on slot `i` is captured when `control_i.else=1` and either:
+A new fault on slot `i` is captured when `control_i.elase=1` and either:
 - the slot is empty (`v=0`), **or**
 - the incoming `fault_in[i].pri` strictly exceeds the currently stored `pri`.
 
@@ -163,7 +163,7 @@ CE signaling behaviour depends on `cece`:
 
 To test RAS handler software without injecting real hardware faults:
 
-1. Write the desired error fields into `status_i` (while `v=0`).
+1. Record the desired error fields into `status_i` (while `v=0`).
 2. Write a non-zero countdown value to `control_i.eid`.
 3. The countdown decrements each clock cycle. When it reaches `0`, `status_i.v` is forced to `1` and the appropriate RAS signal is asserted.
 
@@ -206,4 +206,4 @@ reri_error_bank #(
 
 ## References
 
-- RISC-V RERI Architecture Specification v1.0, RERI Task Group, 2024-05-24 (Ratified). Available at [link](https://riscv.atlassian.net/wiki/spaces/HOME/pages/809697310/RISC-V+RERI+Architecture) (accessed 2026-02-27).
+- RISC-V RERI Architecture Specification v1.0, RERI Task Group, 2024-05-24 (Ratified). Available at [link](https://docs.riscv.org/reference/debug-trace-ras/ras-eri/_attachments/riscv-reri.pdf) (accessed 2026-02-27).
