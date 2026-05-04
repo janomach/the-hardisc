@@ -16,6 +16,7 @@
 
 `include "settings.sv"
 import p_hardisc::*;
+import p_reri::*;
 
 module rf_controller
 (
@@ -32,7 +33,9 @@ module rf_controller
     input logic[31:0] s_mhrdctrl0_i[PROT_3REP], //settings
 
     output logic[31:0] s_p1_val_o[PROT_2REP],   //read value from port 1
-    output logic[31:0] s_p2_val_o[PROT_2REP]    //read value from port 2
+    output logic[31:0] s_p2_val_o[PROT_2REP],   //read value from port 2
+
+    output fault_record_t s_reri_o
 );
 
     logic[31:0] s_rf_w_val[PROT_2REP], s_rf0_val[2];
@@ -75,7 +78,8 @@ module rf_controller
 
         .s_val_o(s_rf_w_val),
         .s_add_o(s_rf_w_add),
-        .s_we_o(s_rf_we)
+        .s_we_o(s_rf_we),
+        .s_reri_o(s_reri_o)
     );
 
     seu_ff_file #(.LABEL("RFGPR0"),.W(32),.N(32),.RP(2)) m_rf0_gpr 

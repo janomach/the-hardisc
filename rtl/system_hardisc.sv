@@ -16,6 +16,7 @@
 
 `include "settings.sv"
 import p_hardisc::*;
+import p_reri::fault_record_t;
 
 module system_hardisc #(
     parameter PMA_REGIONS = 3,
@@ -62,7 +63,9 @@ module system_hardisc #(
     output logic[6:0] s_d_hwchecksum_o,     //AHB data bus - outgoing checksum
     output logic[5:0] s_d_hparity_o,        //AHB data bus - outgoing parity
 
-    output logic s_unrec_err_o[2]           //unrecoverable error
+    output logic s_unrec_err_o[2],          //unrecoverable error
+
+    output fault_record_t s_reri_o[4]      //RERI fault records
 );
 
 generate
@@ -107,8 +110,10 @@ generate
             .s_d_hwchecksum_o(s_d_hwchecksum_o),
             .s_d_hparity_o(s_d_hparity_o),
 
-            .s_unrec_err_o(s_unrec_err_o)
-        );        
+            .s_unrec_err_o(s_unrec_err_o),
+
+            .s_reri_o(s_reri_o)
+        );
     end
 endgenerate
 
